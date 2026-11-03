@@ -391,7 +391,7 @@ channel?.addEventListener('message', (e) => {
   if (e.data?.type === 'collected' && e.data.id === STATION_ID) markCollected();
   if (e.data?.type === 'hello') publish();
 });
-if (innerWidth < 640) $('smart').open = false;
+if (innerWidth < 640) { $('smart').open = false; $('controls').open = false; }   // phones: start with panels folded
 applySmart();
 
 /* ---------- post: ambient occlusion for contact shadows in corners/gaps ---------- */

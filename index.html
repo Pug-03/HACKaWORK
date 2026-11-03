@@ -51,7 +51,7 @@
   .controls { right: 16px; top: calc(16px + env(safe-area-inset-top, 0px)); width: 220px;
     max-height: calc(100vh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow: auto; }
   .controls h2, .specs h2, .smart h2 { margin: 0 0 8px; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; color: var(--muted); }
-  .controls h2:not(:first-child) { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .controls h2:not(:first-of-type) { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 
   details.panel > summary { list-style: none; cursor: pointer; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; color: var(--muted);
     display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -60,7 +60,8 @@
   details.panel:not([open]) > summary::after { transform: rotate(-90deg); }
   details.panel[open] > summary { margin-bottom: 8px; }
 
-  .smart { left: 16px; top: calc(128px + env(safe-area-inset-top, 0px)); width: 250px; }
+  .smart { left: 16px; top: calc(128px + env(safe-area-inset-top, 0px)); width: 250px;
+    max-height: calc(100vh - 128px - 76px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow: auto; }
   .chip { display: block; font-size: 13px; font-weight: 500; padding: 6px 10px; border-radius: 8px; margin-bottom: 10px; color: #fff; background: #16a34a; }
   .chip[data-state="pending"] { background: #dc2626; }
   .fill { display: grid; grid-template-columns: 70px 1fr 38px; align-items: center; gap: 8px; font-size: 13px; padding: 3px 0; }
@@ -111,7 +112,9 @@
 
   @media (max-width: 640px) {
     .controls { top: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: calc(50% - 22px); padding: 10px; max-height: 45vh; }
-    .smart { top: calc(96px + env(safe-area-inset-top, 0px)); width: calc(100% - 32px); }
+    .smart { top: calc(96px + env(safe-area-inset-top, 0px)); width: calc(100% - 32px); max-height: calc(50vh - 110px); }
+    .controls { max-height: calc(50vh - 30px); }
+    .specs { max-height: calc(50vh - 30px); overflow: auto; }
     .toggle { font-size: 13px; }
     .specs { min-width: 0; width: calc(50% - 22px); padding: 10px; }
     .specs dl div { font-size: 12px; gap: 6px; }
@@ -132,7 +135,8 @@
     </div>
   </header>
 
-  <aside class="panel controls" aria-label="ตัวควบคุม">
+  <details class="panel controls" id="controls" aria-label="ตัวควบคุม" open>
+    <summary>ตัวควบคุม</summary>
     <h2>มุมมอง</h2>
     <button class="toggle" id="t-rotate" aria-pressed="false">หมุนอัตโนมัติ</button>
     <button class="toggle" id="t-lids" aria-pressed="false">เปิดฝาถัง</button>
@@ -158,7 +162,7 @@
     <button class="toggle" id="t-comp-drawer" aria-pressed="false">ดึงลิ้นชักปุ๋ย</button>
     <button class="toggle" id="t-comp-cut" aria-pressed="false">มองภายใน</button>
     <div class="views"><button data-view="composter" style="grid-column: 1 / -1">ไปที่เครื่องหมัก</button></div>
-  </aside>
+  </details>
 
   <details class="panel smart" id="smart" open>
     <summary>ระบบอัจฉริยะ · จำลอง</summary>
