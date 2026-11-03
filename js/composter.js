@@ -76,23 +76,41 @@ export function buildComposter(renderer) {
   const black = new THREE.MeshStandardMaterial({ color: 0x1c1f22, roughness: 0.6 });
   const frontMat = new THREE.MeshStandardMaterial({ color: 0xc3c8cd, metalness: 0.85, roughness: 0.32, roughnessMap: brushed, transparent: true, opacity: 1 });
 
-  // leveling feet
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    const x = sx * (W / 2 - 0.06), z = sz * (Dd / 2 - 0.06);
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, foot, 12), ssDark);
-    stem.position.set(x, foot / 2, z);
-    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.034, 0.012, 20), black);
-    pad.position.set(x, 0.006, z);
-    group.add(stem, pad);
-  }
+  // recessed plinth (kick base) hides the leveling feet, like commercial units
+  const rc = 0.045;                                    // corner radius of the cabinet
+  group.add(rbox(W - 0.07, foot, Dd - 0.07, black, 0, foot / 2, 0, 0.01));
 
   // cabinet shell
   const y0 = foot, bodyH = H - foot;
-  group.add(rbox(W, t, Dd, ss, 0, y0 + t / 2, 0, 0.004));                          // floor
-  group.add(rbox(W, bodyH, t, ss, 0, y0 + bodyH / 2, -Dd / 2 + t / 2, 0.004));     // back
-  const sideL = rbox(t, bodyH, Dd, ss, -W / 2 + t / 2, y0 + bodyH / 2, 0, 0.004);
-  const sideR = rbox(t, bodyH, Dd, ss, W / 2 - t / 2, y0 + bodyH / 2, 0, 0.004);
+  group.add(rbox(W - 2 * rc, t, Dd - 2 * rc, ss, 0, y0 + t / 2, 0, 0.004));       // floor
+  // rounded vertical corners (r = 45 mm) and rounded top edges; flat walls run between them
+  const colH = H - rc - y0;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(rc, rc, colH, 32), ss);
+    col.position.set(sx * (W / 2 - rc), y0 + colH / 2, sz * (Dd / 2 - rc));
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(rc, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), ss);
+    ball.position.set(sx * (W / 2 - rc), H - rc, sz * (Dd / 2 - rc));
+    group.add(col, ball);
+  }
+  for (const sz of [-1, 1]) {
+    const e = new THREE.Mesh(new THREE.CylinderGeometry(rc, rc, W - 2 * rc, 32, 1, true), ss);
+    e.rotation.z = Math.PI / 2;
+    e.position.set(0, H - rc, sz * (Dd / 2 - rc));
+    group.add(e);
+  }
+  for (const sx of [-1, 1]) {
+    const e = new THREE.Mesh(new THREE.CylinderGeometry(rc, rc, Dd - 2 * rc, 32, 1, true), ss);
+    e.rotation.x = Math.PI / 2;
+    e.position.set(sx * (W / 2 - rc), H - rc, 0);
+    group.add(e);
+  }
+  const wallH = H - rc - y0;
+  group.add(rbox(W - 2 * rc, wallH, t, ss, 0, y0 + wallH / 2, -Dd / 2 + t / 2, 0.003));     // back
+  const sideL = rbox(t, wallH, Dd - 2 * rc, ss, -W / 2 + t / 2, y0 + wallH / 2, 0, 0.003);
+  const sideR = rbox(t, wallH, Dd - 2 * rc, ss, W / 2 - t / 2, y0 + wallH / 2, 0, 0.003);
   group.add(sideL, sideR);
+  // upper back / side fillers between the top-edge rounds and the walls
+  group.add(rbox(W - 2 * rc, rc, t, ss, 0, H - rc / 2 - 0.001, -Dd / 2 + t / 2, 0.002));
   // vent slots on the right side
   const ventMat = new THREE.MeshBasicMaterial({ color: 0x15181b });
   for (let i = 0; i < 6; i++) {
@@ -104,11 +122,11 @@ export function buildComposter(renderer) {
 
   // top with feeding hatch (front half)
   const hatchW = 0.6, hatchD = 0.32, hatchZ = -0.02;   // centred over the drum axis
-  const topBackD = Dd - (Dd / 2 - hatchZ + hatchD / 2);
-  group.add(rbox(W, t, topBackD, ss, 0, H - t / 2, -Dd / 2 + topBackD / 2, 0.004));
-  const frontStrip = Dd / 2 - (hatchZ + hatchD / 2);
-  group.add(rbox(W, t, frontStrip, ss, 0, H - t / 2, Dd / 2 - frontStrip / 2, 0.004));
-  for (const sx of [-1, 1]) group.add(rbox((W - hatchW) / 2, t, hatchD, ss, sx * (W / 2 - (W - hatchW) / 4), H - t / 2, hatchZ, 0.004));
+  const topW = W - 2 * rc, topBack = (hatchZ - hatchD / 2) - (-Dd / 2 + rc), topFront = (Dd / 2 - rc) - (hatchZ + hatchD / 2);
+  group.add(rbox(topW, t, topBack, ss, 0, H - t / 2, -Dd / 2 + rc + topBack / 2, 0.003));
+  group.add(rbox(topW, t, topFront, ss, 0, H - t / 2, Dd / 2 - rc - topFront / 2, 0.003));
+  const sideTopW = (topW - hatchW) / 2;
+  for (const sx of [-1, 1]) group.add(rbox(sideTopW, t, hatchD, ss, sx * (hatchW / 2 + sideTopW / 2), H - t / 2, hatchZ, 0.003));
   // hopper chute down to the drum
   const chuteBottom = C.drum.y + Math.sqrt(C.drum.radius ** 2 - (hatchD / 2) ** 2) - 0.03;
   const chuteH = H - t - chuteBottom;                // reaches into the drum opening
@@ -120,7 +138,7 @@ export function buildComposter(renderer) {
   // hatch lid (hinged at its back edge)
   const hatch = new THREE.Group();
   hatch.position.set(0, H, hatchZ - hatchD / 2);
-  const lid = rbox(hatchW + 0.02, 0.016, hatchD + 0.02, ss, 0, 0.008, hatchD / 2, 0.005);
+  const lid = rbox(hatchW + 0.02, 0.018, hatchD + 0.02, ss, 0, 0.009, hatchD / 2, 0.009);
   lid.userData.part = 'hatch';
   hatch.add(lid);
   const hh = new THREE.Mesh(new THREE.CapsuleGeometry(0.008, 0.12, 4, 10), ssDark);
@@ -132,8 +150,8 @@ export function buildComposter(renderer) {
   group.add(hatch);
 
   // front: control panel (top), branding panel (middle, see-through in cutaway), drawer (bottom)
-  const ctrlY0 = H - 0.25, ctrlY1 = H - t, brandY0 = 0.32, brandY1 = ctrlY0, drawerY0 = y0 + t, drawerY1 = 0.32;
-  const frontW = W - 2 * t - 0.002;          // front panels fit between the side walls (no shared faces)
+  const ctrlY0 = H - 0.25, ctrlY1 = H - rc, brandY0 = 0.32, brandY1 = ctrlY0, drawerY0 = y0 + t, drawerY1 = 0.32;
+  const frontW = W - 2 * rc - 0.002;         // front panels fit between the rounded corner columns
   const ctrl = rbox(frontW, ctrlY1 - ctrlY0, t, ss, 0, (ctrlY0 + ctrlY1) / 2, Dd / 2 - t / 2, 0.004);
   group.add(ctrl);
   const screen = canvasTex(480, 200, () => {});
@@ -392,6 +410,22 @@ export function buildComposter(renderer) {
   cutLabel('ประตูปล่อยปุ๋ยลงลิ้นชัก', 0.22, dy - R - 0.05, dz + 0.16);
   // the control-panel strip also comes off in cutaway so the PLC and carbon filter behind it show
   const frontTop = group.children.filter((o) => o !== inside && o.position.y >= ctrlY0 - 0.02 && o.position.z >= Dd / 2 - t - 0.002);
+  // sloped control console: the whole control strip leans back 18° about its bottom edge
+  const consolePivot = new THREE.Group();
+  consolePivot.position.set(0, ctrlY0, Dd / 2);
+  group.add(consolePivot);
+  frontTop.forEach((o) => consolePivot.attach(o));
+  consolePivot.rotation.x = -0.31;
+  // side cheeks closing the wedge between the sloped console and the corner columns
+  for (const sx of [-1, 1]) {
+    const cheek = new THREE.Shape();
+    const hgt = ctrlY1 - ctrlY0, back = hgt * Math.sin(0.31);
+    cheek.moveTo(0, 0); cheek.lineTo(0, hgt * Math.cos(0.31)); cheek.lineTo(-back, hgt * Math.cos(0.31)); cheek.closePath();
+    const g = new THREE.Mesh(new THREE.ExtrudeGeometry(cheek, { depth: 0.006, bevelEnabled: false }), ss);
+    g.rotation.y = -Math.PI / 2;
+    g.position.set(sx * (frontW / 2 + 0.003) + 0.003, ctrlY0, Dd / 2);
+    group.add(g);
+  }
 
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.part ??= 'composter'; } });
 
@@ -416,7 +450,7 @@ export function buildComposter(renderer) {
   function setCutaway(v) {
     cutaway = v;
     brandPanel.visible = !v;
-    frontTop.forEach((o) => (o.visible = !v));
+    consolePivot.visible = !v;
     drumFront.visible = !v;
     cutLabels.forEach((l) => (l.visible = v));
   }
