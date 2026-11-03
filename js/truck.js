@@ -107,7 +107,13 @@ export function buildTruck() {
     state: () => state,
     arrive(cb) {
       if (state === 'parked' || state === 'arriving') return;
-      state = 'arriving'; t = 0; from = -FAR; to = PARK_X; onArrive = cb;
+      onArrive = cb;
+      if (state === 'leaving') {
+        // called back while driving off: turn around from where it is instead of jumping to the start
+        state = 'arriving'; t = 0; from = g.position.x; to = PARK_X;
+        return;
+      }
+      state = 'arriving'; t = 0; from = -FAR; to = PARK_X;
       g.position.x = from; g.visible = true;
     },
     leave() {
