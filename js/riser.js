@@ -82,8 +82,11 @@ export function buildRiser(renderer, stationLength, stationDepth) {
       const guard = new THREE.Mesh(guardGeo, guardMat);
       guard.position.set(x, 0.2, z);
       guard.castShadow = true;
+      guard.userData.part = 'ratGuard';
       group.add(guard);
-      group.add(rbox(R.leg + 0.012, 0.02, R.leg + 0.012, dark, x, 0.235, z, 0.003));   // clamp collar
+      const collar = rbox(R.leg + 0.012, 0.02, R.leg + 0.012, dark, x, 0.235, z, 0.003);   // clamp collar
+      collar.userData.part = 'ratGuard';
+      group.add(collar);
     }
   }
 
