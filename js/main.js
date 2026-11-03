@@ -332,6 +332,8 @@ $('spec').innerHTML = `
 
 /* ---------- smart system simulation (shared with dashboard.html) ---------- */
 const STATION_ID = 'BKK-PTW-001';
+// named tabs: the dashboard's "back to 3D" link reuses this tab instead of opening a second simulation
+window.name = 'hackawork-3d';
 const smart = {
   id: STATION_ID, name: 'สถานีจำลอง 3D · หน้าสยาม', district: 'ปทุมวัน',
   fills: [35, 62, 48, 30], status: 'collected', callRequested: false,
