@@ -52,9 +52,9 @@ camera.position.set(3.6, 2.1, 4.2);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0.4, 0.7, 0);
 controls.enableDamping = true;
-controls.minDistance = 0.8;
+controls.minDistance = 0.25;                       // close enough to inspect the trays under the riser
 controls.maxDistance = 14;
-controls.maxPolarAngle = Math.PI / 2 - 0.02;
+controls.maxPolarAngle = Math.PI * 0.6;            // can drop below the deck and look slightly up
 controls.autoRotateSpeed = 1.2;
 
 /* ---------- station ---------- */
@@ -368,11 +368,13 @@ const VIEWS = {
   back: [[-2.8, 2.0, -4.2], [0, 0.75, 0]],
   composter: [[COMPOSTER_X + 1.6, 1.9, 2.8], [COMPOSTER_X, 0.65, 0.1]],
   truck: [[-5.6, 3.2, -8.2], [0, 0.8, -1.8]],
+  tray: [[-L / 4 - 0.75, 0.14, 1.85], [-L / 4, 0.2, 0.25]],
   smart: [[-L / 2 - 1.25, 1.35, 0.55], [-L / 2, 0.95, -0.03]],
 };
 document.querySelectorAll('[data-view]').forEach((btn) =>
   btn.addEventListener('click', () => {
     const [pos, tgt] = VIEWS[btn.dataset.view];
+    if (btn.dataset.view === 'tray') { if (!riserOn) { riserOn = true; placeStation(); } riser.setTraysOpen(true); syncAll(); }
     flight = { from: camera.position.clone(), to: new THREE.Vector3(...pos), t: 0,
                tFrom: controls.target.clone(), tTo: new THREE.Vector3(...tgt) };
     invalidate();
@@ -554,6 +556,7 @@ function animate() {
   const c = composter.update(dt);
   if (c) invalidate(c === 2);
   controls.update();                    // fires 'change' while damping / auto-rotating
+  if (camera.position.y < 0.06) { camera.position.y = 0.06; camera.lookAt(controls.target); }   // never go under the pavement
   if (hoverEvent) processHover();
 
   if (dirty) {
