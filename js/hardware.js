@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { rbox } from './geom.js';
+import { rbox, roundedBoxGeometry } from './geom.js';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
 // Smart hardware mounted on the bin station:
@@ -48,12 +48,106 @@ export function buildHardware(station) {
     const panel = rbox(w, h, 0.008, mat, -side * w / 2, 0, 0.004, 0.006);
     panel.userData.part = part;
     hinge.add(panel);
+    // EPDM gasket on the inside of the door, two barrel hinges, quarter-turn latch on the free edge
+    const gasket = new THREE.MeshStandardMaterial({ color: 0x111214, roughness: 0.9 });
+    const cx = -side * w / 2;
+    hinge.add(rbox(w - 0.012, 0.006, 0.004, gasket, cx, h / 2 - 0.009, -0.002, 0.001));
+    hinge.add(rbox(w - 0.012, 0.006, 0.004, gasket, cx, -h / 2 + 0.009, -0.002, 0.001));
+    hinge.add(rbox(0.006, h - 0.012, 0.004, gasket, cx - w / 2 + 0.009, 0, -0.002, 0.001));
+    hinge.add(rbox(0.006, h - 0.012, 0.004, gasket, cx + w / 2 - 0.009, 0, -0.002, 0.001));
+    for (const y of [h * 0.33, -h * 0.33]) {
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.03, 12), steel);
+      barrel.position.set(0, y, 0.004);
+      hinge.add(barrel);
+    }
+    const latch = rbox(0.008, 0.026, 0.008, gasket, -side * (w - 0.016), 0, 0.012, 0.002);
+    hinge.add(latch);
     hinge.userData = { open: 0, target: 0, side };
     hinge.attachFront = (m) => { m.position.x -= side * w / 2; m.position.z -= d / 2 - 0.004; hinge.add(m); return m; };
     parent.add(hinge);
     return hinge;
   }
   const doors = [];
+  // front-face artwork for DIN modules / devices (labels, screw terminals, LCDs)
+  const faceCache = new Map();
+  function faceTex(kind, w, h) {
+    const key = `${kind}|${w}|${h}`;
+    if (faceCache.has(key)) return faceCache.get(key);
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = Math.max(32, Math.round(256 * h / w));
+    const g = c.getContext('2d'), W2 = c.width, H2 = c.height;
+    const BG = { ctrl: '#e5e7eb', lte: '#f8fafc', lora: '#1f2937', brk: '#f4f4f2', dcdc: '#1d4ed8', relay: '#111827', fuse: '#1f2937', mppt: '#1e5bb8', tb: '#9ca3af', tbBlue: '#1d4ed8', tbGreen: '#16a34a' };
+    g.fillStyle = BG[kind]; g.fillRect(0, 0, W2, H2);
+    const ink = ['lora', 'relay', 'fuse', 'dcdc', 'mppt', 'tbBlue', 'tbGreen'].includes(kind) ? '#f8fafc' : '#1f2937';
+    const screws = (y) => {
+      const n = Math.max(1, Math.floor(W2 / 46));
+      for (let i = 0; i < n; i++) {
+        const x = (i + 0.5) * (W2 / n);
+        g.fillStyle = '#2b2f33'; g.fillRect(x - 15, y - 15, 30, 30);
+        g.fillStyle = '#c9ced3'; g.beginPath(); g.arc(x, y, 10, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#4b5563'; g.lineWidth = 3; g.beginPath(); g.moveTo(x - 7, y); g.lineTo(x + 7, y); g.stroke();
+      }
+    };
+    const text = (t, y, size, weight = 600, color = ink) => { g.fillStyle = color; g.font = `${weight} ${size}px ${FONT}`; g.textAlign = 'center'; g.fillText(t, W2 / 2, y); };
+    if (kind.startsWith('tb')) { screws(22); screws(H2 - 22); g.fillStyle = 'rgba(0,0,0,0.15)'; g.fillRect(0, H2 * 0.45, W2, 6); }
+    else {
+      screws(24); screws(H2 - 24);
+      if (kind === 'ctrl') {
+        g.fillStyle = '#0f172a'; g.fillRect(W2 * 0.12, H2 * 0.28, W2 * 0.76, H2 * 0.24);
+        g.fillStyle = '#4ade80'; g.font = `600 ${Math.round(H2 * 0.08)}px ${FONT}`; g.textAlign = 'left';
+        g.fillText('BKK-PTW-001', W2 * 0.16, H2 * 0.38); g.fillText('FILL 62% · LTE ●', W2 * 0.16, H2 * 0.48);
+        text('SMART BIN CONTROLLER', H2 * 0.66, Math.round(H2 * 0.06));
+        text('HACKaWORK', H2 * 0.76, Math.round(H2 * 0.07), 700, '#1d4ed8');
+      } else if (kind === 'lte') {
+        text('4G LTE', H2 * 0.36, Math.round(H2 * 0.12), 700);
+        text('INDUSTRIAL ROUTER', H2 * 0.46, Math.round(H2 * 0.055));
+        g.fillStyle = '#9ca3af'; g.fillRect(W2 * 0.25, H2 * 0.55, W2 * 0.5, H2 * 0.06);
+        text('SIM', H2 * 0.69, Math.round(H2 * 0.05), 500);
+      } else if (kind === 'lora') {
+        text('LoRaWAN', H2 * 0.38, Math.round(H2 * 0.1), 700);
+        text('GATEWAY', H2 * 0.48, Math.round(H2 * 0.07));
+        text('AS923 MHz', H2 * 0.6, Math.round(H2 * 0.06), 400);
+      } else if (kind === 'brk') {
+        g.fillStyle = '#d1d5db'; g.fillRect(W2 * 0.2, H2 * 0.36, W2 * 0.6, H2 * 0.3);
+        text('C10', H2 * 0.32, Math.round(W2 * 0.2), 700);
+        text('DC', H2 * 0.78, Math.round(W2 * 0.18), 600);
+      } else if (kind === 'dcdc') {
+        text('DC/DC', H2 * 0.4, Math.round(W2 * 0.2), 700);
+        text('12→5V', H2 * 0.55, Math.round(W2 * 0.15));
+        text('3A', H2 * 0.68, Math.round(W2 * 0.14), 400);
+      } else if (kind === 'relay') {
+        text('RELAY', H2 * 0.45, Math.round(W2 * 0.22), 700);
+        text('12V', H2 * 0.6, Math.round(W2 * 0.2), 400);
+      } else if (kind === 'fuse') {
+        g.fillStyle = '#374151'; g.fillRect(W2 * 0.2, H2 * 0.3, W2 * 0.6, H2 * 0.4);
+        text('10A', H2 * 0.55, Math.round(W2 * 0.22), 700);
+      } else if (kind === 'mppt') {
+        g.fillStyle = '#0b1220'; g.fillRect(W2 * 0.08, H2 * 0.22, W2 * 0.36, H2 * 0.3);
+        g.fillStyle = '#38bdf8'; g.font = `600 ${Math.round(H2 * 0.09)}px ${FONT}`; g.textAlign = 'left';
+        g.fillText('13.6V', W2 * 0.11, H2 * 0.35); g.fillText('2.4A ☀', W2 * 0.11, H2 * 0.47);
+        g.fillStyle = ink; g.font = `700 ${Math.round(H2 * 0.13)}px ${FONT}`; g.textAlign = 'right';
+        g.fillText('MPPT 75|10', W2 * 0.94, H2 * 0.36);
+        g.font = `500 ${Math.round(H2 * 0.07)}px ${FONT}`; g.fillText('SOLAR CHARGE CONTROLLER', W2 * 0.94, H2 * 0.48);
+        for (let i = 0; i < 3; i++) { g.fillStyle = '#e5e7eb'; g.beginPath(); g.arc(W2 * (0.14 + i * 0.1), H2 * 0.66, H2 * 0.05, 0, Math.PI * 2); g.fill(); }
+        g.fillStyle = 'rgba(255,255,255,0.75)'; g.font = `500 ${Math.round(H2 * 0.06)}px ${FONT}`; g.textAlign = 'center';
+        ['PV+', 'PV−', 'BAT+', 'BAT−', 'LD+', 'LD−'].forEach((t, i) => g.fillText(t, W2 * (0.083 + i * 0.167), H2 * 0.82));
+      }
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    faceCache.set(key, tex);
+    return tex;
+  }
+  // a device box whose front face (+Z) carries the artwork
+  function device(kind, w, h, d, x, y, z) {
+    const side = new THREE.MeshStandardMaterial({ color: new THREE.Color(faceTex(kind, w, h).image.getContext('2d').getImageData(4, Math.round(faceTex(kind, w, h).image.height / 2), 1, 1).data.slice(0, 3).reduce((a, v, i) => a + v * [65536, 256, 1][i], 0)), roughness: 0.5 });
+    const front = new THREE.MeshStandardMaterial({ map: faceTex(kind, w, h), roughness: 0.45 });
+    const m = new THREE.Mesh(roundedBoxGeometry(w, h, d, 0.0025), [side, side, side, side, front, side]);
+    m.position.set(x, y, z);
+    m.castShadow = m.receiveShadow = true;
+    return m;
+  }
   let insideMode = false;
   const pcb = new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.6 });
   const chip = new THREE.MeshStandardMaterial({ color: 0x111317, roughness: 0.4 });
@@ -240,11 +334,7 @@ export function buildHardware(station) {
   });
   // MPPT controller (heat-sink back against the plate) with a 6-way terminal strip along its bottom
   const mpptY = 0.09, mpptZ = zp + 0.02;
-  bIn.add(rbox(0.15, 0.075, 0.03, chip, 0, mpptY, mpptZ, 0.005));
-  const mpptScr = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.022), new THREE.MeshBasicMaterial({ color: 0x38bdf8, toneMapped: false }));
-  mpptScr.position.set(-0.03, mpptY + 0.012, mpptZ + 0.0155);
-  bIn.add(mpptScr);
-  for (let i = 0; i < 3; i++) bIn.add(rbox(0.008, 0.008, 0.004, shield, 0.03 + i * 0.016, mpptY + 0.012, mpptZ + 0.016, 0.001));   // keypad
+  bIn.add(device('mppt', 0.15, 0.075, 0.03, 0, mpptY, mpptZ));
   const mpptT = [-0.0625, -0.0375, -0.0125, 0.0125, 0.0375, 0.0625].map((x) => {    // PV+ PV- BAT+ BAT- LOAD+ LOAD-
     bIn.add(rbox(0.018, 0.012, 0.012, shield, x, mpptY - 0.042, mpptZ + 0.006, 0.001));
     return [x, mpptY - 0.048, mpptZ + 0.006];
@@ -252,11 +342,11 @@ export function buildHardware(station) {
   // DIN rail with PV breaker, battery breaker, load fuse and terminal blocks
   const railY = 0.005, railZ = zp + 0.004;
   bIn.add(rbox(bW - 0.04, 0.035, 0.007, steel, 0, railY, railZ, 0.001));
-  const dinMod = (x, w, color, h = 0.05) => { bIn.add(rbox(w, h, 0.035, new THREE.MeshStandardMaterial({ color, roughness: 0.45 }), x, railY, railZ + 0.02, 0.002)); };
-  dinMod(-0.07, 0.018, 0xf2f2f2); dinMod(-0.05, 0.018, 0xf2f2f2);           // DC breakers
-  for (const x of [-0.07, -0.05]) bIn.add(rbox(0.006, 0.012, 0.008, chip, x, railY + 0.004, railZ + 0.041, 0.001));   // toggles
-  dinMod(-0.025, 0.02, 0x1f2937);                                             // fuse holder
-  for (let i = 0; i < 4; i++) dinMod(0.01 + i * 0.008, 0.007, i % 2 ? 0x1d4ed8 : 0x9ca3af, 0.04);   // terminal blocks
+  const dinDev = (kind, x, w, h = 0.05) => bIn.add(device(kind, w, h, 0.035, x, railY, railZ + 0.02));
+  dinDev('brk', -0.07, 0.018); dinDev('brk', -0.05, 0.018);                  // DC breakers (PV, battery)
+  for (const x of [-0.07, -0.05]) bIn.add(rbox(0.006, 0.012, 0.008, chip, x, railY + 0.002, railZ + 0.041, 0.001));   // toggles
+  dinDev('fuse', -0.025, 0.02);                                               // load fuse holder
+  for (let i = 0; i < 4; i++) dinDev(i % 2 ? 'tbBlue' : 'tb', 0.01 + i * 0.008, 0.007, 0.04);   // terminal blocks
   // wiring (rounded runs between real terminal points)
   const zw = railZ + 0.03;
   bIn.add(pwire(0xd42a1e, [bt[0], [bt[0][0], railY - 0.035, packZ], [-0.05, railY - 0.035, zw], [-0.05, railY - 0.025, zw]]));                 // BAT+ -> breaker
@@ -405,12 +495,10 @@ export function buildHardware(station) {
   const r1y = 0.075, r2y = -0.035;
   rail(r1y); rail(r2y);
   // rail 1: controller (MCU), LTE router, LoRa gateway
-  mod(-0.055, r1y, 0.06, 0.07, 0xe5e7eb);
-  const ctrlScr = new THREE.Mesh(new THREE.PlaneGeometry(0.035, 0.018), new THREE.MeshBasicMaterial({ color: 0x22c55e, toneMapped: false }));
-  ctrlScr.position.set(-0.055, r1y + 0.012, uz + 0.0475);
-  uIn.add(ctrlScr);
-  mod(0.012, r1y, 0.045, 0.07, 0xf8fafc);
-  mod(0.06, r1y, 0.035, 0.07, 0x1f2937);
+  const dev = (kind, x, y, w, h, d = 0.04) => uIn.add(device(kind, w, h, d, x, y, uz + 0.007 + d / 2));
+  dev('ctrl', -0.055, r1y, 0.06, 0.07);
+  dev('lte', 0.012, r1y, 0.045, 0.07);
+  dev('lora', 0.06, r1y, 0.035, 0.07);
   for (const [x, c] of [[0.0, 0x22c55e], [0.012, 0x22c55e], [0.024, 0xf59e0b], [0.06, 0x3b82f6]]) {
     const led = new THREE.Mesh(new THREE.SphereGeometry(0.0025, 8, 6), new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 1.5 }));
     led.position.set(x, r1y - 0.02, uz + 0.048);
@@ -422,21 +510,25 @@ export function buildHardware(station) {
   uIn.add(routed([P(0.06, r1y + 0.045, uz + 0.027), P(0.06, r1y + 0.055, uz + 0.027), P(-0.07, uH / 2 - 0.025, 0), P(-0.07, uH / 2 - 0.004, 0)], 0.0018, 0.01, wmat(0x111111)));
   // slotted wire duct between the rails and along the bottom
   const ductMat = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.6 });
+  // slotted PVC wire duct: channel + snap-on cover, wires enter through the fingers on the top/bottom edges
+  const coverMat = new THREE.MeshStandardMaterial({ color: 0xb8bec5, roughness: 0.55 });
+  const slotMat = new THREE.MeshStandardMaterial({ color: 0x3f454b, roughness: 0.8 });
   const duct = (y) => {
-    uIn.add(rbox(uW - 0.03, 0.022, 0.03, ductMat, 0, y, uz + 0.017, 0.002));
-    for (let i = 0; i < 12; i++) uIn.add(rbox(0.003, 0.012, 0.031, chip, -0.09 + i * 0.0165, y + 0.006, uz + 0.017, 0.0005));
+    uIn.add(rbox(uW - 0.03, 0.024, 0.026, ductMat, 0, y, uz + 0.015, 0.002));
+    uIn.add(rbox(uW - 0.026, 0.026, 0.004, coverMat, 0, y, uz + 0.03, 0.0015));
+    for (let i = 0; i < 18; i++) for (const e of [1, -1]) uIn.add(rbox(0.004, 0.003, 0.02, slotMat, -0.092 + i * 0.0108, y + e * 0.0115, uz + 0.015, 0.0005));
   };
   duct(0.02); duct(-0.095);
   // rail 2: DC breaker, DC-DC converter, beacon relay, terminal blocks
-  mod(-0.085, r2y, 0.018, 0.05, 0xf2f2f2);
+  dev('brk', -0.085, r2y, 0.018, 0.05);
   uIn.add(rbox(0.006, 0.012, 0.008, chip, -0.085, r2y + 0.004, uz + 0.051, 0.001));
-  mod(-0.055, r2y, 0.035, 0.05, 0x1d4ed8);
-  mod(-0.024, r2y, 0.018, 0.05, 0x111827);
+  dev('dcdc', -0.055, r2y, 0.035, 0.05);
+  dev('relay', -0.024, r2y, 0.018, 0.05);
   const relayLed = new THREE.Mesh(new THREE.SphereGeometry(0.0022, 8, 6), new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 1.5 }));
   relayLed.position.set(-0.024, r2y + 0.018, uz + 0.048);
   uIn.add(relayLed);
   const tbColors = [0xd42a1e, 0x111111, 0x9ca3af, 0x9ca3af, 0x1d4ed8, 0x16a34a, 0x9ca3af];
-  tbColors.forEach((c, i) => mod(0.0 + i * 0.0105, r2y, 0.009, 0.045, c === 0xd42a1e || c === 0x111111 ? 0x9ca3af : c, 0.038));
+  tbColors.forEach((c, i) => dev(c === 0x1d4ed8 ? 'tbBlue' : c === 0x16a34a ? 'tbGreen' : 'tb', 0.0 + i * 0.0105, r2y, 0.009, 0.045, 0.038));
   // short jumpers from modules into the ducts (the runs inside the duct are hidden, like a real panel)
   const uzw = uz + 0.03;
   for (const [x, c] of [[-0.065, 0xd42a1e], [-0.045, 0x111111], [0.005, 0xd42a1e], [0.02, 0x111111], [0.055, 0x1d4ed8]]) uIn.add(pwire(c, [[x, r1y - 0.035, uzw], [x, 0.031, uzw]]));
