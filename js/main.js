@@ -341,6 +341,7 @@ const smart = {
 };
 const channel = 'BroadcastChannel' in window ? new BroadcastChannel('hackawork') : null;
 function publish() {
+  smart.ts = Date.now();                       // heartbeat: the dashboard marks the station offline without it
   const payload = JSON.stringify(smart);
   try { localStorage.setItem('hackawork-station', payload); } catch {}
   channel?.postMessage({ type: 'station', station: smart });
@@ -394,6 +395,7 @@ channel?.addEventListener('message', (e) => {
   if (e.data?.type === 'collected' && e.data.id === STATION_ID) markCollected();
   if (e.data?.type === 'hello') publish();
 });
+setInterval(publish, 5000);
 if (innerWidth < 640) { $('smart').open = false; $('controls').open = false; }   // phones: start with panels folded
 applySmart();
 

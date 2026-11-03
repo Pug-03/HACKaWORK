@@ -58,6 +58,8 @@
   .chip.red { background: #fee2e2; color: #991b1b; }
   .chip.call { background: var(--red); color: #fff; }
   .chip.amber { background: #fef3c7; color: #92400e; }
+  .chip.off { background: #e5e7eb; color: #4b5563; }
+  .offline { font-size: 12px; color: var(--muted); }
   .legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 10px; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
 
@@ -195,10 +197,12 @@
     const round = nextRound();
     $('rows').innerHTML = list.map((s) => {
       const st = statusOf(s), max = Math.max(...s.fills);
-      const chip = s.callRequested ? '<span class="chip call">เรียกนอกรอบ</span>'
+      const offline = s.live && Date.now() - (s.ts || 0) > 12000;
+      const chip = offline ? '<span class="chip off">หน้า 3D ออฟไลน์</span>' : s.callRequested ? '<span class="chip call">เรียกนอกรอบ</span>'
         : st === 'pending' ? '<span class="chip red">ไฟแดง · รอเก็บ</span>' : '<span class="chip green">ไฟเขียว</span>';
       const bars = s.fills.map((f, i) => `<div class="bar ${f >= 80 ? 'full' : ''}" title="${Math.round(f)}%"><i style="height:${f}%;background:${COLORS[i]}"></i></div>`).join('');
-      const action = st === 'pending' ? `<button class="btn ok" data-collect="${s.id}">ยืนยันเก็บแล้ว</button>` : '';
+      const action = offline ? '<span class="offline">เปิดหน้า 3D เพื่อสั่งงาน</span>'
+        : st === 'pending' ? `<button class="btn ok" data-collect="${s.id}">ยืนยันเก็บแล้ว</button>` : '';
       return `<tr class="${s.live ? 'live' : ''}">
         <td><div class="name">${s.name}${s.live ? ' · สด' : ''}</div><div class="loc">${s.id}</div></td>
         <td><div class="bars">${bars}</div></td>
