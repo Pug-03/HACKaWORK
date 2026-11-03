@@ -227,7 +227,8 @@
     const busy = new Set(pending.map((_, i) => trucks[i % trucks.length]));
     $('fleet').innerHTML = trucks.map((t) => `<div><span>${t} · รถไฟฟ้ามินิ 500 กก.</span><span class="chip ${busy.has(t) ? 'amber' : 'green'}">${busy.has(t) ? 'ออกงาน' : 'ว่าง'}</span></div>`).join('');
 
-    const calls = list.reduce((n, s) => n + (s.requests?.length || 0), 0);
+    const today = new Date().toDateString();
+    const calls = list.reduce((n, s) => n + (s.requests || []).filter((r) => new Date(r.at).toDateString() === today).length, 0);
     $('k-stations').textContent = list.length;
     $('k-full').textContent = list.filter((s) => s.fills.some((f) => f >= 80)).length;
     $('k-calls').textContent = calls;

@@ -346,6 +346,12 @@ const smart = {
   composter: { running: false, compostKg: 0, capacityL: COMPOSTER.capacityL, dailyKg: COMPOSTER.dailyKg },
   truck: 'away',                                   // EV mini truck: away / arriving / parked / leaving
 };
+// keep today's out-of-round requests across reloads (they feed the dashboard's 'today' KPIs)
+const isToday = (t) => new Date(t).toDateString() === new Date().toDateString();
+try {
+  const saved = JSON.parse(localStorage.getItem('hackawork-station') || 'null');
+  if (saved?.id === STATION_ID && Array.isArray(saved.requests)) smart.requests = saved.requests.filter((r) => isToday(r.at));
+} catch {}
 const channel = 'BroadcastChannel' in window ? new BroadcastChannel('hackawork') : null;
 function publish() {
   smart.ts = Date.now();                       // heartbeat: the dashboard marks the station offline without it
