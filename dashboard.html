@@ -96,7 +96,7 @@
     <div class="kpi alert"><span>ถังใกล้เต็ม (≥ 80%)</span><b id="k-full">0</b><em>ต้องจัดรถเพิ่ม</em></div>
     <div class="kpi"><span>คำขอเก็บนอกรอบวันนี้</span><b id="k-calls">0</b><em>ผ่านปุ่มที่ถัง</em></div>
     <div class="kpi"><span>รายได้ค่าบริการวันนี้</span><b id="k-revenue">0</b><em>500 บาท / ครั้ง</em></div>
-    <div class="kpi"><span>ปุ๋ยหมักวันนี้</span><b id="k-compost">0</b><em>กก. จากเครื่องหมัก</em></div>
+    <div class="kpi"><span>ปุ๋ยหมักวันนี้</span><b id="k-compost">0</b><em id="k-compost-note">กก. จากเครื่องหมัก</em></div>
   </section>
 
   <div class="grid">
@@ -231,7 +231,14 @@
     $('k-full').textContent = list.filter((s) => s.fills.some((f) => f >= 80)).length;
     $('k-calls').textContent = calls;
     $('k-revenue').textContent = `${(calls * 500).toLocaleString('th-TH')} ฿`;
-    $('k-compost').textContent = state.compostKg.toFixed(1);
+    const comp = state.live?.composter;
+    if (comp) {
+      $('k-compost').textContent = comp.compostKg.toFixed(1);
+      $('k-compost-note').textContent = `กก. · เครื่อง ${comp.capacityL} ลิตร ${comp.running ? 'กำลังหมัก' : 'หยุดอยู่'}`;
+    } else {
+      $('k-compost').textContent = '—';
+      $('k-compost-note').textContent = 'ยังไม่มีข้อมูลจากเครื่องหมัก';
+    }
     $('updated').textContent = `อัปเดตล่าสุด ${new Date().toLocaleTimeString('th-TH')}`;
   }
 
@@ -252,12 +259,10 @@
   // bins fill slowly over time; compost output accumulates
   setInterval(() => {
     for (const s of state.stations) s.fills = s.fills.map((f) => Math.min(100, f + s.rate * Math.random()));
-    state.compostKg += 0.05 + Math.random() * 0.05;
     if (!busy()) render();
   }, 3000);
 
   state.stations = makeStations(state.district);
-  state.compostKg = 4.2;
   render();
 </script>
 </body>

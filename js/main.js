@@ -338,6 +338,8 @@ const smart = {
   id: STATION_ID, name: 'สถานีจำลอง 3D · หน้าสยาม', district: 'ปทุมวัน',
   fills: [35, 62, 48, 30], status: 'collected', callRequested: false,
   lastPickup: Date.now() - 3 * 3600e3, requests: [],
+  // composter beside the station; compost output is simulated at an accelerated rate while it runs
+  composter: { running: false, compostKg: 0, capacityL: COMPOSTER.capacityL, dailyKg: COMPOSTER.dailyKg },
 };
 const channel = 'BroadcastChannel' in window ? new BroadcastChannel('hackawork') : null;
 function publish() {
@@ -466,6 +468,8 @@ function animate() {
   if (hw === 3) lightDirty = true; else if (hw) invalidate(hw === 2);
   const tr = truck.update(dt);
   if (tr === 3) lightDirty = true; else if (tr) invalidate(tr === 2);
+  if (composter.isRunning()) smart.composter.compostKg += dt * 0.05;   // demo rate (accelerated)
+  if (smart.composter.running !== composter.isRunning()) { smart.composter.running = composter.isRunning(); publish(); }
   const c = composter.update(dt);
   if (c) invalidate(c === 2);
   controls.update();                    // fires 'change' while damping / auto-rotating
