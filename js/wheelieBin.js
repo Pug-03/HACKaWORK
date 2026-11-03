@@ -272,14 +272,19 @@ export function createWheelieBin(color) {
   const flapPivot = new THREE.Group();
   flapPivot.position.set(0, t, zFront);
   flapPivot.rotation.x = -lean;
-  const gap = new THREE.Mesh(new THREE.ShapeGeometry(trap(0.026, fBot - 0.004, fTop + 0.004)), new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 1 }));
+  const gap = new THREE.Mesh(new THREE.ShapeGeometry(trap(0.026, fBot - 0.004, fTop + 0.004)), new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 1 }));   // reads as the dark opening when the flap swings in
   gap.position.z = 0.0015;
   flapPivot.add(gap);
   const flapGeo = new THREE.ExtrudeGeometry(trap(0.03, fBot, fTop), { depth: 0.006, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.002, bevelSegments: 2 });
   const flap = new THREE.Mesh(flapGeo, plastic);
-  flap.position.z = 0.0015;
   flap.castShadow = true;
-  flapPivot.add(flap);
+  flap.userData.part = 'flap';
+  // hinge along the flap's top edge; positive rotation swings the bottom inward (into the hood)
+  const flapHinge = new THREE.Group();
+  flapHinge.position.set(0, fTop, 0);
+  flap.position.set(0, -fTop, 0.0015);
+  flapHinge.add(flap);
+  flapPivot.add(flapHinge);
   // three small moulded notches along the crest (as in the photo)
   for (const x of [-0.07, 0, 0.07]) flapPivot.add(box(0.03, 0.005, 0.016, black, x, hh - 0.001, -0.032));
   lidPivot.add(flapPivot);
@@ -314,6 +319,6 @@ export function createWheelieBin(color) {
   }
 
   g.add(lidPivot);
-  g.userData = { lidPivot, open: 0, target: 0 };
+  g.userData = { lidPivot, open: 0, target: 0, flap: { hinge: flapHinge, open: 0, hold: 0 } };
   return g;
 }

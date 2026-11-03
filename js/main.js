@@ -168,6 +168,7 @@ const PART_TIPS = {
   composter: `เครื่องหมักปุ๋ยจากเศษอาหาร ${COMPOSTER.capacityL} ลิตร`,
   hatch: 'ช่องเติมเศษอาหาร — คลิกเพื่อเปิด/ปิด',
   composterStart: 'ปุ่มเดินเครื่องหมัก — คลิกเพื่อเริ่ม/หยุด',
+  flap: 'ช่องทิ้งแบบบานผลัก — คลิกเพื่อดันบานเข้าไป แล้วบานจะปิดกลับเอง',
   sensor: 'เซ็นเซอร์อัลตราโซนิกไร้สาย · แบตในตัว ~5 ปี · ส่ง LoRa ไปกล่องควบคุม (ไม่ต้องเดินสาย เพราะถังถูกเข็นออกทุกรอบ)',
   solar: 'แผงโซลาร์ 50 W (67×54 ซม.) เอียง 15° · ติดสูงเหนือระยะเปิดฝา',
   battery: 'ตู้แบต LiFePO4 12.8V 20Ah (256 Wh) + MPPT · สำรองไฟ 3–4 วัน',
@@ -178,7 +179,13 @@ const PART_TIPS = {
   cableBeacon: 'ท่อร้อยสาย: กล่องควบคุม → เสา → ไฟแจ้งเตือน',
   truck: 'รถเก็บขยะไฟฟ้ามินิ (EV) · บรรทุก ~500 กก. · ร่วมกับภาคเอกชน',
 };
-const CLICKABLE = new Set(['callButton', 'tray', 'hatch', 'composterStart']);
+const CLICKABLE = new Set(['callButton', 'tray', 'hatch', 'composterStart', 'flap']);
+
+// push flap: swings in while "held", then springs back shut like the real gravity flap
+function pushFlap(bin) {
+  bin.userData.flap.hold = 1.2;               // seconds held open
+  invalidate();
+}
 
 function pick(ev) {
   const r = renderer.domElement.getBoundingClientRect();
@@ -199,14 +206,16 @@ function pick(ev) {
     if (station.bins.includes(o)) bin = o;
     o = o.parent;
   }
+  const owner = bin;                            // bin this part belongs to (for the push flap)
   if (part && part !== 'unit') bin = null;   // hardware parts take priority over the bin under them
-  return { bin, bayId, part };
+  return { bin, bayId, part, owner };
 }
 renderer.domElement.addEventListener('pointerdown', (e) => (downAt = [e.clientX, e.clientY]));
 renderer.domElement.addEventListener('pointerup', (e) => {
   if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
-  const { bin, part } = pick(e);
-  if (part === 'callButton') requestPickup();
+  const { bin, part, owner } = pick(e);
+  if (part === 'flap' && owner) pushFlap(owner);
+  else if (part === 'callButton') requestPickup();
   else if (part === 'tray') { riser.setTraysOpen(!riser.trays[0].userData.target); syncAll(); }
   else if (part === 'hatch') { composter.toggleHatch(); syncAll(); }
   else if (part === 'composterStart') { composter.setRunning(!composter.isRunning()); syncAll(); }
@@ -390,6 +399,16 @@ function animate() {
       if (Math.abs(u.target - u.open) <= 1e-4) u.open = u.target;
       u.lidPivot.rotation.x = -u.open * CONFIG.bin.openAngle;
       invalidate(true);
+    }
+    const f = u.flap;
+    if (!f) continue;
+    if (f.hold > 0) f.hold = Math.max(0, f.hold - dt);
+    const ft = f.hold > 0 ? 1 : 0;
+    if (Math.abs(ft - f.open) > 1e-3) {
+      f.open += (ft - f.open) * Math.min(1, dt * (ft ? 10 : 5));   // pushes in fast, swings back slower
+      if (Math.abs(ft - f.open) <= 1e-3) f.open = ft;
+      f.hinge.rotation.x = f.open * 1.15;
+      invalidate();
     }
   }
   if (flight) {
