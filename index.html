@@ -35,6 +35,7 @@
   .dim { font-size: 12px; font-weight: 500; color: #fff; background: var(--red);
     padding: 2px 7px; border-radius: 4px; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .dim.human { background: #4b5563; }
+  .dim.hw { background: #1d4ed8; font-size: 11px; padding: 2px 6px; }
 
   header { position: fixed; top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; right: 16px;
     pointer-events: none; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
@@ -137,6 +138,7 @@
     <button class="toggle" id="t-lids" aria-pressed="false">เปิดฝาถัง</button>
     <button class="toggle" id="t-dims" aria-pressed="false">แสดงขนาด</button>
     <button class="toggle" id="t-human" aria-pressed="false">คนเทียบสเกล</button>
+    <button class="toggle" id="t-hw-open" aria-pressed="false">เปิดดูฮาร์ดแวร์ภายใน</button>
     <button class="toggle" id="t-bags" aria-pressed="true">ถุงขยะในช่อง</button>
     <div class="views">
       <button data-view="front">หน้า</button>

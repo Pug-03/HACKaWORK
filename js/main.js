@@ -161,7 +161,9 @@ const tooltip = document.getElementById('tooltip');
 const bayNames = Object.fromEntries(CONFIG.bays.map((b) => [b.id, `${b.th} · ${b.en}`]));
 const PART_TIPS = {
   callButton: 'ปุ่มเรียกรถเก็บนอกรอบ · ค่าบริการ 500 บาท — คลิกเพื่อกด',
-  unit: 'กล่องควบคุม · เซ็นเซอร์ระดับขยะ + ส่งข้อมูลเข้าแดชบอร์ดเขต',
+  unit: 'กล่องควบคุม · รับข้อมูลเซ็นเซอร์ + ส่งเข้าแดชบอร์ดเขต — คลิกเพื่อเปิด/ปิดฝาดูภายใน',
+  unitInside: 'ภายในกล่องควบคุม: MCU · โมดูล 4G · LoRa gateway · DC-DC · รีเลย์ไฟ · ขั้วต่อสาย',
+  batteryInside: 'ภายในตู้แบต: แพ็ก LiFePO4 + BMS · ตัวคุมชาร์จ MPPT · เบรกเกอร์ DC · บัสบาร์',
   tray: 'ถาดบริการใต้ฐาน (ล็อกกุญแจ) — คลิกเพื่อเปิด/ปิด',
   riser: `ฐานยกกันหนู สูง ${RISER.height * 100} ซม. · ใต้ฐานโล่ง ทำความสะอาดง่าย`,
   ratGuard: 'แผ่นกันหนูปีน (rat guard) Ø 26 ซม. · หนูปีนเสาขึ้นมาแล้วติดใต้กรวย อ้อมขึ้นไปไม่ได้',
@@ -172,7 +174,7 @@ const PART_TIPS = {
   flap: 'ช่องทิ้งแบบบานผลัก — คลิกเพื่อดันบานเข้าไป แล้วบานจะปิดกลับเอง',
   sensor: 'เซ็นเซอร์อัลตราโซนิกไร้สาย · แบตในตัว ~5 ปี · ส่ง LoRa ไปกล่องควบคุม (ไม่ต้องเดินสาย เพราะถังถูกเข็นออกทุกรอบ)',
   solar: 'แผงโซลาร์ 50 W (67×54 ซม.) เอียง 15° · ติดสูงเหนือระยะเปิดฝา',
-  battery: 'ตู้แบต LiFePO4 12.8V 20Ah (256 Wh) + MPPT · สำรองไฟ 3–4 วัน',
+  battery: 'ตู้แบต LiFePO4 12.8V 20Ah (256 Wh) + MPPT · สำรองไฟ 3–4 วัน — คลิกเพื่อเปิด/ปิดฝาดูภายใน',
   beacon: 'ไฟแจ้งเตือน 2 สี · แดง = รอรถ · เขียว = เก็บแล้ว',
   pole: 'เสาเหล็ก Ø 60 มม. · ใช้เป็นท่อร้อยสายไปแผงโซลาร์และไฟแจ้งเตือน',
   cableSolar: 'ท่อร้อยสาย: แผงโซลาร์ → ตู้แบต',
@@ -180,7 +182,7 @@ const PART_TIPS = {
   cableBeacon: 'ท่อร้อยสาย: กล่องควบคุม → เสา → ไฟแจ้งเตือน',
   truck: 'รถเก็บขยะไฟฟ้ามินิ (EV) · บรรทุก ~500 กก. · ร่วมกับภาคเอกชน',
 };
-const CLICKABLE = new Set(['callButton', 'tray', 'hatch', 'composterStart', 'flap', 'drawer']);
+const CLICKABLE = new Set(['callButton', 'tray', 'hatch', 'composterStart', 'flap', 'drawer', 'unit', 'battery']);
 
 // push flap: swings in while "held", then springs back shut like the real gravity flap
 function pushFlap(bin) {
@@ -220,6 +222,8 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   else if (part === 'tray') { riser.setTraysOpen(!riser.trays[0].userData.target); syncAll(); }
   else if (part === 'hatch') { composter.toggleHatch(); syncAll(); }
   else if (part === 'drawer') { composter.toggleDrawer(); syncAll(); }
+  else if (part === 'unit') { hardware.toggleUnit(); syncAll(); }
+  else if (part === 'battery') { hardware.toggleBattery(); syncAll(); }
   else if (part === 'composterStart') { composter.setRunning(!composter.isRunning()); syncAll(); }
   else if (bin) bin.userData.target = bin.userData.target ? 0 : 1;
   syncAll();
@@ -264,6 +268,10 @@ bindToggle('t-bags', () => station.bagPile.visible, (v) => (station.bagPile.visi
 const anyOpen = () => station.bins.some((b) => b.userData.target);
 const syncers = [];
 syncers.push(bindToggle('t-lids', anyOpen, (v) => station.bins.forEach((b) => (b.userData.target = v ? 1 : 0))));
+syncers.push(bindToggle('t-hw-open', () => hardware.isInsideView(), (v) => {
+  hardware.setInsideView(v);
+  if (v) document.querySelector('[data-view=smart]').click();
+}));
 syncers.push(bindToggle('t-riser', () => riserOn, (v) => { riserOn = v; placeStation(); }));
 syncers.push(bindToggle('t-trays', () => !!riser.trays[0].userData.target, (v) => { if (!riserOn && v) { riserOn = true; placeStation(); } riser.setTraysOpen(v); }));
 syncers.push(bindToggle('t-comp-run', () => composter.isRunning(), (v) => composter.setRunning(v)));
@@ -282,7 +290,7 @@ const VIEWS = {
   back: [[-2.8, 2.0, -4.2], [0, 0.75, 0]],
   composter: [[COMPOSTER_X + 1.6, 1.9, 2.8], [COMPOSTER_X, 0.65, 0.1]],
   truck: [[-5.6, 3.2, -8.2], [0, 0.8, -1.8]],
-  smart: [[-L / 2 - 1.4, 1.5, 1.0], [-L / 2, 0.95, 0]],
+  smart: [[-L / 2 - 1.25, 1.35, 0.55], [-L / 2, 0.95, -0.03]],
 };
 document.querySelectorAll('[data-view]').forEach((btn) =>
   btn.addEventListener('click', () => {
@@ -423,7 +431,8 @@ function animate() {
     dirty = true;
   }
   if (riser.update(dt)) invalidate(true);
-  if (hardware.update(dt)) invalidate();
+  const hw = hardware.update(dt);
+  if (hw) invalidate(hw === 2);
   const tr = truck.update(dt);
   if (tr) invalidate(tr === 2);
   const c = composter.update(dt);

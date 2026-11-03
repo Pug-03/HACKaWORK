@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { rbox } from './geom.js';
+import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
 // Smart hardware mounted on the bin station:
 //  - two-colour beacon on a pole (red = waiting for pickup, green = collected) + small solar panel
@@ -16,6 +17,53 @@ export function buildHardware(station) {
   const L = station.length, D = F.depth, H = F.height;
   const dark = new THREE.MeshStandardMaterial({ color: 0x24272b, metalness: 0.4, roughness: 0.5 });
   const steel = new THREE.MeshStandardMaterial({ color: 0xb4b9be, metalness: 0.8, roughness: 0.35 });
+
+  /* ---------- "look inside" helpers ---------- */
+  const insideLabels = [];
+  function label(parent, text, x, y, z) {
+    const el = document.createElement('div');
+    el.className = 'dim hw';
+    el.textContent = text;
+    const o = new CSS2DObject(el);
+    o.position.set(x, y, z);
+    o.visible = false;
+    parent.add(o);
+    insideLabels.push(o);
+    return o;
+  }
+  // open-front enclosure: back + 4 walls (front is a hinged door)
+  function enclosure(w, h, d, mat, part) {
+    const g = new THREE.Group(), th = 0.004;
+    g.add(rbox(w, h, th, mat, 0, 0, -d / 2 + th / 2, 0.002));
+    for (const sx of [-1, 1]) g.add(rbox(th, h, d, mat, sx * (w / 2 - th / 2), 0, 0, 0.002));
+    for (const sy of [-1, 1]) g.add(rbox(w - 2 * th, th, d, mat, 0, sy * (h / 2 - th / 2), 0, 0.002));
+    g.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = part; } });
+    return g;
+  }
+  // door hinged on one vertical edge (side = -1 left, +1 right); children are given in enclosure coordinates
+  function door(parent, w, h, d, mat, part, side = -1) {
+    const hinge = new THREE.Group();
+    hinge.position.set(side * w / 2, 0, d / 2);
+    const panel = rbox(w, h, 0.008, mat, -side * w / 2, 0, 0.004, 0.006);
+    panel.userData.part = part;
+    hinge.add(panel);
+    hinge.userData = { open: 0, target: 0, side };
+    hinge.attachFront = (m) => { m.position.x -= side * w / 2; m.position.z -= d / 2 - 0.004; hinge.add(m); return m; };
+    parent.add(hinge);
+    return hinge;
+  }
+  const doors = [];
+  const pcb = new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.6 });
+  const chip = new THREE.MeshStandardMaterial({ color: 0x111317, roughness: 0.4 });
+  const shield = new THREE.MeshStandardMaterial({ color: 0xc9cdd1, metalness: 0.9, roughness: 0.25 });
+  const plate = new THREE.MeshStandardMaterial({ color: 0xd3d7da, metalness: 0.3, roughness: 0.6 });
+  const wire = (color, x0, y0, z0, x1, y1, z1, r = 0.0025) => {
+    const a = new THREE.Vector3(x0, y0, z0), b = new THREE.Vector3(x1, y1, z1);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, a.distanceTo(b), 8), new THREE.MeshStandardMaterial({ color, roughness: 0.5 }));
+    m.position.copy(a).add(b).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+    return m;
+  };
 
   /* ---------- power & signal layout (all on the left end, outside the lids' swing) ----------
      Solar 50 W on a pole -> conduit -> battery box (LiFePO4 12.8 V 20 Ah + MPPT)
@@ -92,7 +140,11 @@ export function buildHardware(station) {
   const batt = new THREE.Group();
   batt.position.set(X0 - 0.068, 0.48, -0.15);
   batt.rotation.y = -Math.PI / 2;                   // local +Z faces world -X
-  batt.add(rbox(0.22, 0.32, 0.13, new THREE.MeshStandardMaterial({ color: 0xd9dcdf, metalness: 0.2, roughness: 0.5 }), 0, 0, 0, 0.012));
+  const bW = 0.22, bH = 0.32, bD = 0.13;
+  const battShell = new THREE.MeshStandardMaterial({ color: 0xd9dcdf, metalness: 0.2, roughness: 0.5 });
+  batt.add(enclosure(bW, bH, bD, battShell, 'battery'));
+  const battDoor = door(batt, bW, bH, bD, battShell, 'battery');
+  doors.push(battDoor);
   const battLabel = document.createElement('canvas');
   battLabel.width = 360; battLabel.height = 200;
   const bl = battLabel.getContext('2d');
@@ -106,14 +158,54 @@ export function buildHardware(station) {
   const blTex = new THREE.CanvasTexture(battLabel);
   blTex.colorSpace = THREE.SRGBColorSpace;
   const blm = new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.095), new THREE.MeshStandardMaterial({ map: blTex, roughness: 0.6 }));
-  blm.position.set(0, 0.06, 0.0655);
-  batt.add(blm);
-  for (let i = 0; i < 5; i++) batt.add(rbox(0.14, 0.008, 0.004, dark, 0, -0.06 - i * 0.02, 0.066, 0.002));   // vent louvres
+  blm.position.set(0, 0.06, bD / 2 + 0.0045);
+  battDoor.attachFront(blm);
+  for (let i = 0; i < 5; i++) battDoor.attachFront(rbox(0.14, 0.008, 0.004, dark, 0, -0.06 - i * 0.02, bD / 2 + 0.006, 0.002));   // vent louvres
   const keyLock = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.008, 16), steel);
   keyLock.rotation.x = Math.PI / 2;
-  keyLock.position.set(0.085, -0.13, 0.068);
-  batt.add(keyLock);
-  group.add(tag(batt, 'battery'));
+  keyLock.position.set(0.085, -0.13, bD / 2 + 0.008);
+  battDoor.attachFront(keyLock);
+  battDoor.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = 'battery'; } });
+  // internals
+  const bIn = new THREE.Group();
+  bIn.add(rbox(bW - 0.02, bH - 0.02, 0.003, plate, 0, 0, -bD / 2 + 0.006, 0.001));       // mounting plate
+  const packTex = document.createElement('canvas');
+  packTex.width = 320; packTex.height = 200;
+  const pk = packTex.getContext('2d');
+  pk.fillStyle = '#1e4fa3'; pk.fillRect(0, 0, 320, 200);
+  pk.fillStyle = '#fff'; pk.textAlign = 'center';
+  pk.font = `700 40px ${FONT}`; pk.fillText('LiFePO4', 160, 80);
+  pk.font = `500 30px ${FONT}`; pk.fillText('12.8V · 20Ah', 160, 130);
+  pk.font = `400 22px ${FONT}`; pk.fillText('BMS ในตัว', 160, 170);
+  const pkT = new THREE.CanvasTexture(packTex); pkT.colorSpace = THREE.SRGBColorSpace;
+  const packBlue = new THREE.MeshStandardMaterial({ color: 0x1e4fa3, roughness: 0.5 });
+  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.13, 0.09), [packBlue, packBlue, packBlue, packBlue, new THREE.MeshStandardMaterial({ map: pkT, roughness: 0.5 }), packBlue]);
+  pack.position.set(0, -0.075, -0.012);
+  bIn.add(pack);
+  for (const [x, c] of [[-0.06, 0xd42a1e], [0.06, 0x111111]]) {          // terminals
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.012, 12), new THREE.MeshStandardMaterial({ color: c, roughness: 0.4 }));
+    t.position.set(x, -0.004, -0.012);
+    bIn.add(t);
+  }
+  const mppt = new THREE.Group();
+  mppt.position.set(-0.015, 0.085, -0.035);
+  mppt.add(rbox(0.13, 0.075, 0.035, chip, 0, 0, 0, 0.004));
+  for (let i = 0; i < 7; i++) mppt.add(rbox(0.004, 0.07, 0.012, chip, -0.054 + i * 0.018, 0, -0.022, 0.001));   // heat-sink fins
+  const mpptScr = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.025), new THREE.MeshBasicMaterial({ color: 0x38bdf8, toneMapped: false }));
+  mpptScr.position.set(-0.025, 0.012, 0.018);
+  mppt.add(mpptScr);
+  bIn.add(mppt);
+  for (const x of [0.07, 0.09]) bIn.add(rbox(0.017, 0.045, 0.035, new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.4 }), x, 0.085, -0.035, 0.002));   // DC breakers
+  bIn.add(rbox(0.16, 0.008, 0.004, new THREE.MeshStandardMaterial({ color: 0xb87333, metalness: 0.9, roughness: 0.3 }), 0, 0.03, -0.055, 0.001));   // busbar
+  bIn.add(wire(0xd42a1e, -0.06, 0.002, -0.012, -0.04, 0.05, -0.035));
+  bIn.add(wire(0x111111, 0.06, 0.002, -0.012, 0.01, 0.05, -0.035));
+  bIn.add(wire(0xd42a1e, 0.08, 0.11, -0.035, 0.08, 0.155, -0.035));         // from solar (top gland)
+  bIn.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = 'batteryInside'; } });
+  batt.add(bIn);
+  label(batt, 'แบต LiFePO4 12.8V 20Ah', 0, -0.075, 0.04);
+  label(batt, 'MPPT ชาร์จจากโซลาร์', -0.015, 0.125, 0);
+  label(batt, 'เบรกเกอร์ DC', 0.08, 0.04, 0);
+  group.add(batt);
 
   // conduits: rounded-corner tubes between the boxes
   function conduit(pts, part) {
@@ -149,7 +241,8 @@ export function buildHardware(station) {
   conduit([V(X0 - 0.04, 0.83, 0.05), V(X0 - 0.04, 0.87, 0.05), V(X0 - 0.04, 0.87, poleZ + 0.02), V(poleX, 0.87, poleZ + 0.02)], 'cableBeacon'); // unit -> pole -> beacon
 
   /* ---------- wireless fill sensors under each lid (battery + LoRa, no cable) ---------- */
-  const sensorBody = new THREE.MeshStandardMaterial({ color: 0xe3e6e9, roughness: 0.45 });
+  const sensorBody = new THREE.MeshStandardMaterial({ color: 0xe3e6e9, roughness: 0.45, transparent: true, opacity: 1 });
+  const cellMat2 = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.4 });
   const eyeMat = new THREE.MeshStandardMaterial({ color: 0x7d868e, metalness: 0.7, roughness: 0.3 });
   const ledMat = new THREE.MeshStandardMaterial({ color: 0x14532d, emissive: 0x22c55e, emissiveIntensity: 1.5 });
   const sensorLabel = document.createElement('canvas');
@@ -179,7 +272,15 @@ export function buildHardware(station) {
     ant.rotation.z = Math.PI / 2;
     ant.position.set(0, -0.006, 0.05);
     s.add(ant);
+    // internals (seen through the cover in "look inside" mode)
+    s.add(rbox(0.09, 0.003, 0.06, pcb, 0, -0.008, 0, 0.001));
+    const cell = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.05, 16), cellMat2);
+    cell.rotation.z = Math.PI / 2;
+    cell.position.set(0, -0.019, -0.018);
+    s.add(cell);
+    s.add(rbox(0.02, 0.004, 0.016, shield, 0.025, -0.012, 0.012, 0.001));     // LoRa radio
     s.traverse((m) => { if (m.isMesh) m.userData.part = 'sensor'; });
+    if (bin === station.bins[0]) label(s, 'เซ็นเซอร์: ถ่านลิเธียม + บอร์ด LoRa + หัววัดอัลตราโซนิก', 0, -0.06, 0);
     s.position.set(0, 0, 0.1);
     bin.userData.lidPivot.add(s);
   }
@@ -200,29 +301,32 @@ export function buildHardware(station) {
   const unit = new THREE.Group();
   unit.position.set(-L / 2 - 0.006 - 0.035, 0.68, 0.12);
   unit.rotation.y = -Math.PI / 2;               // local +Z now faces world -X
-  const housing = rbox(0.22, 0.3, 0.07, new THREE.MeshStandardMaterial({ color: 0x2f3439, metalness: 0.3, roughness: 0.45 }), 0, 0, 0, 0.012);
-  housing.userData.part = 'unit';
-  unit.add(housing);
+  const uW = 0.22, uH = 0.3, uD = 0.07;
+  const unitShell = new THREE.MeshStandardMaterial({ color: 0x2f3439, metalness: 0.3, roughness: 0.45 });
+  unit.add(enclosure(uW, uH, uD, unitShell, 'unit'));
+  const unitDoor = door(unit, uW, uH, uD, unitShell, 'unit', 1);   // hinge toward the front so it doesn't cover the battery box
+  doors.push(unitDoor);
   // screen
   const scr = document.createElement('canvas');
   scr.width = 360; scr.height = 240;
   const screenTex = new THREE.CanvasTexture(scr);
   screenTex.colorSpace = THREE.SRGBColorSpace;
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.12), new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false }));
-  screen.position.set(0, 0.065, 0.0355);
+  screen.position.set(0, 0.065, 0.0395);
   screen.userData.part = 'unit';
-  unit.add(screen);
+  unitDoor.attachFront(screen);
   // call button: red mushroom in a yellow ring
   const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.012, 32), new THREE.MeshStandardMaterial({ color: 0xf2c200, roughness: 0.5 }));
   ring.rotation.x = Math.PI / 2;
-  ring.position.set(0, -0.06, 0.04);
-  unit.add(ring);
+  ring.position.set(0, -0.06, 0.044);
+  unitDoor.attachFront(ring);
   const btnMat = new THREE.MeshStandardMaterial({ color: 0xd42a1e, emissive: 0x7a0d06, emissiveIntensity: 0.4, roughness: 0.35 });
   const button = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.028, 0.022, 32), btnMat);
   button.rotation.x = Math.PI / 2;
-  button.position.set(0, -0.06, 0.055);
+  button.position.set(0, -0.06, 0.059);
   button.userData.part = 'callButton';
-  unit.add(button);
+  unitDoor.attachFront(button);
+  const buttonZ = button.position.z;
   // caption plate under the button
   const cap2 = document.createElement('canvas');
   cap2.width = 440; cap2.height = 80;
@@ -234,8 +338,31 @@ export function buildHardware(station) {
   const capTex = new THREE.CanvasTexture(cap2);
   capTex.colorSpace = THREE.SRGBColorSpace;
   const capPlate = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.033), new THREE.MeshStandardMaterial({ map: capTex, roughness: 0.7 }));
-  capPlate.position.set(0, -0.122, 0.0355);
-  unit.add(capPlate);
+  capPlate.position.set(0, -0.122, 0.0395);
+  unitDoor.attachFront(capPlate);
+  // internals: controller board with MCU, LTE modem, LoRa gateway radio, DC-DC, beacon relay, terminals
+  const uIn = new THREE.Group();
+  uIn.add(rbox(uW - 0.02, uH - 0.02, 0.003, plate, 0, 0, -uD / 2 + 0.006, 0.001));
+  uIn.add(rbox(0.17, 0.12, 0.003, pcb, 0, 0.05, -0.028, 0.001));
+  uIn.add(rbox(0.026, 0.026, 0.004, chip, -0.045, 0.065, -0.025, 0.001));                 // MCU
+  uIn.add(rbox(0.046, 0.036, 0.006, shield, 0.035, 0.075, -0.024, 0.001));               // LTE modem
+  uIn.add(rbox(0.012, 0.016, 0.003, new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.3 }), 0.07, 0.04, -0.025, 0.001));   // SIM
+  uIn.add(rbox(0.032, 0.026, 0.005, shield, 0.03, 0.02, -0.024, 0.001));                 // LoRa gateway radio
+  uIn.add(wire(0x222222, 0.03, 0.033, -0.022, 0.07, 0.148, -0.01, 0.0018));             // coax to antenna
+  uIn.add(rbox(0.04, 0.026, 0.016, new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.5 }), -0.05, 0.01, -0.02, 0.002));   // DC-DC
+  uIn.add(rbox(0.026, 0.022, 0.016, chip, -0.055, -0.045, -0.02, 0.002));               // beacon relay
+  const tbMat = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.5 });
+  const tbOrange = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.5 });
+  for (let i = 0; i < 7; i++) uIn.add(rbox(0.016, 0.022, 0.018, i % 3 === 0 ? tbOrange : tbMat, -0.054 + i * 0.018, -0.095, -0.02, 0.002));   // terminal blocks
+  for (const [x, c] of [[-0.036, 0xd42a1e], [-0.018, 0x111111], [0.018, 0x2563eb], [0.036, 0x16a34a]]) uIn.add(wire(c, x, -0.106, -0.02, x, -0.148, -0.02));
+  uIn.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = 'unitInside'; } });
+  unit.add(uIn);
+  label(unit, 'MCU ควบคุมหลัก', -0.05, 0.085, 0.01);
+  label(unit, 'โมดูล 4G LTE → แดชบอร์ด', 0.04, 0.125, 0.01);
+  label(unit, 'LoRa รับสัญญาณเซ็นเซอร์', 0.035, -0.005, 0.01);
+  label(unit, 'DC-DC 12→5V', -0.06, 0.0, 0.01);
+  label(unit, 'รีเลย์ไฟแจ้งเตือน', -0.055, -0.065, 0.01);
+  label(unit, 'ขั้วต่อสาย', 0, -0.125, 0.01);
   // LoRa gateway + LTE antenna on top of the unit
   const antBase = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.02, 16), dark);
   antBase.position.set(0.07, 0.16, 0);
@@ -243,6 +370,7 @@ export function buildHardware(station) {
   whip.position.set(0.07, 0.25, 0);
   unit.add(antBase, whip);
   unit.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.userData.part ??= 'unit'; } });
+  button.userData.part = 'callButton';
   group.add(unit);
 
   function drawScreen(state) {
@@ -303,9 +431,31 @@ export function buildHardware(station) {
     button,
     apply,
     press() { pressT = 0.25; },
-    // returns true while animating (blink / button travel)
+    toggleUnit() { unitDoor.userData.target = unitDoor.userData.target ? 0 : 1; },
+    toggleBattery() { battDoor.userData.target = battDoor.userData.target ? 0 : 1; },
+    setInsideView(v) {
+      doors.forEach((d) => (d.userData.target = v ? 1 : 0));
+      sensorBody.opacity = v ? 0.25 : 1;
+      sensorBody.depthWrite = !v;
+    },
+    isInsideView: () => doors.some((d) => d.userData.target),
+    // returns 2 = doors moved (shadows), 1 = repaint only (blink / button), 0 = idle
     update(dt) {
       let moving = false;
+      let res = 0;
+      for (const d of doors) {
+        const u = d.userData;
+        if (Math.abs(u.target - u.open) > 1e-4) {
+          u.open += (u.target - u.open) * Math.min(1, dt * 5);
+          if (Math.abs(u.target - u.open) <= 1e-4) u.open = u.target;
+          d.rotation.y = u.side * u.open * 1.9;
+          res = 2;
+        }
+      }
+      const showLabels = doors.some((d) => d.userData.open > 0.6) || sensorBody.opacity < 1;
+      for (const l of insideLabels) {
+        if (l.visible !== showLabels) { l.visible = showLabels; res = Math.max(res, 1); }
+      }
       if (blink) {
         blinkT += dt;
         const on = Math.sin(blinkT * Math.PI * 2 * 1.2) > 0;
@@ -317,10 +467,10 @@ export function buildHardware(station) {
       }
       if (pressT > 0) {
         pressT = Math.max(0, pressT - dt);
-        button.position.z = 0.055 - 0.012 * Math.sin((pressT / 0.25) * Math.PI);
+        button.position.z = buttonZ - 0.012 * Math.sin((pressT / 0.25) * Math.PI);
         moving = true;
       }
-      return moving;
+      return Math.max(res, moving ? 1 : 0);
     },
   };
 }
