@@ -368,7 +368,7 @@ const VIEWS = {
   back: [[-2.8, 2.0, -4.2], [0, 0.75, 0]],
   composter: [[COMPOSTER_X + 1.6, 1.9, 2.8], [COMPOSTER_X, 0.65, 0.1]],
   truck: [[-5.6, 3.2, -8.2], [0, 0.8, -1.8]],
-  tray: [[-L / 4 - 0.75, 0.14, 1.85], [-L / 4, 0.2, 0.25]],
+  tray: [[-L / 2 - 0.5, 0.11, 0.3], [-L / 4, 0.12, 0.05]],          // from the side, under the deck, past the step
   smart: [[-L / 2 - 1.25, 1.35, 0.55], [-L / 2, 0.95, -0.03]],
 };
 document.querySelectorAll('[data-view]').forEach((btn) =>

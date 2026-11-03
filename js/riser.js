@@ -13,7 +13,7 @@ export const RISER = {
   beam: 0.07,
   stepHeight: 0.16,
   stepDepth: 0.26,
-  tray: { w: 0.62, d: 0.42, h: 0.08, travel: 0.32 },   // slides out above the step (1 cm clearance)
+  tray: { w: 0.62, d: 0.42, h: 0.08, travel: 0.26, clearance: 0.08 },   // 8 cm off the ground; stops short of the step
 };
 
 function label(lines, w, h, bg, fg) {
@@ -107,14 +107,20 @@ export function buildRiser(renderer, stationLength, stationDepth) {
 
   // two lockable service trays hanging under the deck
   const T = R.tray;
-  const trayTop = H - R.deck - R.beam;
-  const trayY = trayTop - T.h / 2 - 0.004;
+  // trays hang low: entry holes ~11 cm up so rodents reach them, 8 cm clear of the ground for sweeping/hosing
+  const beamBottom = H - R.deck - R.beam;
+  const trayY = T.clearance + T.h / 2;
+  const trayTop = trayY + T.h / 2 + 0.004;           // top of the guide rails
   const trayBodyMat = new THREE.MeshStandardMaterial({ color: 0x4f5a52, metalness: 0.35, roughness: 0.55 });
   const trayLabel = label([['ถาดบริการ · ควบคุมสัตว์พาหะ', 0.3, 600], ['เฉพาะเจ้าหน้าที่ · ล็อกกุญแจ', 0.24, 400]], T.w - 0.06, 0.045, '#e9e4d4', '#2b2b2b');
   const trays = [];
   for (const cx of [-W / 4, W / 4]) {
-    // guide rails fixed to the deck (open sides keep the entry holes visible)
-    for (const sx of [-1, 1]) group.add(rbox(0.02, 0.03, T.d + 0.04, dark, cx + sx * (T.w / 2 + 0.012), trayTop - 0.015, 0, 0.003));
+    // guide rails at tray level, hung from the deck beams on flat-bar hangers (open sides keep the holes visible)
+    for (const sx of [-1, 1]) {
+      const rx = cx + sx * (T.w / 2 + 0.012);
+      group.add(rbox(0.02, 0.03, T.d + 0.04, dark, rx, trayTop - 0.015, 0, 0.003));
+      for (const sz of [-1, 1]) group.add(rbox(0.02, beamBottom - trayTop, 0.006, dark, rx, (beamBottom + trayTop) / 2, sz * (T.d / 2 + 0.012), 0.002));
+    }
 
     const drawer = new THREE.Group();
     drawer.position.set(cx, trayY, 0);
