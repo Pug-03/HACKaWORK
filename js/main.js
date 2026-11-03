@@ -411,6 +411,7 @@ for (let i = 0; i < 4; i++) {
   $(`fill-${i}`).addEventListener('input', (e) => { smart.fills[i] = +e.target.value; applySmart(); });
 }
 $('btn-call').addEventListener('click', requestPickup);
+$('btn-flaps').addEventListener('click', () => station.bins.forEach(pushFlap));   // keyboard/touch equivalent of clicking a flap
 $('btn-collected').addEventListener('click', markCollected);
 channel?.addEventListener('message', (e) => {
   if (e.data?.type === 'collected' && e.data.id === STATION_ID) markCollected();
