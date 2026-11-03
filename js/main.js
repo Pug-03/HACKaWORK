@@ -248,7 +248,7 @@ function processHover() {
     tooltip.style.top = `${e.clientY + 14}px`;
   } else tooltip.hidden = true;
 }
-renderer.domElement.addEventListener('pointerleave', () => (tooltip.hidden = true));
+renderer.domElement.addEventListener('pointerleave', () => { hoverEvent = null; tooltip.hidden = true; });   // drop the queued hover so it can't reappear over the UI
 
 /* ---------- UI ---------- */
 const $ = (id) => document.getElementById(id);
