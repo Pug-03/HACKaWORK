@@ -1,0 +1,421 @@
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { CONFIG } from './config.js';
+import { buildStation } from './binStation.js';
+import { buildEnvironment } from './environment.js';
+import { buildRiser, RISER } from './riser.js';
+import { buildHardware } from './hardware.js';
+import { buildComposter, COMPOSTER } from './composter.js';
+
+await Promise.all([
+  document.fonts.load('600 80px Kanit'),
+  document.fonts.load('500 30px Kanit'),
+]).catch(() => {});
+
+const viewport = document.getElementById('viewport');
+
+/* ---------- renderer / scene ---------- */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+const DPR = Math.min(devicePixelRatio, 1.5);   // 1.5 is visually close to 2 at ~half the pixels
+renderer.setPixelRatio(DPR);
+renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;           // shadows re-rendered only when something moves
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 1.0;
+viewport.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(viewport.clientWidth, viewport.clientHeight);
+labelRenderer.domElement.className = 'labels';
+viewport.appendChild(labelRenderer.domElement);
+
+const scene = new THREE.Scene();
+// render-on-demand flags (see loop below); declared early because setup code calls invalidate()
+let dirty = true, shadowsDirty = true, needHQ = true, lastMotion = 0;
+
+const camera = new THREE.PerspectiveCamera(38, viewport.clientWidth / viewport.clientHeight, 0.05, 100);
+camera.position.set(3.6, 2.1, 4.2);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0.4, 0.7, 0);
+controls.enableDamping = true;
+controls.minDistance = 0.8;
+controls.maxDistance = 14;
+controls.maxPolarAngle = Math.PI / 2 - 0.02;
+controls.autoRotateSpeed = 1.2;
+
+/* ---------- station ---------- */
+const station = buildStation(renderer);
+const L = station.length, D = CONFIG.frame.depth, H = CONFIG.frame.height;
+const env = buildEnvironment(scene, renderer, L, D);
+const B = CONFIG.bin;
+const lidTopOnPad = env.padHeight + CONFIG.frame.footHeight + 0.008 + B.rimHeight + 0.005 + B.lidThickness + B.hoodHeight;
+scene.add(station.group);
+
+// separate raised anti-rodent base; the station is placed on top of it
+const riser = buildRiser(renderer, L, D);
+riser.group.position.y = env.padHeight;
+scene.add(riser.group);
+let riserOn = true, dimsRef = null;
+const lift = () => (riserOn ? RISER.height : 0);
+function placeStation() {
+  station.group.position.y = env.padHeight + lift();
+  riser.group.visible = riserOn;
+  if (dimsRef) dimsRef.position.y = lift();
+}
+placeStation();
+
+// smart hardware rides with the station
+const hardware = buildHardware(station);
+station.group.add(hardware.group);
+
+// stand-alone composter cabinet beside the station
+const composter = buildComposter(renderer);
+const COMPOSTER_X = L / 2 + 0.95;
+composter.group.position.set(COMPOSTER_X, 0, 0.05);
+scene.add(composter.group);
+
+
+/* ---------- dimension lines ---------- */
+const dims = new THREE.Group();
+const dimMat = new THREE.LineBasicMaterial({ color: 0xd1301f, depthTest: false });
+
+function dimLine(a, b, text, tick) {
+  const g = new THREE.Group();
+  const pts = [a, b];
+  for (const p of [a, b]) pts.push(p.clone().add(tick), p.clone().sub(tick));
+  const geo = new THREE.BufferGeometry().setFromPoints([a, b, pts[2], pts[3], pts[4], pts[5]]);
+  const line = new THREE.LineSegments(geo, dimMat);
+  line.renderOrder = 10;
+  g.add(line);
+  const el = document.createElement('div');
+  el.className = 'dim';
+  el.textContent = text;
+  const lbl = new CSS2DObject(el);
+  lbl.position.copy(a).add(b).multiplyScalar(0.5);
+  g.add(lbl);
+  return g;
+}
+const fmt = (m) => `${(m * 100).toFixed(0)} ซม.`;
+const off = 0.18;
+dims.add(dimLine(new THREE.Vector3(-L / 2, 0.01, D / 2 + off), new THREE.Vector3(L / 2, 0.01, D / 2 + off), `ยาว ${fmt(L)}`, new THREE.Vector3(0, 0, 0.05)));
+dims.add(dimLine(new THREE.Vector3(L / 2 + off, 0.01, D / 2), new THREE.Vector3(L / 2 + off, 0.01, -D / 2), `ลึก ${fmt(D)}`, new THREE.Vector3(0.05, 0, 0)));
+dims.add(dimLine(new THREE.Vector3(L / 2 + off, 0, D / 2), new THREE.Vector3(L / 2 + off, H, D / 2), `สูงโครง ${fmt(H)}`, new THREE.Vector3(0.05, 0, 0)));
+dims.add(dimLine(new THREE.Vector3(-L / 2 - off, 0, -0.05), new THREE.Vector3(-L / 2 - off, lidTopOnPad, -0.05), `สูงรวมถัง ${fmt(lidTopOnPad)}`, new THREE.Vector3(0.05, 0, 0)));
+let x = -L / 2;
+for (const bay of CONFIG.bays) {
+  dims.add(dimLine(new THREE.Vector3(x, H + 0.25, D / 2), new THREE.Vector3(x + bay.width, H + 0.25, D / 2), fmt(bay.width), new THREE.Vector3(0, 0.03, 0)));
+  x += bay.width;
+}
+dims.visible = false;
+scene.add(dims);
+dimsRef = dims;
+placeStation();
+
+/* ---------- 1.70 m human for scale ---------- */
+const human = new THREE.Group();
+{
+  const hh = CONFIG.humanHeight;
+  const mat = new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.8, transparent: true, opacity: 0.85 });
+  const head = 0.23;
+  const legs = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, hh * 0.47 - 0.22, 4, 12), mat);
+  legs.position.y = hh * 0.47 / 2 + 0.0;
+  legs.scale.x = 1.5;
+  // torso spans from hips (~0.46 h) up to the chin (~0.865 h)
+  const t0 = hh * 0.46, t1 = hh - head + 0.02;
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, t1 - t0 - 0.32, 4, 12), mat);
+  torso.position.y = (t0 + t1) / 2;
+  torso.scale.z = 0.65;
+  const h = new THREE.Mesh(new THREE.SphereGeometry(head / 2, 20, 16), mat);
+  h.position.y = hh - head / 2;
+  for (const m of [legs, torso, h]) { m.castShadow = true; human.add(m); }
+  const el = document.createElement('div');
+  el.className = 'dim human';
+  el.textContent = `คน ${fmt(hh)}`;
+  const lbl = new CSS2DObject(el);
+  lbl.position.y = hh + 0.12;
+  human.add(lbl);
+  human.position.set(-L / 2 - 0.65, 0, 0.35);
+  human.visible = false;
+  scene.add(human);
+}
+
+/* ---------- interaction: click a bin to open/close its lid ---------- */
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let downAt = null;
+const tooltip = document.getElementById('tooltip');
+const bayNames = Object.fromEntries(CONFIG.bays.map((b) => [b.id, `${b.th} · ${b.en}`]));
+const PART_TIPS = {
+  callButton: 'ปุ่มเรียกรถเก็บนอกรอบ · ค่าบริการ 500 บาท — คลิกเพื่อกด',
+  unit: 'กล่องควบคุม · เซ็นเซอร์ระดับขยะ + ส่งข้อมูลเข้าแดชบอร์ดเขต',
+  tray: 'ถาดบริการใต้ฐาน (ล็อกกุญแจ) — คลิกเพื่อเปิด/ปิด',
+  riser: `ฐานยกกันหนู สูง ${RISER.height * 100} ซม. · ใต้ฐานโล่ง ทำความสะอาดง่าย`,
+  composter: `เครื่องหมักปุ๋ยจากเศษอาหาร ${COMPOSTER.capacityL} ลิตร`,
+  hatch: 'ช่องเติมเศษอาหาร — คลิกเพื่อเปิด/ปิด',
+  composterStart: 'ปุ่มเดินเครื่องหมัก — คลิกเพื่อเริ่ม/หยุด',
+};
+const CLICKABLE = new Set(['callButton', 'tray', 'hatch', 'composterStart']);
+
+function pick(ev) {
+  const r = renderer.domElement.getBoundingClientRect();
+  pointer.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+  const isShown = (o) => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+  const targets = [station.group, composter.group];
+  if (riserOn) targets.push(riser.group);
+  const hit = raycaster.intersectObjects(targets, true).find((h) => {
+    const m = Array.isArray(h.object.material) ? h.object.material[h.face?.materialIndex ?? 0] : h.object.material;
+    return isShown(h.object) && m && m.visible;
+  });
+  if (!hit) return {};
+  let o = hit.object, bin = null, bayId = null, part = null;
+  while (o) {
+    if (o.userData.part) part ??= o.userData.part;
+    if (o.userData.bayId) bayId ??= o.userData.bayId;
+    if (station.bins.includes(o)) bin = o;
+    o = o.parent;
+  }
+  if (part && part !== 'unit') bin = null;   // hardware parts take priority over the bin under them
+  return { bin, bayId, part };
+}
+renderer.domElement.addEventListener('pointerdown', (e) => (downAt = [e.clientX, e.clientY]));
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
+  const { bin, part } = pick(e);
+  if (part === 'callButton') requestPickup();
+  else if (part === 'tray') { riser.setTraysOpen(!riser.trays[0].userData.target); syncAll(); }
+  else if (part === 'hatch') { composter.toggleHatch(); syncAll(); }
+  else if (part === 'composterStart') { composter.setRunning(!composter.isRunning()); syncAll(); }
+  else if (bin) bin.userData.target = bin.userData.target ? 0 : 1;
+  syncAll();
+  invalidate(true);
+});
+let hoverEvent = null;
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (e.buttons) { tooltip.hidden = true; hoverEvent = null; return; }
+  hoverEvent = e;                       // processed once per frame in the loop
+});
+function processHover() {
+  const e = hoverEvent;
+  hoverEvent = null;
+  const { bin, bayId, part } = pick(e);
+  const partText = PART_TIPS[part];
+  const clickable = bin || CLICKABLE.has(part);
+  renderer.domElement.style.cursor = clickable ? 'pointer' : 'grab';
+  if (partText || bayId) {
+    tooltip.hidden = false;
+    tooltip.textContent = partText || bayNames[bayId] + (bin ? ' — คลิกเพื่อเปิด/ปิดฝา' : '');
+    tooltip.style.left = `${e.clientX + 14}px`;
+    tooltip.style.top = `${e.clientY + 14}px`;
+  } else tooltip.hidden = true;
+}
+renderer.domElement.addEventListener('pointerleave', () => (tooltip.hidden = true));
+
+/* ---------- UI ---------- */
+const $ = (id) => document.getElementById(id);
+let cutaway = false;
+const hatchOpen = () => composter.isHatchOpen();
+function bindToggle(id, get, set) {
+  const el = $(id);
+  const sync = () => el.setAttribute('aria-pressed', String(get()));
+  el.addEventListener('click', () => { set(!get()); sync(); invalidate(true); });
+  sync();
+  return sync;
+}
+bindToggle('t-rotate', () => controls.autoRotate, (v) => (controls.autoRotate = v));
+bindToggle('t-dims', () => dims.visible, (v) => (dims.visible = v));
+bindToggle('t-human', () => human.visible, (v) => (human.visible = v));
+bindToggle('t-bags', () => station.bagPile.visible, (v) => (station.bagPile.visible = v));
+const anyOpen = () => station.bins.some((b) => b.userData.target);
+const syncers = [];
+syncers.push(bindToggle('t-lids', anyOpen, (v) => station.bins.forEach((b) => (b.userData.target = v ? 1 : 0))));
+syncers.push(bindToggle('t-riser', () => riserOn, (v) => { riserOn = v; placeStation(); }));
+syncers.push(bindToggle('t-trays', () => !!riser.trays[0].userData.target, (v) => { if (!riserOn && v) { riserOn = true; placeStation(); } riser.setTraysOpen(v); }));
+syncers.push(bindToggle('t-comp-run', () => composter.isRunning(), (v) => composter.setRunning(v)));
+syncers.push(bindToggle('t-comp-cut', () => cutaway, (v) => { cutaway = v; composter.setCutaway(v); }));
+syncers.push(bindToggle('t-comp-hatch', () => hatchOpen(), () => composter.toggleHatch()));
+function syncAll() { syncers.forEach((f) => f()); }
+
+// camera presets
+let flight = null;
+const VIEWS = {
+  front: [[0, 1.2, 5.4], [0, 0.75, 0]],
+  side: [[5.2, 1.2, 0], [0, 0.75, 0]],
+  top: [[0, 6.2, 0.01], [0, 0.6, 0]],
+  iso: [[3.6, 2.1, 4.2], [0.4, 0.7, 0]],
+  back: [[-2.8, 2.0, -4.2], [0, 0.75, 0]],
+  composter: [[L / 2 + 0.95 + 1.2, 1.5, 1.9], [L / 2 + 0.95, 0.6, 0.05]],
+  smart: [[-L / 2 - 1.4, 1.5, 1.0], [-L / 2, 0.95, 0]],
+};
+document.querySelectorAll('[data-view]').forEach((btn) =>
+  btn.addEventListener('click', () => {
+    const [pos, tgt] = VIEWS[btn.dataset.view];
+    flight = { from: camera.position.clone(), to: new THREE.Vector3(...pos), t: 0,
+               tFrom: controls.target.clone(), tTo: new THREE.Vector3(...tgt) };
+    invalidate();
+  })
+);
+
+// spec sheet
+$('spec').innerHTML = `
+  <div><dt>ยาวรวม</dt><dd>${fmt(L)}</dd></div>
+  <div><dt>ลึก</dt><dd>${fmt(D)}</dd></div>
+  <div><dt>สูงโครง</dt><dd>${fmt(H)}</dd></div>
+  <div><dt>สูงรวมถัง</dt><dd>${fmt(lidTopOnPad)}</dd></div>
+  <div><dt>ฐานยกกันหนู</dt><dd>${fmt(RISER.height)}</dd></div>
+  <div><dt>ถังล้อเลื่อน</dt><dd>${CONFIG.bin.capacityL} ลิตร × 3</dd></div>
+  <div><dt>รุ่นถัง</dt><dd>${CONFIG.bin.model} (50×55×110)</dd></div>
+  <div><dt>เครื่องหมักปุ๋ย</dt><dd>${COMPOSTER.capacityL} ลิตร · ~${COMPOSTER.dailyKg} กก./วัน</dd></div>`;
+
+/* ---------- smart system simulation (shared with dashboard.html) ---------- */
+const STATION_ID = 'BKK-PTW-001';
+const smart = {
+  id: STATION_ID, name: 'สถานีจำลอง 3D · หน้าสยาม', district: 'ปทุมวัน',
+  fills: [35, 62, 48, 30], status: 'collected', callRequested: false,
+  lastPickup: Date.now() - 3 * 3600e3, requests: [],
+};
+const channel = 'BroadcastChannel' in window ? new BroadcastChannel('hackawork') : null;
+function publish() {
+  const payload = JSON.stringify(smart);
+  try { localStorage.setItem('hackawork-station', payload); } catch {}
+  channel?.postMessage({ type: 'station', station: smart });
+}
+function applySmart() {
+  smart.status = smart.callRequested || smart.fills.some((f) => f >= 80) ? 'pending' : 'collected';
+  hardware.apply(smart);
+  smart.fills.forEach((f, i) => {
+    const r = $(`fill-${i}`);
+    if (r && +r.value !== Math.round(f)) r.value = Math.round(f);
+    const o = $(`fill-${i}-out`);
+    if (o) o.textContent = `${Math.round(f)}%`;
+  });
+  const chip = $('status-chip');
+  chip.dataset.state = smart.status;
+  chip.textContent = smart.callRequested ? 'เรียกรถนอกรอบแล้ว · รอรถ' : smart.status === 'pending' ? 'ไฟแดง · รอรถมาเก็บ' : 'ไฟเขียว · เก็บแล้ว';
+  publish();
+  invalidate(true);
+}
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (t.hidden = true), 4200);
+}
+function requestPickup() {
+  hardware.press();
+  if (smart.callRequested) { toast('ส่งคำขอไปแล้ว · รถมินิ EV กำลังมา'); return; }
+  smart.callRequested = true;
+  smart.requests.push({ at: Date.now(), fee: 500 });
+  toast('ส่งคำขอเรียกรถเก็บนอกรอบแล้ว · ค่าบริการ 500 บาท · แจ้งเขตปทุมวันแล้ว');
+  applySmart();
+}
+function markCollected() {
+  smart.fills = smart.fills.map(() => 3);
+  smart.callRequested = false;
+  smart.lastPickup = Date.now();
+  toast('รถมาเก็บแล้ว · ไฟเปลี่ยนเป็นสีเขียว');
+  applySmart();
+}
+for (let i = 0; i < 4; i++) {
+  $(`fill-${i}`).addEventListener('input', (e) => { smart.fills[i] = +e.target.value; applySmart(); });
+}
+$('btn-call').addEventListener('click', requestPickup);
+$('btn-collected').addEventListener('click', markCollected);
+channel?.addEventListener('message', (e) => {
+  if (e.data?.type === 'collected' && e.data.id === STATION_ID) markCollected();
+  if (e.data?.type === 'hello') publish();
+});
+if (innerWidth < 640) $('smart').open = false;
+applySmart();
+
+/* ---------- post: ambient occlusion for contact shadows in corners/gaps ---------- */
+const composer = new EffectComposer(renderer);
+composer.setPixelRatio(DPR);
+composer.setSize(viewport.clientWidth, viewport.clientHeight);
+composer.addPass(new RenderPass(scene, camera));
+const ao = new GTAOPass(scene, camera, viewport.clientWidth, viewport.clientHeight);
+ao.updateGtaoMaterial({ radius: 0.25, distanceExponent: 1.5, thickness: 1, scale: 1.2, samples: 12 });
+ao.blendIntensity = 0.85;
+composer.addPass(ao);
+composer.addPass(new OutputPass());
+
+/* ---------- loop: render on demand ----------
+   Idle: nothing is drawn. While the camera or a lid moves: fast render (no AO).
+   ~150 ms after motion stops: one high-quality frame with ambient occlusion. */
+function invalidate(sceneChanged = false) {
+  dirty = true;
+  if (sceneChanged) shadowsDirty = true;
+}
+controls.addEventListener('change', () => invalidate());
+
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const now = performance.now();
+
+  for (const b of station.bins) {
+    const u = b.userData;
+    if (Math.abs(u.target - u.open) > 1e-4) {
+      u.open += (u.target - u.open) * Math.min(1, dt * 6);
+      if (Math.abs(u.target - u.open) <= 1e-4) u.open = u.target;
+      u.lidPivot.rotation.x = -u.open * CONFIG.bin.openAngle;
+      invalidate(true);
+    }
+  }
+  if (flight) {
+    flight.t = Math.min(1, flight.t + dt * 1.4);
+    const k = 1 - Math.pow(1 - flight.t, 3);
+    camera.position.lerpVectors(flight.from, flight.to, k);
+    controls.target.lerpVectors(flight.tFrom, flight.tTo, k);
+    if (flight.t >= 1) flight = null;
+    dirty = true;
+  }
+  if (riser.update(dt)) invalidate(true);
+  if (hardware.update(dt)) invalidate();
+  const c = composter.update(dt);
+  if (c) invalidate(c === 2);
+  controls.update();                    // fires 'change' while damping / auto-rotating
+  if (hoverEvent) processHover();
+
+  if (dirty) {
+    if (shadowsDirty) { renderer.shadowMap.needsUpdate = true; shadowsDirty = false; }
+    renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
+    dirty = false;
+    needHQ = true;
+    lastMotion = now;
+  } else if (needHQ && now - lastMotion > 150) {
+    composer.render();
+    labelRenderer.render(scene, camera);
+    needHQ = false;
+  }
+}
+animate();
+
+new ResizeObserver(() => {
+  const w = viewport.clientWidth, h = viewport.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
+  labelRenderer.setSize(w, h);
+  invalidate();
+}).observe(viewport);
+
+document.body.classList.add('ready');
+setTimeout(() => ($('loading').hidden = true), 500);
+
+// expose for future features / debugging
+// call HACKaWORK.invalidate(true) after changing the scene from outside so it re-renders
+window.HACKaWORK = { scene, camera, controls, station, riser, hardware, composter, smart, CONFIG, invalidate };

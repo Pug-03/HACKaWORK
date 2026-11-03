@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HACKaWORK · District Waste Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f3f5f7; --card: #ffffff; --ink: #1c2127; --muted: #5f6873; --line: #e3e7eb;
+    --red: #dc2626; --amber: #d97706; --green: #16a34a; --blue: #1d55c0;
+    --c0: #e0ad00; --c1: #2f9e45; --c2: #2f7bd0; --c3: #8c9196;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: Kanit, Thonburi, system-ui, sans-serif; font-size: 14px; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 20px 16px 40px; }
+  header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  header small { color: var(--muted); letter-spacing: .14em; font-weight: 500; font-size: 12px; }
+  h1 { margin: 2px 0 0; font-size: clamp(20px, 3vw, 28px); font-weight: 600; }
+  .sim { display: inline-block; margin-left: 8px; font-size: 12px; font-weight: 500; color: #8a5a00; background: #fff4d6; border: 1px solid #f2d48a; padding: 2px 8px; border-radius: 999px; vertical-align: middle; }
+  .controls { display: flex; gap: 8px; align-items: center; }
+  select, .btn { font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink); }
+  .btn { cursor: pointer; }
+  .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .btn.ok { background: var(--green); border-color: var(--green); color: #fff; }
+  .btn:focus-visible, select:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .kpi span { display: block; color: var(--muted); font-size: 13px; }
+  .kpi b { display: block; font-size: 28px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .kpi em { font-style: normal; font-size: 12px; color: var(--muted); }
+  .kpi.alert b { color: var(--red); }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 16px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 15px; font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .card h2 small { font-weight: 400; color: var(--muted); font-size: 12px; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 640px; }
+  th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 8px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tr.live td { background: #f4f8ff; }
+  tr.live td:first-child { box-shadow: inset 3px 0 0 var(--blue); }
+  .name { font-weight: 500; }
+  .loc { color: var(--muted); font-size: 12px; }
+  .bars { display: grid; grid-template-columns: repeat(4, 34px); gap: 4px; align-items: end; height: 34px; }
+  .bar { position: relative; height: 34px; background: #eef1f4; border-radius: 4px; overflow: hidden; }
+  .bar i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 4px 4px 0 0; }
+  .bar.full i { background: var(--red) !important; }
+  .max { font-variant-numeric: tabular-nums; font-weight: 500; }
+  .chip { display: inline-block; font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .chip.green { background: #dcfce7; color: #166534; }
+  .chip.red { background: #fee2e2; color: #991b1b; }
+  .chip.call { background: var(--red); color: #fff; }
+  .chip.amber { background: #fef3c7; color: #92400e; }
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+  .queue { display: grid; gap: 10px; }
+  .job { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; }
+  .job .who { font-weight: 500; }
+  .job .meta { color: var(--muted); font-size: 12px; grid-column: 1 / -1; }
+  .job .eta { font-variant-numeric: tabular-nums; font-weight: 500; }
+  .job.call { border-color: #fca5a5; background: #fff7f7; }
+  .empty { color: var(--muted); padding: 16px 0; text-align: center; }
+  .fleet { display: grid; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 13px; }
+  .fleet div { display: flex; justify-content: space-between; }
+  .note { margin-top: 16px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <small>HACKaWORK · กทม.</small>
+      <h1>แดชบอร์ดจัดการขยะรายเขต <span class="sim">ข้อมูลจำลอง</span></h1>
+    </div>
+    <div class="controls">
+      <label for="district" class="loc">เขต</label>
+      <select id="district">
+        <option>ปทุมวัน</option><option>บางรัก</option><option>สาทร</option><option>ราชเทวี</option>
+      </select>
+      <a class="btn" href="./index.html">กลับไปหน้า 3D</a>
+    </div>
+  </header>
+
+  <section class="kpis" aria-label="ภาพรวม">
+    <div class="kpi"><span>สถานีในเขต</span><b id="k-stations">0</b><em>ส่งข้อมูลทุก 5 นาที</em></div>
+    <div class="kpi alert"><span>ถังใกล้เต็ม (≥ 80%)</span><b id="k-full">0</b><em>ต้องจัดรถเพิ่ม</em></div>
+    <div class="kpi"><span>คำขอเก็บนอกรอบวันนี้</span><b id="k-calls">0</b><em>ผ่านปุ่มที่ถัง</em></div>
+    <div class="kpi"><span>รายได้ค่าบริการวันนี้</span><b id="k-revenue">0</b><em>500 บาท / ครั้ง</em></div>
+    <div class="kpi"><span>ปุ๋ยหมักวันนี้</span><b id="k-compost">0</b><em>กก. จากเครื่องหมัก</em></div>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <h2>สถานะถังรายสถานี <small id="updated">อัปเดตล่าสุด —</small></h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>สถานี</th><th>ระดับขยะ</th><th>สูงสุด</th><th>สถานะไฟ</th><th>รอบเก็บถัดไป</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--c0)"></i>รีไซเคิล</span>
+        <span><i style="background:var(--c1)"></i>เศษอาหาร</span>
+        <span><i style="background:var(--c2)"></i>ทั่วไป</span>
+        <span><i style="background:var(--c3)"></i>ถุงดำ</span>
+        <span><i style="background:var(--red)"></i>≥ 80%</span>
+      </div>
+    </section>
+
+    <aside class="card">
+      <h2>คิวรถเก็บขยะมินิ EV <small>เรียงตามความเร่งด่วน</small></h2>
+      <div class="queue" id="queue"></div>
+      <div class="fleet" id="fleet"></div>
+    </aside>
+  </div>
+
+  <p class="note">
+    รอบเก็บปกติในหน้านี้เป็นค่าตัวอย่าง (06:00 · 14:00 · 22:00) ปรับตามรอบจริงของแต่ละเขตได้ ·
+    สถานีแถบสีฟ้าเชื่อมกับหน้า 3D แบบสด ลองเลื่อนระดับขยะหรือกดปุ่มเรียกรถในหน้า 3D แล้วดูที่นี่
+  </p>
+</div>
+
+<script>
+  // ---------- simulated district data ----------
+  const ROUNDS = [6, 14, 22];
+  const PLACES = {
+    'ปทุมวัน': ['หน้าสยามพารากอน', 'สามย่าน', 'ถ.พญาไท', 'สนามกีฬาแห่งชาติ', 'ราชประสงค์', 'ถ.บรรทัดทอง', 'จุฬาฯ ซ.5', 'เพลินจิต', 'ลุมพินี', 'สวนหลวง'],
+    'บางรัก': ['สีลม ซ.4', 'สุรวงศ์', 'เจริญกรุง 36', 'ช่องนนทรี', 'สะพานตากสิน', 'ถ.มเหสักข์', 'สามย่าน (ฝั่งบางรัก)', 'ถ.ศรีเวียง'],
+    'สาทร': ['สาทรใต้', 'ช่องนนทรี', 'ถ.จันทน์', 'ซ.สวนพลู', 'เซนต์หลุยส์', 'ถ.นราธิวาสฯ', 'วัดดอน'],
+    'ราชเทวี': ['อนุสาวรีย์ชัยฯ', 'ประตูน้ำ', 'ถ.เพชรบุรี', 'ราชปรารภ', 'พญาไท', 'ถ.ศรีอยุธยา', 'มักกะสัน', 'ถ.ราชวิถี'],
+  };
+  const CODE = { 'ปทุมวัน': 'PTW', 'บางรัก': 'BRK', 'สาทร': 'STN', 'ราชเทวี': 'RTW' };
+  let seed = 11;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+
+  const state = { district: 'ปทุมวัน', stations: [], live: null, compostKg: 0 };
+  function makeStations(d) {
+    seed = d.length * 977;
+    return PLACES[d].map((p, i) => ({
+      id: `BKK-${CODE[d]}-${String(i + 2).padStart(3, '0')}`,
+      name: `สถานี ${p}`, district: d,
+      fills: [0, 1, 2, 3].map(() => Math.round(10 + rnd() * 75)),
+      rate: 0.4 + rnd() * 1.2,
+      callRequested: rnd() < 0.12,
+      requests: [],
+    })).map((s) => { if (s.callRequested) s.requests.push({ at: Date.now() - rnd() * 3600e3, fee: 500 }); return s; });
+  }
+
+  function nextRound(now = new Date()) {
+    const h = now.getHours() + now.getMinutes() / 60;
+    const next = ROUNDS.find((r) => r > h) ?? ROUNDS[0] + 24;
+    const mins = Math.round((next - h) * 60);
+    return { label: `${String(next % 24).padStart(2, '0')}:00`, mins };
+  }
+  const statusOf = (s) => (s.callRequested || s.fills.some((f) => f >= 80) ? 'pending' : 'collected');
+
+  // ---------- live link with the 3D page ----------
+  const ch = 'BroadcastChannel' in window ? new BroadcastChannel('hackawork') : null;
+  function takeLive(st) { if (st && st.district === state.district) state.live = st; else if (st) state.liveOther = st; render(); }
+  ch?.addEventListener('message', (e) => { if (e.data?.type === 'station') takeLive(e.data.station); });
+  addEventListener('storage', (e) => { if (e.key === 'hackawork-station' && e.newValue) takeLive(JSON.parse(e.newValue)); });
+  try { const saved = localStorage.getItem('hackawork-station'); if (saved) state.live = JSON.parse(saved); } catch {}
+  ch?.postMessage({ type: 'hello' });
+
+  function collect(id) {
+    if (state.live && id === state.live.id) {
+      ch?.postMessage({ type: 'collected', id });
+      return;
+    }
+    const s = state.stations.find((x) => x.id === id);
+    if (!s) return;
+    s.fills = s.fills.map(() => 3);
+    s.callRequested = false;
+    render();
+  }
+
+  // ---------- render ----------
+  const $ = (id) => document.getElementById(id);
+  const COLORS = ['var(--c0)', 'var(--c1)', 'var(--c2)', 'var(--c3)'];
+  function allStations() {
+    const list = [...state.stations];
+    if (state.live && state.live.district === state.district) list.unshift({ ...state.live, live: true });
+    return list;
+  }
+  function render() {
+    const list = allStations();
+    const round = nextRound();
+    $('rows').innerHTML = list.map((s) => {
+      const st = statusOf(s), max = Math.max(...s.fills);
+      const chip = s.callRequested ? '<span class="chip call">เรียกนอกรอบ</span>'
+        : st === 'pending' ? '<span class="chip red">ไฟแดง · รอเก็บ</span>' : '<span class="chip green">ไฟเขียว</span>';
+      const bars = s.fills.map((f, i) => `<div class="bar ${f >= 80 ? 'full' : ''}" title="${Math.round(f)}%"><i style="height:${f}%;background:${COLORS[i]}"></i></div>`).join('');
+      const action = st === 'pending' ? `<button class="btn ok" data-collect="${s.id}">ยืนยันเก็บแล้ว</button>` : '';
+      return `<tr class="${s.live ? 'live' : ''}">
+        <td><div class="name">${s.name}${s.live ? ' · สด' : ''}</div><div class="loc">${s.id}</div></td>
+        <td><div class="bars">${bars}</div></td>
+        <td class="max">${Math.round(max)}%</td>
+        <td>${chip}</td>
+        <td>${round.label} <span class="loc">(อีก ${Math.floor(round.mins / 60)} ชม. ${round.mins % 60} น.)</span></td>
+        <td>${action}</td></tr>`;
+    }).join('');
+
+    // dispatch queue: out-of-round calls first, then fullest bins
+    const pending = list.filter((s) => statusOf(s) === 'pending')
+      .sort((a, b) => (b.callRequested - a.callRequested) || (Math.max(...b.fills) - Math.max(...a.fills)));
+    const trucks = ['EV-01', 'EV-02', 'EV-03'];
+    $('queue').innerHTML = pending.length ? pending.map((s, i) => {
+      const truck = trucks[i % trucks.length], eta = 8 + Math.floor(i / trucks.length) * 15 + (i % trucks.length) * 4;
+      return `<div class="job ${s.callRequested ? 'call' : ''}">
+        <span class="who">${s.name}</span><span class="eta">~${eta} น.</span>
+        <span class="meta">${truck} · ${s.callRequested ? 'คำขอนอกรอบ 500 บาท' : `ถังเต็ม ${Math.round(Math.max(...s.fills))}%`} · ${s.id}</span>
+      </div>`;
+    }).join('') : '<div class="empty">ไม่มีงานค้าง · ทุกถังไฟเขียว</div>';
+    const busy = new Set(pending.map((_, i) => trucks[i % trucks.length]));
+    $('fleet').innerHTML = trucks.map((t) => `<div><span>${t} · รถไฟฟ้ามินิ 500 กก.</span><span class="chip ${busy.has(t) ? 'amber' : 'green'}">${busy.has(t) ? 'ออกงาน' : 'ว่าง'}</span></div>`).join('');
+
+    const calls = list.reduce((n, s) => n + (s.requests?.length || 0), 0);
+    $('k-stations').textContent = list.length;
+    $('k-full').textContent = list.filter((s) => s.fills.some((f) => f >= 80)).length;
+    $('k-calls').textContent = calls;
+    $('k-revenue').textContent = `${(calls * 500).toLocaleString('th-TH')} ฿`;
+    $('k-compost').textContent = state.compostKg.toFixed(1);
+    $('updated').textContent = `อัปเดตล่าสุด ${new Date().toLocaleTimeString('th-TH')}`;
+  }
+
+  $('rows').addEventListener('click', (e) => {
+    const id = e.target.closest('[data-collect]')?.dataset.collect;
+    if (id) collect(id);
+  });
+  $('district').addEventListener('change', (e) => {
+    state.district = e.target.value;
+    state.stations = makeStations(state.district);
+    if (state.liveOther?.district === state.district) state.live = state.liveOther;
+    render();
+  });
+
+  // bins fill slowly over time; compost output accumulates
+  setInterval(() => {
+    for (const s of state.stations) s.fills = s.fills.map((f) => Math.min(100, f + s.rate * Math.random()));
+    state.compostKg += 0.05 + Math.random() * 0.05;
+    render();
+  }, 3000);
+
+  state.stations = makeStations(state.district);
+  state.compostKg = 4.2;
+  render();
+</script>
+</body>
+</html>
