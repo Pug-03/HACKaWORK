@@ -257,7 +257,8 @@ const hatchOpen = () => composter.isHatchOpen();
 function bindToggle(id, get, set) {
   const el = $(id);
   const sync = () => el.setAttribute('aria-pressed', String(get()));
-  el.addEventListener('click', () => { set(!get()); sync(); invalidate(true); });
+  // a toggle can change other state too (e.g. trays switch the riser on), so resync every toggle
+  el.addEventListener('click', () => { set(!get()); sync(); syncAll(); invalidate(true); });
   sync();
   return sync;
 }

@@ -54,6 +54,7 @@ export function buildHardware(station) {
     return hinge;
   }
   const doors = [];
+  let insideMode = false;
   const pcb = new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.6 });
   const chip = new THREE.MeshStandardMaterial({ color: 0x111317, roughness: 0.4 });
   const shield = new THREE.MeshStandardMaterial({ color: 0xc9cdd1, metalness: 0.9, roughness: 0.25 });
@@ -435,11 +436,12 @@ export function buildHardware(station) {
     toggleUnit() { unitDoor.userData.target = unitDoor.userData.target ? 0 : 1; },
     toggleBattery() { battDoor.userData.target = battDoor.userData.target ? 0 : 1; },
     setInsideView(v) {
+      insideMode = v;
       doors.forEach((d) => (d.userData.target = v ? 1 : 0));
       sensorBody.opacity = v ? 0.25 : 1;
       sensorBody.depthWrite = !v;
     },
-    isInsideView: () => doors.some((d) => d.userData.target),
+    isInsideView: () => insideMode,   // the "look inside" mode itself; single doors can still be opened by clicking
     // returns 2 = doors moved (shadows), 1 = repaint (button travel / labels), 3 = beacon flip only, 0 = idle
     update(dt) {
       let moving = false, lightFlip = false;
