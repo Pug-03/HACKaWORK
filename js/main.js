@@ -79,8 +79,8 @@ station.group.add(hardware.group);
 
 // stand-alone composter cabinet beside the station
 const composter = buildComposter(renderer);
-const COMPOSTER_X = L / 2 + 0.95;
-composter.group.position.set(COMPOSTER_X, 0, 0.05);
+const COMPOSTER_X = L / 2 + 0.5 + COMPOSTER.width / 2;   // 0.5 m walkway beside the station
+composter.group.position.set(COMPOSTER_X, 0, 0.1);
 scene.add(composter.group);
 
 // electric mini garbage truck: drives along the road behind the station on out-of-round calls
@@ -277,7 +277,7 @@ const VIEWS = {
   top: [[0, 6.2, 0.01], [0, 0.6, 0]],
   iso: [[3.6, 2.1, 4.2], [0.4, 0.7, 0]],
   back: [[-2.8, 2.0, -4.2], [0, 0.75, 0]],
-  composter: [[L / 2 + 0.95 + 1.2, 1.5, 1.9], [L / 2 + 0.95, 0.6, 0.05]],
+  composter: [[COMPOSTER_X + 1.6, 1.9, 2.8], [COMPOSTER_X, 0.65, 0.1]],
   truck: [[-5.6, 3.2, -8.2], [0, 0.8, -1.8]],
   smart: [[-L / 2 - 1.4, 1.5, 1.0], [-L / 2, 0.95, 0]],
 };

@@ -21,7 +21,7 @@ ES modules need a local server (opening index.html directly via file:// will not
 - `js/main.js` — scene, camera, controls, dimension lines, scale figure, interaction, smart-system simulation
 - `js/riser.js` — separate raised anti-rodent base (legs with rat guards, front step, two lockable service trays)
 - `js/hardware.js` — beacon (red = waiting for pickup, green = collected), solar panel, fill sensors under lids, control unit with screen and 500 THB call button
-- `js/composter.js` — stand-alone 40 L food-waste composter (heated drum, paddle rotor, top hatch, compost drawer, BMA branding + order phone placeholder)
+- `js/composter.js` — stand-alone 200 L food-waste composter (heated drum, paddle rotor, top hatch, compost drawer, BMA branding + order phone placeholder)
 - `js/truck.js` — electric mini garbage truck that drives in on an out-of-round call and leaves when pickup is confirmed
 - `js/geom.js` — rounded boxes and creased-normal smoothing helpers
 - `js/environment.js` — sidewalk, curb, road, pad, lights
@@ -37,5 +37,5 @@ Bays: 3 x 0.58 m + 0.90 m = 2.64 m long, 0.70 m deep, 0.89 m frame height (bin c
 ## Notes
 
 - The composter's phone number is a placeholder (`COMPOSTER.phone` in `js/composter.js`).
-- A 40 L drum realistically handles about 10 kg of food waste per day.
+- The 200 L drum handles about 50 kg of food waste per day.
 - Regular collection rounds on the dashboard (06:00, 14:00, 22:00) are example values.
