@@ -9,11 +9,7 @@ const cache = new Map();
 export function roundedBoxGeometry(w, h, d, radius = 0.004) {
   const r = Math.max(0.0005, Math.min(radius, Math.min(w, h, d) / 2 - 0.0002));
   const key = [w, h, d, r].map((n) => n.toFixed(5)).join('|');
-  // tiny parts: a plain box is indistinguishable; small radii: 1 segment; larger: 2 (was 3 everywhere, ~590 tris/box)
-  if (!cache.has(key)) {
-    const big = Math.max(w, h, d);
-    cache.set(key, r < 0.0015 || big < 0.02 ? new THREE.BoxGeometry(w, h, d) : new RoundedBoxGeometry(w, h, d, r < 0.004 ? 1 : 2, r));
-  }
+  if (!cache.has(key)) cache.set(key, new RoundedBoxGeometry(w, h, d, 3, r));
   return cache.get(key);
 }
 
