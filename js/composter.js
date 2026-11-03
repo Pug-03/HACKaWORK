@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { rbox } from './geom.js';
 import { makeBrushedTexture } from './textures.js';
+import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
 // Stand-alone food-waste composter cabinet (separate unit beside the bin station).
 // 200 L horizontal stainless drum (~50 kg food waste/day) with a heated jacket and a rotating paddle shaft.
@@ -197,65 +198,200 @@ export function buildComposter(renderer) {
   const DRAWER_TRAVEL = 0.5;
   group.add(drawer);
 
-  /* ---------- interior: drum, paddles, heater, motor ---------- */
+  /* ---------- interior: in-vessel composting mechanism ----------
+     Drum axis runs along X. In cutaway mode the cabinet front and the drum's front half are
+     removed so the mechanism is visible (no transparency). */
   const inside = new THREE.Group();
   const R = C.drum.radius, Lg = C.drum.length, dy = C.drum.y, dz = -0.02;
+  const steelIn = new THREE.MeshStandardMaterial({ color: 0xc9ced3, metalness: 0.85, roughness: 0.3, side: THREE.DoubleSide });
   const capMat = new THREE.MeshStandardMaterial({ color: 0x8e959b, metalness: 0.8, roughness: 0.4, side: THREE.DoubleSide });
-  const drumMat = new THREE.MeshStandardMaterial({ color: 0xd5d9dd, metalness: 0.9, roughness: 0.25, transparent: true, opacity: 1, side: THREE.DoubleSide });
-  const drum = new THREE.Mesh(new THREE.CylinderGeometry(R, R, Lg, 48, 1, true), drumMat);
-  drum.rotation.z = Math.PI / 2;
-  drum.position.set(0, dy, dz);
-  inside.add(drum);
+  const drumMat = steelIn;   // kept for compatibility with older code paths
+  const along = (m) => { m.rotation.z = Math.PI / 2; m.position.set(0, dy, dz); return m; };   // cylinder axis -> X
+  // drum shell in two halves (theta 0 = front / +Z)
+  const drumBack = along(new THREE.Mesh(new THREE.CylinderGeometry(R, R, Lg, 48, 1, true, Math.PI / 2, Math.PI), steelIn));
+  const drumFront = along(new THREE.Mesh(new THREE.CylinderGeometry(R, R, Lg, 48, 1, true, -Math.PI / 2, Math.PI), steelIn));
+  inside.add(drumBack, drumFront);
   for (const sx of [-1, 1]) {
-    const cap = new THREE.Mesh(new THREE.CircleGeometry(R, 48), capMat);   // double-sided: visible through the see-through drum
+    const cap = new THREE.Mesh(new THREE.CircleGeometry(R, 48), capMat);
     cap.rotation.y = sx * Math.PI / 2;
     cap.position.set(sx * Lg / 2, dy, dz);
     inside.add(cap);
+    const flange = new THREE.Mesh(new THREE.TorusGeometry(R, 0.01, 8, 48), capMat);
+    flange.rotation.y = Math.PI / 2;
+    flange.position.set(sx * Lg / 2, dy, dz);
+    inside.add(flange);
   }
-  // compost bed (lower ~45 % of the drum)
-  const bed = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.004, R - 0.004, Lg - 0.01, 40, 1, false, Math.PI * 0.62, Math.PI * 0.76),
-    new THREE.MeshStandardMaterial({ color: 0x4a3423, roughness: 1 }));
-  bed.rotation.z = Math.PI / 2;
-  bed.position.set(0, dy, dz);
-  inside.add(bed);
-  // heater bands around the drum
-  const heatMat = new THREE.MeshStandardMaterial({ color: 0x5a2a10, emissive: 0xff5a00, emissiveIntensity: 0, roughness: 0.5 });
-  for (const x of [-Lg / 3, 0, Lg / 3]) {
-    const band = new THREE.Mesh(new THREE.TorusGeometry(R + 0.006, 0.006, 8, 48), heatMat);
-    band.rotation.y = Math.PI / 2;
-    band.position.set(x, dy, dz);
-    inside.add(band);
+  // heater pads wrapped round the lower half + insulation blanket behind
+  const heatMat = new THREE.MeshStandardMaterial({ color: 0x6b2a12, emissive: 0xff5a00, emissiveIntensity: 0, roughness: 0.6, side: THREE.DoubleSide });
+  inside.add(along(new THREE.Mesh(new THREE.CylinderGeometry(R + 0.005, R + 0.005, Lg - 0.08, 40, 1, true, Math.PI * 1.2, Math.PI * 0.6), heatMat)));
+  const insul = new THREE.MeshStandardMaterial({ color: 0x55595e, roughness: 0.95, side: THREE.DoubleSide });
+  inside.add(along(new THREE.Mesh(new THREE.CylinderGeometry(R + 0.03, R + 0.03, Lg - 0.02, 40, 1, true, Math.PI / 2, Math.PI), insul)));
+  // compost bed: solid circular segment filling ~45 % of the drum
+  {
+    const r = R - 0.006, c = -R * 0.12, a = Math.asin(c / r);
+    const sh = new THREE.Shape();
+    sh.absarc(0, 0, r, Math.PI - a, 2 * Math.PI + a, false);
+    sh.closePath();
+    const depth = Lg - 0.02;
+    const bedGeo = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: false, curveSegments: 32 });
+    const bed = new THREE.Mesh(bedGeo, new THREE.MeshStandardMaterial({ color: 0x4a3423, roughness: 1 }));
+    bed.rotation.y = Math.PI / 2;
+    bed.position.set(-depth / 2, dy, dz);
+    inside.add(bed);
   }
-  // paddle shaft
+  // rotor: shaft + double helical ribbon on spokes (ribbon mixer), turns slowly and reverses
   const rotor = new THREE.Group();
   rotor.position.set(0, dy, dz);
-  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, Lg + 0.08, 16), ssDark);
+  const shaftLen = Lg + 0.26;
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, shaftLen, 16), steelIn);
   shaft.rotation.z = Math.PI / 2;
+  shaft.position.x = 0.04;
   rotor.add(shaft);
-  const ARMS = 6;
-  for (let i = 0; i < ARMS; i++) {
-    const arm = new THREE.Group();
-    arm.rotation.x = (i / ARMS) * Math.PI * 2;
-    arm.position.x = -Lg * 0.4 + i * (Lg * 0.8 / (ARMS - 1));
-    arm.add(rbox(0.012, R - 0.03, 0.012, ssDark, 0, (R - 0.03) / 2, 0, 0.003));
-    const blade = rbox(0.1, 0.012, 0.07, ssDark, 0, R - 0.025, 0, 0.003);
-    blade.rotation.y = 0.5;
-    arm.add(blade);
-    rotor.add(arm);
+  const ribbonMat = new THREE.MeshStandardMaterial({ color: 0xb8bec4, metalness: 0.85, roughness: 0.35 });
+  for (const [rh, phase] of [[R - 0.035, 0], [R * 0.55, Math.PI]]) {
+    const turns = 1.5, len = Lg * 0.88;
+    const pts = [];
+    for (let i = 0; i <= 120; i++) {
+      const u = i / 120, ang = phase + u * turns * Math.PI * 2;
+      pts.push(new THREE.Vector3(-len / 2 + u * len, Math.cos(ang) * rh, Math.sin(ang) * rh));
+    }
+    const ribbon = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 160, 0.009, 8, false), ribbonMat);
+    ribbon.scale.set(1, 1, 1);
+    rotor.add(ribbon);
+    // spokes tying the ribbon to the shaft every half turn
+    for (let k = 0; k <= turns * 2; k++) {
+      const u = k / (turns * 2), ang = phase + u * turns * Math.PI * 2;
+      const spoke = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, rh, 8), ribbonMat);
+      spoke.position.set(-len / 2 + u * len, Math.cos(ang) * rh / 2, Math.sin(ang) * rh / 2);
+      spoke.rotation.x = ang;
+      rotor.add(spoke);
+    }
   }
   inside.add(rotor);
-  // drum cradle + gear motor on the right
-  // shelf separating the drum compartment from the drawer bay, with the drum cradles on top
+  // shelf over the drawer bay, with the discharge opening under the drum
   const shelfY = drawerY1 + 0.005;
-  inside.add(rbox(W - 2 * t, 0.01, Dd - 2 * t, ssDark, 0, shelfY, 0, 0.003));
-  const cradleH = dy - R - shelfY - 0.005;
-  for (const sx of [-1, 1]) inside.add(rbox(0.04, cradleH, 0.45, ssDark, sx * (Lg / 2 - 0.03), shelfY + 0.005 + cradleH / 2, dz, 0.004));
-  const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.09, 24), new THREE.MeshStandardMaterial({ color: 0x2f5d8a, metalness: 0.4, roughness: 0.45 }));
-  motor.rotation.z = Math.PI / 2;
-  motor.position.set(Lg / 2 + 0.06, dy, dz);                  // gear motor, inside the cabinet wall
-  inside.add(motor);
+  {
+    const shelfShape = new THREE.Shape();
+    const sw = (W - 2 * t) / 2, sd = (Dd - 2 * t) / 2;
+    shelfShape.moveTo(-sw, -sd); shelfShape.lineTo(sw, -sd); shelfShape.lineTo(sw, sd); shelfShape.lineTo(-sw, sd); shelfShape.closePath();
+    const hole = new THREE.Path();
+    hole.moveTo(-0.16, -dz - 0.07); hole.lineTo(0.16, -dz - 0.07); hole.lineTo(0.16, -dz + 0.07); hole.lineTo(-0.16, -dz + 0.07); hole.closePath();
+    shelfShape.holes.push(hole);
+    const shelf = new THREE.Mesh(new THREE.ExtrudeGeometry(shelfShape, { depth: 0.01, bevelEnabled: false }), ssDark);
+    shelf.rotation.x = Math.PI / 2;              // shape Y -> -Z, extrude -> -Y
+    shelf.position.y = shelfY + 0.005;
+    inside.add(shelf);
+  }
+  // discharge slide gate (opens when the drawer is pulled out) and short chute
+  const gate = rbox(0.34, 0.008, 0.16, ssDark, 0, dy - R - 0.012, dz, 0.003);
+  inside.add(gate);
+  for (const sx of [-1, 1]) inside.add(rbox(0.008, dy - R - shelfY, 0.16, ssDark, sx * 0.165, (dy - R + shelfY) / 2, dz, 0.002));
+  // pillow-block bearings on stands
+  const bearingMat = new THREE.MeshStandardMaterial({ color: 0x2f3b4a, metalness: 0.5, roughness: 0.45 });
+  for (const sx of [-1, 1]) {
+    const bx = sx * (Lg / 2 + 0.045);
+    inside.add(rbox(0.05, 0.07, 0.11, bearingMat, bx, dy, dz, 0.008));
+    inside.add(rbox(0.04, dy - 0.035 - shelfY, 0.08, ssDark, bx, (dy - 0.035 + shelfY) / 2, dz, 0.004));
+  }
+  // chain drive: big sprocket on the shaft, gear motor below, roller chain loop
+  const sprocketMat = new THREE.MeshStandardMaterial({ color: 0x6b7178, metalness: 0.9, roughness: 0.3 });
+  const sx = Lg / 2 + 0.12, motorY = dy - 0.19, r1 = 0.07, r2 = 0.035;
+  const disc = (r, mat) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.012, 36), mat); m.rotation.z = Math.PI / 2; return m; };
+  const sprocketA = new THREE.Group();
+  sprocketA.position.set(sx, dy, dz);
+  sprocketA.add(disc(r1, sprocketMat));
+  for (let i = 0; i < 18; i++) {
+    const tooth = rbox(0.012, 0.014, 0.01, sprocketMat, 0, Math.cos((i / 18) * Math.PI * 2) * (r1 + 0.005), Math.sin((i / 18) * Math.PI * 2) * (r1 + 0.005), 0.002);
+    tooth.rotation.x = -(i / 18) * Math.PI * 2;
+    sprocketA.add(tooth);
+  }
+  inside.add(sprocketA);
+  const sprocketB = new THREE.Group();
+  sprocketB.position.set(sx, motorY, dz);
+  sprocketB.add(disc(r2, sprocketMat));
+  inside.add(sprocketB);
+  {
+    // chain path: top arc round A, straight down, bottom arc round B, straight up (in the YZ plane)
+    const pts = [], seg = 24, dyAB = dy - motorY, ang = Math.asin((r1 - r2) / dyAB);
+    for (let i = 0; i <= seg; i++) { const a = -ang + (i / seg) * (Math.PI + 2 * ang); pts.push(new THREE.Vector3(sx, dy + Math.sin(a) * r1, dz + Math.cos(a) * r1)); }
+    for (let i = 0; i <= seg; i++) { const a = Math.PI + ang + (i / seg) * (Math.PI - 2 * ang); pts.push(new THREE.Vector3(sx, motorY + Math.sin(a) * r2, dz + Math.cos(a) * r2)); }
+    const chain = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 120, 0.005, 6, true), new THREE.MeshStandardMaterial({ color: 0x2a2d31, metalness: 0.7, roughness: 0.4 }));
+    inside.add(chain);
+  }
+  const motorMat = new THREE.MeshStandardMaterial({ color: 0x2f5d8a, metalness: 0.4, roughness: 0.45 });
+  inside.add(rbox(0.07, 0.09, 0.09, motorMat, sx - 0.045, motorY, dz, 0.01));                  // gearbox
+  const motorCan = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.16, 24), motorMat);
+  motorCan.rotation.x = Math.PI / 2;
+  motorCan.position.set(sx - 0.045, motorY, dz - 0.12);
+  inside.add(motorCan);
+  // exhaust: drum vent stub -> activated-carbon filter -> fan behind the side louvres
+  const ductMat = new THREE.MeshStandardMaterial({ color: 0x9aa1a7, metalness: 0.6, roughness: 0.45 });
+  const filterX = -0.42, filterZ = -0.26, filterY = 0.98;
+  const filter = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.22, 24), new THREE.MeshStandardMaterial({ color: 0x1f2326, roughness: 0.7 }));
+  filter.position.set(filterX, filterY, filterZ);
+  inside.add(filter);
+  const fanX = W / 2 - t - 0.05, fanY = H * 0.62 + 0.09, fanZ = -0.05;
+  const duct = (pts) => inside.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.1), 64, 0.022, 12, false), ductMat));
+  duct([new THREE.Vector3(-0.38, dy + R - 0.01, dz), new THREE.Vector3(-0.38, dy + R + 0.08, dz), new THREE.Vector3(filterX, filterY - 0.14, filterZ + 0.05), new THREE.Vector3(filterX, filterY - 0.11, filterZ)]);
+  duct([new THREE.Vector3(filterX, filterY + 0.11, filterZ), new THREE.Vector3(filterX + 0.05, filterY + 0.15, filterZ), new THREE.Vector3(0.0, filterY + 0.16, filterZ), new THREE.Vector3(fanX - 0.06, fanY + 0.05, fanZ - 0.1), new THREE.Vector3(fanX - 0.03, fanY, fanZ)]);
+  const fanRing = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.01, 8, 32), ductMat);
+  fanRing.rotation.y = Math.PI / 2;
+  fanRing.position.set(fanX, fanY, fanZ);
+  inside.add(fanRing);
+  const fan = new THREE.Group();
+  fan.position.set(fanX, fanY, fanZ);
+  for (let i = 0; i < 5; i++) {
+    const blade = rbox(0.004, 0.06, 0.03, new THREE.MeshStandardMaterial({ color: 0x2b2e33, roughness: 0.5 }), 0, 0.035, 0, 0.002);
+    const holder = new THREE.Group();
+    holder.rotation.x = (i / 5) * Math.PI * 2;
+    blade.rotation.y = 0.4;
+    holder.add(blade);
+    fan.add(holder);
+  }
+  inside.add(fan);
+  // temperature / moisture probe through the drum top
+  const probeX = 0.2;
+  const probe = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.2, 10), sprocketMat);
+  probe.position.set(probeX, dy + R - 0.02, dz - 0.12);
+  inside.add(probe);
+  inside.add(rbox(0.04, 0.03, 0.04, new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.5 }), probeX, dy + R + 0.09, dz - 0.12, 0.006));
+  // PLC / control box on the back wall
+  const plc = new THREE.Group();
+  plc.position.set(0.25, 1.03, -Dd / 2 + t + 0.045);
+  plc.add(rbox(0.26, 0.16, 0.08, new THREE.MeshStandardMaterial({ color: 0xd4d7da, roughness: 0.6 }), 0, 0, 0, 0.006));
+  const din = [[0x2f6f3e, 0.05], [0x1f2937, 0.03], [0x1f2937, 0.03], [0xd97706, 0.025], [0x334155, 0.04]];
+  let xx = -0.1;
+  for (const [c, w] of din) { plc.add(rbox(w, 0.09, 0.03, new THREE.MeshStandardMaterial({ color: c, roughness: 0.5 }), xx + w / 2, 0, 0.05, 0.002)); xx += w + 0.006; }
+  inside.add(plc);
+
   inside.traverse((o) => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
   group.add(inside);
+
+  // labels for the cutaway view
+  const cutLabels = [];
+  const cutLabel = (text, x, y, z) => {
+    const el = document.createElement('div');
+    el.className = 'dim hw';
+    el.textContent = text;
+    const o = new CSS2DObject(el);
+    o.position.set(x, y, z);
+    o.visible = false;
+    group.add(o);
+    cutLabels.push(o);
+  };
+  cutLabel(`ถังหมักสแตนเลส ${C.capacityL} ลิตร`, -0.25, dy + R + 0.03, dz + 0.1);
+  cutLabel('ใบกวนเกลียวริบบอน (หมุนสลับทิศ)', 0.05, dy + 0.02, dz + 0.2);
+  cutLabel('แผ่นฮีตเตอร์ 55–65°C + ฉนวน', -0.1, dy - R + 0.02, dz + 0.2);
+  cutLabel('มอเตอร์เกียร์ + โซ่ขับ', sx - 0.05, motorY - 0.06, dz + 0.1);
+  cutLabel('ตลับลูกปืน', -(Lg / 2 + 0.045), dy + 0.06, dz + 0.05);
+  cutLabel('ฟิลเตอร์คาร์บอนดับกลิ่น', filterX, filterY + 0.14, filterZ + 0.1);
+  cutLabel('พัดลมดูดอากาศ', fanX - 0.05, fanY - 0.1, fanZ + 0.05);
+  cutLabel('หัววัดอุณหภูมิ/ความชื้น', probeX, dy + R + 0.12, dz - 0.08);
+  cutLabel('ตู้ควบคุม PLC', 0.25, 1.13, -Dd / 2 + 0.1);
+  cutLabel('ปล่องเติมเศษอาหาร (จากฝาด้านบน)', 0, H - 0.2, hatchZ + 0.1);
+  cutLabel('ประตูปล่อยปุ๋ยลงลิ้นชัก', 0.22, dy - R - 0.05, dz + 0.16);
+  // the control-panel strip also comes off in cutaway so the PLC and carbon filter behind it show
+  const frontTop = group.children.filter((o) => o !== inside && o.position.y >= ctrlY0 - 0.02 && o.position.z >= Dd / 2 - t - 0.002);
 
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.part ??= 'composter'; } });
 
@@ -276,12 +412,13 @@ export function buildComposter(renderer) {
   }
   drawScreen();
 
+  // cutaway = remove the branding panel and the drum's front half (no transparency, so AO stays clean)
   function setCutaway(v) {
     cutaway = v;
-    frontMat.opacity = brandFace.opacity = v ? 0.12 : 1;
-    frontMat.depthWrite = brandFace.depthWrite = !v;
-    drumMat.opacity = v ? 0.35 : 1;
-    drumMat.depthWrite = !v;
+    brandPanel.visible = !v;
+    frontTop.forEach((o) => (o.visible = !v));
+    drumFront.visible = !v;
+    cutLabels.forEach((l) => (l.visible = v));
   }
 
   return {
@@ -311,14 +448,21 @@ export function buildComposter(renderer) {
         drawer.position.z = drawerZ + d.open * DRAWER_TRAVEL;
         res = 2;
       }
-      const heat = running ? 1.2 : 0;
+      const gz = dz + d.open * 0.16;                 // discharge gate slides open with the drawer
+      if (gate.position.z !== gz) { gate.position.z = gz; res = Math.max(res, 2); }
+      const heat = running ? 0.9 : 0;
       if (heatMat.emissiveIntensity !== heat) {
         heatMat.emissiveIntensity = heat; ledHeat.emissiveIntensity = heat * 1.5;
         res = Math.max(res, 1);
       }
       if (running) {
         clock += dt;
-        rotor.rotation.x += dt * 1.2;           // slow mixing
+        // slow mixing that reverses every ~10 s (like real in-vessel composters)
+        const w = 0.9 * Math.sign(Math.sin(clock * 0.3) || 1);
+        rotor.rotation.x += w * dt;
+        sprocketA.rotation.x += w * dt;
+        sprocketB.rotation.x += w * dt * (r1 / r2);
+        fan.rotation.x += dt * 25;
         if (cutaway) res = Math.max(res, 1);    // only worth repainting when the inside is visible
       }
       return res;
