@@ -114,14 +114,14 @@ export function buildTruck() {
       if (state === 'away' || state === 'leaving') return;
       state = 'leaving'; t = 0; from = g.position.x; to = FAR;
     },
-    // returns 2 = truck moved (shadows change), 1 = only the roof light flipped, 0 = nothing
+    // returns 2 = truck moved (shadows change), 3 = only the roof light flipped, 0 = nothing
     update(dt) {
       if (state === 'away') return 0;
       flashT += dt;
       const on = Math.sin(flashT * 8) > 0;
       const flipped = on !== lastOn;
       if (flipped) { lastOn = on; amber.emissiveIntensity = on ? 2.5 : 0.3; }
-      if (state === 'parked') return flipped ? 1 : 0;
+      if (state === 'parked') return flipped ? 3 : 0;   // 3 = light-only change
       t = Math.min(1, t + dt / 6);                      // 6 s drive
       const prevX = g.position.x;
       g.position.x = from + (to - from) * ease(t);

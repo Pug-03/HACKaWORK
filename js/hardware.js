@@ -439,9 +439,9 @@ export function buildHardware(station) {
       sensorBody.depthWrite = !v;
     },
     isInsideView: () => doors.some((d) => d.userData.target),
-    // returns 2 = doors moved (shadows), 1 = repaint only (blink / button), 0 = idle
+    // returns 2 = doors moved (shadows), 1 = repaint (button travel / labels), 3 = beacon flip only, 0 = idle
     update(dt) {
-      let moving = false;
+      let moving = false, lightFlip = false;
       let res = 0;
       for (const d of doors) {
         const u = d.userData;
@@ -462,7 +462,7 @@ export function buildHardware(station) {
         if (on !== lastOn) {                     // repaint only when the light flips
           lastOn = on;
           lensMat.emissiveIntensity = on ? 3 : 0.2;
-          moving = true;
+          lightFlip = true;
         }
       }
       if (pressT > 0) {
@@ -470,7 +470,8 @@ export function buildHardware(station) {
         button.position.z = buttonZ - 0.012 * Math.sin((pressT / 0.25) * Math.PI);
         moving = true;
       }
-      return Math.max(res, moving ? 1 : 0);
+      // 3 = only a light changed: repaint at full quality without the fast (no-AO) frame
+      return res || (moving ? 1 : lightFlip ? 3 : 0);
     },
   };
 }

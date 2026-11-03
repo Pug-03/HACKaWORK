@@ -39,7 +39,7 @@ viewport.appendChild(labelRenderer.domElement);
 
 const scene = new THREE.Scene();
 // render-on-demand flags (see loop below); declared early because setup code calls invalidate()
-let dirty = true, shadowsDirty = true, needHQ = true, lastMotion = 0;
+let dirty = true, shadowsDirty = true, needHQ = true, lastMotion = 0, lightDirty = false;
 
 const camera = new THREE.PerspectiveCamera(38, viewport.clientWidth / viewport.clientHeight, 0.05, 100);
 camera.position.set(3.6, 2.1, 4.2);
@@ -431,10 +431,12 @@ function animate() {
     dirty = true;
   }
   if (riser.update(dt)) invalidate(true);
+  // light-only changes (blinking beacon / truck roof light) repaint at full quality directly,
+  // so the image doesn't alternate between the fast no-AO frame and the AO frame
   const hw = hardware.update(dt);
-  if (hw) invalidate(hw === 2);
+  if (hw === 3) lightDirty = true; else if (hw) invalidate(hw === 2);
   const tr = truck.update(dt);
-  if (tr) invalidate(tr === 2);
+  if (tr === 3) lightDirty = true; else if (tr) invalidate(tr === 2);
   const c = composter.update(dt);
   if (c) invalidate(c === 2);
   controls.update();                    // fires 'change' while damping / auto-rotating
@@ -451,6 +453,10 @@ function animate() {
     composer.render();
     labelRenderer.render(scene, camera);
     needHQ = false;
+    lightDirty = false;
+  } else if (lightDirty && !needHQ) {
+    composer.render();
+    lightDirty = false;
   }
 }
 animate();
