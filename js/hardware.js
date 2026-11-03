@@ -68,6 +68,7 @@ export function buildHardware(station) {
     return hinge;
   }
   const doors = [];
+  const sensors = [];
   // front-face artwork for DIN modules / devices (labels, screw terminals, LCDs)
   const faceCache = new Map();
   function faceTex(kind, w, h) {
@@ -170,6 +171,7 @@ export function buildHardware(station) {
       } else path.add(new THREE.LineCurve3(prev, p));
     }
     const m = new THREE.Mesh(new THREE.TubeGeometry(path, Math.max(24, pts.length * 16), radius, 8, false), mat);
+    m.userData.curve = path;
     m.castShadow = true;
     return m;
   }
@@ -373,8 +375,10 @@ export function buildHardware(station) {
   // field conduits run gland-to-gland (box walls and the pole), with real bends
   const toLocal = (obj, v) => { obj.updateMatrix(); return v.clone().applyMatrix4(obj.matrix); };
   const tipOf = (obj, gl) => { obj.updateMatrix(); gl.updateMatrix(); const tip = P(0, 0.026, 0).applyMatrix4(gl.matrix).applyMatrix4(obj.matrix); return tip; };
+  const flows = [];                              // conduit paths for the "current flow" animation
   function conduit(pts, part) {
     const m = routed(pts, 0.009, 0.03, conduitMat);
+    flows.push({ curve: m.userData.curve, part });
     m.userData.part = part;
     group.add(m);
   }
@@ -428,6 +432,7 @@ export function buildHardware(station) {
     if (bin === station.bins[0]) label(s, 'เซ็นเซอร์: ถ่านลิเธียม + บอร์ด LoRa + หัววัดอัลตราโซนิก', 0, -0.06, 0, 'sensor');
     s.position.set(0, 0, 0.1);
     bin.userData.lidPivot.add(s);
+    sensors.push(s);
   }
 
   /* ---------- fill level inside bins (trash surface) ---------- */
@@ -626,8 +631,31 @@ export function buildHardware(station) {
     drawScreen(state);
   }
 
+  /* ---------- circuit flow: glowing dots running along the conduits ---------- */
+  const FLOW_COLORS = { cableSolar: 0xff5a36, cableBatt: 0xff5a36, cableBeacon: 0xffb020 };
+  const dotGeo = new THREE.SphereGeometry(0.008, 10, 8);
+  const dots = [];
+  for (const f of flows) {
+    const mat = new THREE.MeshBasicMaterial({ color: FLOW_COLORS[f.part] ?? 0x38bdf8, toneMapped: false });
+    const len = f.curve.getLength();
+    const n = Math.max(3, Math.round(len / 0.08));
+    for (let i = 0; i < n; i++) {
+      const d = new THREE.Mesh(dotGeo, mat);
+      d.visible = false;
+      d.userData = { curve: f.curve, u: i / n, speed: 0.12 / len };
+      group.add(d);
+      dots.push(d);
+    }
+  }
+  let flowing = false;
+
   return {
     group,
+    // world-space anchors for the camera when focusing a device
+    focusTargets: { unit, battery: batt, solar, beacon, sensor: () => sensors[0] },
+    setUnitOpen(v) { unitDoor.userData.target = v ? 1 : 0; },
+    setBatteryOpen(v) { battDoor.userData.target = v ? 1 : 0; },
+    setFlow(v) { flowing = v; dots.forEach((d) => (d.visible = v)); },
     button,
     apply,
     press() { pressT = 0.25; },
@@ -643,6 +671,13 @@ export function buildHardware(station) {
     // returns 2 = doors moved (shadows), 1 = repaint (button travel / labels), 3 = beacon flip only, 0 = idle
     update(dt) {
       let moving = false, lightFlip = false;
+      if (flowing) {
+        for (const d of dots) {
+          d.userData.u = (d.userData.u + d.userData.speed * dt) % 1;
+          d.position.copy(d.userData.curve.getPointAt(d.userData.u));
+        }
+        moving = true;
+      }
       let res = 0;
       for (const d of doors) {
         const u = d.userData;

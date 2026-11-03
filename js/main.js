@@ -11,6 +11,7 @@ import { CONFIG } from './config.js';
 import { buildStation } from './binStation.js';
 import { buildEnvironment, STREET } from './environment.js';
 import { buildTruck } from './truck.js';
+import { buildCircuitPanel } from './circuit.js';
 import { buildRiser, RISER } from './riser.js';
 import { buildHardware } from './hardware.js';
 import { buildComposter, COMPOSTER } from './composter.js';
@@ -166,7 +167,7 @@ const tooltip = document.getElementById('tooltip');
 const bayNames = Object.fromEntries(CONFIG.bays.map((b) => [b.id, `${b.th} · ${b.en}`]));
 const PART_TIPS = {
   callButton: 'ปุ่มเรียกรถเก็บนอกรอบ · ค่าบริการ 500 บาท — คลิกเพื่อกด',
-  unit: 'กล่องควบคุม · รับข้อมูลเซ็นเซอร์ + ส่งเข้าแดชบอร์ดเขต — คลิกเพื่อเปิด/ปิดฝาดูภายใน',
+  unit: 'กล่องควบคุม · รับข้อมูลเซ็นเซอร์ + ส่งเข้าแดชบอร์ดเขต — คลิกเพื่อซูมดูวงจร',
   unitInside: 'ภายในกล่องควบคุม: MCU · โมดูล 4G · LoRa gateway · DC-DC · รีเลย์ไฟ · ขั้วต่อสาย',
   batteryInside: 'ภายในตู้แบต: แพ็ก LiFePO4 + BMS · ตัวคุมชาร์จ MPPT · เบรกเกอร์ DC · บัสบาร์',
   tray: 'ถาดบริการใต้ฐาน (ล็อกกุญแจ) — คลิกเพื่อเปิด/ปิด',
@@ -179,7 +180,7 @@ const PART_TIPS = {
   flap: 'ช่องทิ้งแบบบานผลัก — คลิกเพื่อดันบานเข้าไป แล้วบานจะปิดกลับเอง',
   sensor: 'เซ็นเซอร์อัลตราโซนิกไร้สาย · แบตในตัว ~5 ปี · ส่ง LoRa ไปกล่องควบคุม (ไม่ต้องเดินสาย เพราะถังถูกเข็นออกทุกรอบ)',
   solar: 'แผงโซลาร์ 50 W (67×54 ซม.) เอียง 15° · ติดสูงเหนือระยะเปิดฝา',
-  battery: 'ตู้แบต LiFePO4 12.8V 20Ah (256 Wh) + MPPT · สำรองไฟ 3–4 วัน — คลิกเพื่อเปิด/ปิดฝาดูภายใน',
+  battery: 'ตู้แบต LiFePO4 12.8V 20Ah (256 Wh) + MPPT · สำรองไฟ 3–4 วัน — คลิกเพื่อซูมดูวงจร',
   beacon: 'ไฟแจ้งเตือน 2 สี · แดง = รอรถ · เขียว = เก็บแล้ว',
   pole: 'เสาเหล็ก Ø 60 มม. · ใช้เป็นท่อร้อยสายไปแผงโซลาร์และไฟแจ้งเตือน',
   cableSolar: 'ท่อร้อยสาย: แผงโซลาร์ → ตู้แบต',
@@ -191,7 +192,11 @@ const PART_TIPS = {
   bags: 'ถุงขยะมัดปาก (ถุงดำ) · ระดับในช่องตามแถบ "ถุงดำ" ในแผงจำลอง',
   estop: 'ปุ่มหยุดฉุกเฉินเครื่องหมัก · ตัดมอเตอร์และฮีตเตอร์ทันที',
 };
-const CLICKABLE = new Set(['callButton', 'tray', 'hatch', 'composterStart', 'flap', 'drawer', 'unit', 'battery']);
+const CLICKABLE = new Set(['callButton', 'tray', 'hatch', 'composterStart', 'flap', 'drawer', 'unit', 'unitInside', 'battery', 'batteryInside',
+  'solar', 'beacon', 'sensor', 'cableSolar', 'cableBatt', 'cableBeacon']);
+// hardware part -> circuit focus key
+const PART_FOCUS = { unit: 'unit', unitInside: 'unit', battery: 'battery', batteryInside: 'battery', solar: 'solar', beacon: 'beacon',
+  sensor: 'sensor', cableSolar: 'solar', cableBatt: 'battery', cableBeacon: 'beacon' };
 
 // push flap: swings in while "held", then springs back shut like the real gravity flap
 function pushFlap(bin) {
@@ -247,8 +252,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   else if (part === 'tray') { riser.setTraysOpen(!riser.trays[0].userData.target); syncAll(); }
   else if (part === 'hatch') { composter.toggleHatch(); syncAll(); }
   else if (part === 'drawer') { composter.toggleDrawer(); syncAll(); }
-  else if (part === 'unit') { hardware.toggleUnit(); syncAll(); }
-  else if (part === 'battery') { hardware.toggleBattery(); syncAll(); }
+  else if (PART_FOCUS[part]) focusCircuit(PART_FOCUS[part]);
   else if (part === 'composterStart') { composter.setRunning(!composter.isRunning()); syncAll(); }
   else if (bin) bin.userData.target = bin.userData.target ? 0 : 1;
   syncAll();
@@ -308,6 +312,54 @@ function syncAll() { syncers.forEach((f) => f()); }
 
 // camera presets
 let flight = null;
+function flyTo(pos, tgt) {
+  flight = { from: camera.position.clone(), to: pos.clone(), t: 0, tFrom: controls.target.clone(), tTo: tgt.clone() };
+  invalidate();
+}
+
+/* ---------- circuit focus mode: click a device -> zoom in, open it, show its circuit ---------- */
+let circuitKey = null, savedView = null;
+const circuit = buildCircuitPanel($('circuit'), (key) => focusCircuit(key), () => exitCircuit());
+function focusCircuit(key) {
+  if (!circuitKey) savedView = { pos: camera.position.clone(), tgt: controls.target.clone() };
+  circuitKey = key;
+  if (riserOn === false) { /* nothing */ }
+  hardware.setUnitOpen(key === 'unit' || key === 'overview');
+  hardware.setBatteryOpen(key === 'battery' || key === 'overview');
+  station.bins[0].userData.target = key === 'sensor' ? 1 : station.bins[0].userData.target;
+  hardware.setFlow(true);
+  circuit.show(key);
+  $('smart').hidden = true;
+  // camera framing per device (positions derived from the device's world placement)
+  const T = hardware.focusTargets;
+  const obj = key === 'sensor' ? T.sensor() : key === 'overview' ? T.unit : T[key];
+  const c = new THREE.Box3().setFromObject(obj).getCenter(new THREE.Vector3());
+  const q = obj.getWorldQuaternion(new THREE.Quaternion());
+  const front = new THREE.Vector3(0, 0, 1).applyQuaternion(q);       // device's own front direction
+  let pos;
+  if (key === 'unit' || key === 'battery') pos = c.clone().addScaledVector(front, 0.55).add(new THREE.Vector3(0, 0.08, 0.18));
+  else if (key === 'overview') { c.z -= 0.12; pos = c.clone().addScaledVector(front, 1.0).add(new THREE.Vector3(0, 0.2, 0.25)); }
+  else if (key === 'solar') pos = c.clone().add(new THREE.Vector3(-0.9, 0.7, 1.2));
+  else if (key === 'beacon') pos = c.clone().add(new THREE.Vector3(-0.7, 0.15, 0.7));
+  else pos = c.clone().add(new THREE.Vector3(0.15, -0.05, 0.75));     // sensor under the opened lid
+  flyTo(pos, c);
+  syncAll();
+  invalidate(true);
+}
+function exitCircuit() {
+  if (!circuitKey) return;
+  circuitKey = null;
+  hardware.setUnitOpen(false);
+  hardware.setBatteryOpen(false);
+  hardware.setFlow(false);
+  circuit.hide();
+  $('smart').hidden = false;
+  if (savedView) flyTo(savedView.pos, savedView.tgt);
+  syncAll();
+  invalidate(true);
+}
+$('btn-circuit').addEventListener('click', () => (circuitKey ? exitCircuit() : focusCircuit('overview')));
+addEventListener('keydown', (e) => { if (e.key === 'Escape') exitCircuit(); });
 const VIEWS = {
   front: [[0, 1.2, 5.4], [0, 0.75, 0]],
   side: [[5.2, 1.2, 0], [0, 0.75, 0]],

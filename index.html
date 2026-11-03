@@ -75,6 +75,36 @@
   .actions a:hover, .actions button:hover { filter: brightness(0.96); }
   .actions button:focus-visible, .actions a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+  .circuit { left: 16px; top: calc(128px + env(safe-area-inset-top, 0px)); width: 360px;
+    max-height: calc(100vh - 128px - 76px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow: auto; }
+  .cp-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 14px; }
+  .cp-close { font: inherit; font-size: 12px; border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+  .circuit svg { width: 100%; height: auto; display: block; }
+  .circuit .grp { fill: #f8fafc; stroke: #cbd5e1; stroke-dasharray: 4 3; }
+  .circuit .grpt { font: 500 10px Kanit, sans-serif; fill: #64748b; }
+  .circuit .nd rect { fill: #fff; stroke: #94a3b8; stroke-width: 1.2; transition: fill .2s, stroke .2s; }
+  .circuit .nd text { font: 500 11px Kanit, sans-serif; fill: #1e293b; text-anchor: middle; pointer-events: none; }
+  .circuit .nd text.sm { font-size: 9px; fill: #475569; }
+  .circuit .nd[role="button"] { cursor: pointer; }
+  .circuit .nd[role="button"]:hover rect, .circuit .nd:focus-visible rect { stroke: var(--accent); }
+  .circuit .nd.on rect { fill: #dbeafe; stroke: var(--accent); stroke-width: 2; }
+  .circuit .cloud rect { fill: #eef2ff; }
+  .circuit path { fill: none; stroke-width: 2; }
+  .circuit .pw { stroke: #dc2626; }
+  .circuit .dt { stroke: #2563eb; }
+  .circuit .bc { stroke: #d97706; }
+  .circuit .wl { stroke-dasharray: 5 4; }
+  .circuit path.on { stroke-width: 3.5; stroke-dasharray: 8 5; animation: flow 0.8s linear infinite; }
+  .circuit.dim-others .nd:not(.on) { opacity: 0.45; }
+  .circuit.dim-others path:not(.on) { opacity: 0.3; }
+  @keyframes flow { to { stroke-dashoffset: -13; } }
+  @media (prefers-reduced-motion: reduce) { .circuit path.on { animation: none; } }
+  .cp-text { font-size: 13px; line-height: 1.55; color: var(--ink); margin: 8px 0 6px; }
+  .cp-legend { display: flex; gap: 12px; font-size: 11px; color: var(--muted); }
+  .cp-legend i { display: inline-block; width: 16px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 4px; }
+  .cp-legend .lp { border-color: #dc2626; } .cp-legend .ld { border-color: #2563eb; } .cp-legend .lw { border-color: #2563eb; border-top-style: dashed; }
+  @media (max-width: 640px) { .circuit { top: calc(96px + env(safe-area-inset-top, 0px)); width: calc(100% - 32px); max-height: calc(50vh - 110px); } }
+
   #toast { position: fixed; left: 50%; top: calc(16px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 6;
     background: var(--ink); color: #fff; font-size: 14px; padding: 10px 16px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.2);
     max-width: calc(100% - 32px); text-align: center; }
@@ -148,6 +178,7 @@
     <button class="toggle" id="t-dims" aria-pressed="false">แสดงขนาด</button>
     <button class="toggle" id="t-human" aria-pressed="false">คนเทียบสเกล</button>
     <button class="toggle" id="t-hw-open" aria-pressed="false">เปิดดูฮาร์ดแวร์ภายใน</button>
+    <div class="views" style="margin-top:4px;padding-top:0;border-top:0"><button id="btn-circuit" style="grid-column: 1 / -1">ดูวงจรไฟฟ้า + ซูมอุปกรณ์</button></div>
     <button class="toggle" id="t-bags" aria-pressed="true">ถุงขยะในช่อง</button>
     <div class="views">
       <button data-view="front">หน้า</button>
@@ -192,6 +223,7 @@
   <div class="hint">คลิกถัง ปุ่มแดง ถาด หรือช่องเติมปุ๋ย เพื่อใช้งาน</div>
   <div id="tooltip" hidden></div>
   <div id="toast" role="status" hidden></div>
+  <section class="panel circuit" id="circuit" aria-label="ผังวงจร" hidden></section>
 
   <script>
     // tell the user when the 3D scene can't start, instead of "loading…" forever
