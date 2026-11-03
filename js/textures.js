@@ -58,7 +58,8 @@ function paintBase(ctx, w, h, color) {
   ctx.strokeRect(3, 3, w - 6, h - 6);
 }
 
-function title(ctx, w, th, en, ink, y, size) {
+// thOnly: draw just the Thai heading (used for the laser-cut mask; the small English line is printed)
+function title(ctx, w, th, en, ink, y, size, thOnly = false) {
   ctx.fillStyle = ink;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
@@ -66,8 +67,21 @@ function title(ctx, w, th, en, ink, y, size) {
   let s = size;
   while (ctx.measureText(th).width > w * 0.9 && s > 20) { s -= 4; ctx.font = `600 ${s}px ${FONT}`; }
   ctx.fillText(th, w / 2, y);
+  if (thOnly) return;
   ctx.font = `500 ${Math.round(size * 0.28)}px ${FONT}`;
   ctx.fillText(en, w / 2, y + size * 0.45);
+}
+
+// Laser-cut mask: white = sheet metal, black = cut through. Used as alphaMap with alphaTest.
+function cutMask(w, h, draw) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, w, h);
+  draw(ctx);
+  const t = new THREE.CanvasTexture(c);
+  return t;
 }
 
 /* ---------- line icons (drawn around origin, ~200px box) ---------- */
@@ -187,15 +201,23 @@ const LAYOUT = {
   general: [['snack', 0.32, 0.45, 0.85, -0.25], ['foamBox', 0.7, 0.45, 0.8], ['glove', 0.52, 0.74, 0.8, 0.5]],
 };
 
+// Returns { map, alpha }: the Thai heading and the icons are laser-cut through the sheet
+// (like the real panels), the small English line is printed.
 export function makeBinPanelTexture(bay, wM, hM, renderer) {
   const [c, ctx] = canvas(wM, hM);
   const { width: w, height: h } = c;
+  const ink = (g, color) => {
+    title(g, w, bay.th, bay.en, color, h * 0.13, Math.round(w * 0.17), true);
+    g.strokeStyle = color; g.fillStyle = color;
+    g.lineWidth = 9; g.lineJoin = 'round'; g.lineCap = 'round';
+    for (const [name, fx, fy, s, r = 0] of LAYOUT[bay.id]) drawIcon(g, name, w * fx, h * fy, s * (w / 620), r);
+  };
   paintBase(ctx, w, h, bay.panel);
-  title(ctx, w, bay.th, bay.en, bay.ink, h * 0.13, Math.round(w * 0.17));
-  ctx.strokeStyle = bay.ink; ctx.fillStyle = bay.ink;
-  ctx.lineWidth = 7; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  for (const [name, fx, fy, s, r = 0] of LAYOUT[bay.id]) drawIcon(ctx, name, w * fx, h * fy, s * (w / 620), r);
-  return toTexture(c, renderer);
+  title(ctx, w, bay.th, bay.en, bay.ink, h * 0.13, Math.round(w * 0.17));   // printed English line
+  ink(ctx, '#141414');                                                     // dark edge where cut
+  const alpha = cutMask(w, h, (g) => ink(g, '#000'));
+  alpha.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return { map: toTexture(c, renderer), alpha };
 }
 
 export function makeBagPanelTexture(bay, wM, hM, renderer) {
@@ -209,7 +231,23 @@ export function makeBagPanelTexture(bay, wM, hM, renderer) {
   ctx.font = `500 ${Math.round(h * 0.035)}px ${FONT}`;
   ctx.textAlign = 'center';
   ctx.fillText('ถุงดำ', w * 0.56, h * 0.85);
-  return toTexture(c, renderer);
+  // cut: Thai heading + bag silhouette; the highlight stroke and the small label stay as metal bridges
+  const alpha = cutMask(w, h, (g) => {
+    title(g, w, bay.th, bay.en, '#000', h * 0.17, Math.round(h * 0.15), true);
+    g.fillStyle = '#000';
+    drawIcon(g, 'tiedBag', w * 0.5, h * 0.6, h / 730 * 1.05);
+    g.save();
+    g.translate(w * 0.5, h * 0.6); g.scale(h / 730 * 1.05, h / 730 * 1.05);
+    g.strokeStyle = '#fff'; g.lineWidth = 10;
+    g.beginPath(); g.moveTo(-60, -10); g.bezierCurveTo(-20, 30, 40, 80, 70, 150); g.stroke();
+    g.restore();
+    g.fillStyle = '#fff';
+    g.font = `500 ${Math.round(h * 0.035)}px ${FONT}`;
+    g.textAlign = 'center';
+    g.fillText('ถุงดำ', w * 0.56, h * 0.85);
+  });
+  alpha.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return { map: toTexture(c, renderer), alpha };
 }
 
 export function makePavingTexture(renderer) {

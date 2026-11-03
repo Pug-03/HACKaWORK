@@ -142,7 +142,7 @@ export function buildStation(renderer) {
       const top = H - 0.05;                  // flush under the top rail, no gap
       const ph = top - bottom;
       const tex = makeBinPanelTexture(bay, inner, ph, renderer);
-      const faceMat = new THREE.MeshStandardMaterial({ map: tex, metalness: 0.2, roughness: 0.5 });
+      const faceMat = new THREE.MeshStandardMaterial({ map: tex.map, alphaMap: tex.alpha, alphaTest: 0.5, metalness: 0.2, roughness: 0.5 });
       const edge = new THREE.MeshStandardMaterial({ color: bay.panel, metalness: 0.2, roughness: 0.5 });
       const panel = new THREE.Mesh(roundedBoxGeometry(inner, ph, S, 0.003), [edge, edge, edge, edge, faceMat, edge]);
       panel.position.set(cx, bottom + ph / 2, zf + S / 2);
@@ -159,7 +159,7 @@ export function buildStation(renderer) {
       // open bay: solid lower panel with sign + lattice band on the front
       const ph = solidTop - CONFIG.coloredPanel.bottom;
       const tex = makeBagPanelTexture(bay, inner, ph, renderer);
-      const faceMat = new THREE.MeshStandardMaterial({ map: tex, metalness: 0.35, roughness: 0.55 });
+      const faceMat = new THREE.MeshStandardMaterial({ map: tex.map, alphaMap: tex.alpha, alphaTest: 0.5, metalness: 0.35, roughness: 0.55 });
       const panel = new THREE.Mesh(roundedBoxGeometry(inner, ph, S, 0.003), [gray, gray, gray, gray, faceMat, gray]);
       panel.position.set(cx, CONFIG.coloredPanel.bottom + ph / 2, zf + S / 2);
       panel.castShadow = panel.receiveShadow = true;
