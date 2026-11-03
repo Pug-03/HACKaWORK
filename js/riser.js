@@ -56,7 +56,26 @@ export function buildRiser(renderer, stationLength, stationDepth) {
   const galv = new THREE.MeshStandardMaterial({ color: 0xa9afb5, metalness: 0.7, roughness: 0.42, roughnessMap: brushed });
   const dark = new THREE.MeshStandardMaterial({ color: 0x33373b, metalness: 0.4, roughness: 0.6 });
   const guardMat = new THREE.MeshStandardMaterial({ color: 0x8d949a, metalness: 0.8, roughness: 0.3, side: THREE.DoubleSide });
-  const hole = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
+  const meshMat = new THREE.MeshStandardMaterial({ color: 0xb9bfc5, metalness: 0.85, roughness: 0.35, side: THREE.DoubleSide });
+  // stainless grid panel (XY plane, centred): square openings with bars between
+  const meshCache = new Map();
+  function meshPanel(w, h, hole = 0.025, bar = 0.004, thick = 0.003) {
+    const key = `${w.toFixed(4)}|${h.toFixed(4)}`;
+    if (meshCache.has(key)) return meshCache.get(key);
+    const sh = new THREE.Shape();
+    sh.moveTo(-w / 2, -h / 2); sh.lineTo(w / 2, -h / 2); sh.lineTo(w / 2, h / 2); sh.lineTo(-w / 2, h / 2); sh.closePath();
+    const cols = Math.floor((w - bar) / (hole + bar)), rows = Math.max(1, Math.floor((h - bar) / (hole + bar)));
+    const ox = -((cols * (hole + bar) - bar) / 2), oy = -((rows * (hole + bar) - bar) / 2);
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const x = ox + c * (hole + bar), y = oy + r * (hole + bar);
+      const p = new THREE.Path();
+      p.moveTo(x, y); p.lineTo(x, y + hole); p.lineTo(x + hole, y + hole); p.lineTo(x + hole, y); p.closePath();
+      sh.holes.push(p);
+    }
+    const g = new THREE.ExtrudeGeometry(sh, { depth: thick, bevelEnabled: false });
+    meshCache.set(key, g);
+    return g;
+  }
 
   // deck (checker plate look via brushed steel) + perimeter beams
   group.add(rbox(W, R.deck, Dp, galv, 0, H - R.deck / 2, 0, 0.004));
@@ -124,40 +143,46 @@ export function buildRiser(renderer, stationLength, stationDepth) {
 
     const drawer = new THREE.Group();
     drawer.position.set(cx, trayY, 0);
-    // body: open-top box made of 5 sheets
-    const th = 0.006;
-    drawer.add(rbox(T.w, th, T.d, trayBodyMat, 0, -T.h / 2 + th / 2, 0, 0.002));
-    drawer.add(rbox(th, T.h, T.d, trayBodyMat, -T.w / 2 + th / 2, 0, 0, 0.002));
-    drawer.add(rbox(th, T.h, T.d, trayBodyMat, T.w / 2 - th / 2, 0, 0, 0.002));
-    drawer.add(rbox(T.w, T.h, th, trayBodyMat, 0, 0, -T.d / 2 + th / 2, 0.002));
-    // lid (fixed to drawer) so contents stay covered and out of reach of children / pets
-    drawer.add(rbox(T.w, th, T.d, trayBodyMat, 0, T.h / 2 - th / 2, 0, 0.002));
-    // front plate with handle, lock and label
-    const front = rbox(T.w + 0.002, T.h + 0.01, 0.012, trayBodyMat, 0, 0, T.d / 2 + 0.006, 0.003);   // fits between the guide rails
+    // body: solid floor + solid rain lid, stainless mesh on all four sides (25 mm openings, 4 mm bars)
+    // so rodents can reach in from every side; a narrow solid header on the front carries label/handle/lock
+    const th = 0.006, headerH = 0.03;
+    drawer.add(rbox(T.w, th, T.d, trayBodyMat, 0, -T.h / 2 + th / 2, 0, 0.002));                 // floor
+    drawer.add(rbox(T.w + 0.01, th, T.d + 0.01, trayBodyMat, 0, T.h / 2 - th / 2, 0, 0.002));    // lid
+    const meshH = T.h - 2 * th;
+    const sideMesh = meshPanel(T.d - 2 * th, meshH);
+    const endMesh = meshPanel(T.w - 2 * th, meshH);
+    const frontMesh = meshPanel(T.w - 2 * th, meshH - headerH + th);
+    for (const sx of [-1, 1]) {
+      const m = new THREE.Mesh(sideMesh, meshMat);
+      m.rotation.y = Math.PI / 2;
+      m.position.set(sx * (T.w / 2 - th / 2) - 0.0015, 0, 0);
+      drawer.add(m);
+    }
+    const back = new THREE.Mesh(endMesh, meshMat);
+    back.position.set(0, 0, -T.d / 2 + th / 2 - 0.0015);
+    drawer.add(back);
+    const frontM = new THREE.Mesh(frontMesh, meshMat);
+    frontM.position.set(0, -headerH / 2 + th / 2, T.d / 2 - th / 2 - 0.0015);
+    drawer.add(frontM);
+    // corner posts holding the mesh panels
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) drawer.add(rbox(0.01, T.h, 0.01, trayBodyMat, sx * (T.w / 2 - 0.005), 0, sz * (T.d / 2 - 0.005), 0.002));
+    // front header (solid) with handle, lock and label
+    const headerY = T.h / 2 - headerH / 2;
+    const front = rbox(T.w + 0.002, headerH, 0.012, trayBodyMat, 0, headerY, T.d / 2 + 0.006, 0.003);
     front.userData.part = 'tray';
     drawer.add(front);
-    const lbl = new THREE.Mesh(new THREE.PlaneGeometry(T.w - 0.06, 0.045), new THREE.MeshStandardMaterial({ map: trayLabel, roughness: 0.7 }));
-    lbl.position.set(0, 0.012, T.d / 2 + 0.0125);
+    const lbl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.022), new THREE.MeshStandardMaterial({ map: trayLabel, roughness: 0.7 }));
+    lbl.position.set(-0.08, headerY, T.d / 2 + 0.0125);
     drawer.add(lbl);
-    const handle = new THREE.Mesh(new THREE.CapsuleGeometry(0.008, 0.16, 4, 10), galv);
+    const handle = new THREE.Mesh(new THREE.CapsuleGeometry(0.007, 0.1, 4, 10), galv);
     handle.rotation.z = Math.PI / 2;
-    handle.position.set(0, -0.024, T.d / 2 + 0.03);
+    handle.position.set(0.16, headerY, T.d / 2 + 0.03);
     drawer.add(handle);
-    for (const sx of [-1, 1]) drawer.add(rbox(0.012, 0.012, 0.024, galv, sx * 0.08, -0.024, T.d / 2 + 0.02, 0.003));
-    const lock = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.01, 20), galv);
+    for (const sx of [-1, 1]) drawer.add(rbox(0.01, 0.01, 0.022, galv, 0.16 + sx * 0.05, headerY, T.d / 2 + 0.02, 0.002));
+    const lock = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.01, 20), galv);
     lock.rotation.x = Math.PI / 2;
-    lock.position.set(T.w / 2 - 0.05, -0.022, T.d / 2 + 0.017);
+    lock.position.set(T.w / 2 - 0.035, headerY, T.d / 2 + 0.017);
     drawer.add(lock);
-    // small entry holes on both ends
-    const holeGeo = new THREE.CircleGeometry(0.025, 24);   // Ø 50 mm
-    for (const sx of [-1, 1]) {
-      for (const z of [-0.1, 0.1]) {
-        const h = new THREE.Mesh(holeGeo, hole);
-        h.rotation.y = sx * Math.PI / 2;
-        h.position.set(sx * (T.w / 2 + 0.0005), -0.006, z);
-        drawer.add(h);
-      }
-    }
     drawer.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.userData.part ??= 'tray'; } });
     drawer.userData = { open: 0, target: 0, baseZ: 0 };
     group.add(drawer);
