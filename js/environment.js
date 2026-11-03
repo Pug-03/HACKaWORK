@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { Sky } from 'three/addons/objects/Sky.js';
 import { makePavingTexture, makeAsphaltTexture, makeNoiseTexture } from './textures.js';
 
 // Street context like the site photos: paver sidewalk, concrete curb, asphalt road behind
@@ -32,10 +32,20 @@ function skyTexture() {
 export function buildEnvironment(scene, renderer, stationLength, stationDepth) {
   scene.background = skyTexture();
   scene.fog = new THREE.Fog(0xdde3e9, 16, 38);
+  // outdoor image-based lighting from a physical sky (sun in the same direction as the key light),
+  // so metal and glossy plastic reflect a real sky instead of an indoor studio
+  const sunDir = new THREE.Vector3(4.5, 8, 5.5).normalize();
+  const sky = new Sky();
+  sky.scale.setScalar(1000);
+  const u = sky.material.uniforms;
+  u.turbidity.value = 10; u.rayleigh.value = 1.2; u.mieCoefficient.value = 0.004; u.mieDirectionalG.value = 0.8;
+  u.sunPosition.value.copy(sunDir);
+  const skyScene = new THREE.Scene();
+  skyScene.add(sky);
   const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environment = pmrem.fromScene(skyScene, 0.02).texture;
   pmrem.dispose();
-  scene.environmentIntensity = 0.55;
+  scene.environmentIntensity = 0.38;
 
   // lights: warm sun from the front-right, cool sky fill
   scene.add(new THREE.HemisphereLight(0xdbe7f5, 0x7d756b, 0.85));

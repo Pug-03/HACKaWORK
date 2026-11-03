@@ -4,6 +4,8 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { CONFIG } from './config.js';
 import { buildStation } from './binStation.js';
@@ -430,7 +432,13 @@ const ao = new GTAOPass(scene, camera, viewport.clientWidth, viewport.clientHeig
 ao.updateGtaoMaterial({ radius: 0.25, distanceExponent: 1.5, thickness: 1, scale: 1.2, samples: 12 });
 ao.blendIntensity = 0.85;
 composer.addPass(ao);
+// soft glow only on things brighter than white (LEDs, beacon, screens, heater) — threshold in HDR
+const bloom = new UnrealBloomPass(new THREE.Vector2(viewport.clientWidth / 2, viewport.clientHeight / 2), 0.2, 0.3, 1.4);
+composer.addPass(bloom);
 composer.addPass(new OutputPass());
+// the post-processing target has no MSAA, so anti-alias the final high-quality frame with SMAA
+const smaa = new SMAAPass(viewport.clientWidth * DPR, viewport.clientHeight * DPR);
+composer.addPass(smaa);
 
 /* ---------- loop: render on demand ----------
    Idle: nothing is drawn. While the camera or a lid moves: fast render (no AO).
@@ -521,6 +529,7 @@ new ResizeObserver(() => {
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
   composer.setSize(w, h);
+  bloom.setSize(w / 2, h / 2);
   labelRenderer.setSize(w, h);
   invalidate();
 }).observe(viewport);
