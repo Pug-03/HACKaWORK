@@ -22,6 +22,7 @@ ES modules need a local server (opening index.html directly via file:// will not
 - `js/riser.js` — separate raised anti-rodent base (legs with rat guards, front step, two lockable service trays)
 - `js/hardware.js` — beacon (red = waiting for pickup, green = collected), solar panel, fill sensors under lids, control unit with screen and 500 THB call button
 - `js/composter.js` — stand-alone 40 L food-waste composter (heated drum, paddle rotor, top hatch, compost drawer, BMA branding + order phone placeholder)
+- `js/truck.js` — electric mini garbage truck that drives in on an out-of-round call and leaves when pickup is confirmed
 - `js/geom.js` — rounded boxes and creased-normal smoothing helpers
 - `js/environment.js` — sidewalk, curb, road, pad, lights
 - `dashboard.html` — simulated district dashboard; syncs live with the 3D page via BroadcastChannel/localStorage

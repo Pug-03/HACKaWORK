@@ -7,7 +7,8 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { CONFIG } from './config.js';
 import { buildStation } from './binStation.js';
-import { buildEnvironment } from './environment.js';
+import { buildEnvironment, STREET } from './environment.js';
+import { buildTruck } from './truck.js';
 import { buildRiser, RISER } from './riser.js';
 import { buildHardware } from './hardware.js';
 import { buildComposter, COMPOSTER } from './composter.js';
@@ -81,6 +82,11 @@ const composter = buildComposter(renderer);
 const COMPOSTER_X = L / 2 + 0.95;
 composter.group.position.set(COMPOSTER_X, 0, 0.05);
 scene.add(composter.group);
+
+// electric mini garbage truck: drives along the road behind the station on out-of-round calls
+const truck = buildTruck();
+truck.group.position.set(0, -STREET.curbHeight, STREET.curbZ - STREET.curbWidth - 1.25);
+scene.add(truck.group);
 
 
 /* ---------- dimension lines ---------- */
@@ -169,6 +175,7 @@ const PART_TIPS = {
   cableSolar: 'ท่อร้อยสาย: แผงโซลาร์ → ตู้แบต',
   cableBatt: 'ท่อร้อยสาย: ตู้แบต → กล่องควบคุม',
   cableBeacon: 'ท่อร้อยสาย: กล่องควบคุม → เสา → ไฟแจ้งเตือน',
+  truck: 'รถเก็บขยะไฟฟ้ามินิ (EV) · บรรทุก ~500 กก. · ร่วมกับภาคเอกชน',
 };
 const CLICKABLE = new Set(['callButton', 'tray', 'hatch', 'composterStart']);
 
@@ -177,7 +184,7 @@ function pick(ev) {
   pointer.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(pointer, camera);
   const isShown = (o) => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
-  const targets = [station.group, composter.group];
+  const targets = [station.group, composter.group, truck.group];
   if (riserOn) targets.push(riser.group);
   const hit = raycaster.intersectObjects(targets, true).find((h) => {
     const m = Array.isArray(h.object.material) ? h.object.material[h.face?.materialIndex ?? 0] : h.object.material;
@@ -261,6 +268,7 @@ const VIEWS = {
   iso: [[3.6, 2.1, 4.2], [0.4, 0.7, 0]],
   back: [[-2.8, 2.0, -4.2], [0, 0.75, 0]],
   composter: [[L / 2 + 0.95 + 1.2, 1.5, 1.9], [L / 2 + 0.95, 0.6, 0.05]],
+  truck: [[-5.6, 3.2, -8.2], [0, 0.8, -1.8]],
   smart: [[-L / 2 - 1.4, 1.5, 1.0], [-L / 2, 0.95, 0]],
 };
 document.querySelectorAll('[data-view]').forEach((btn) =>
@@ -325,12 +333,14 @@ function requestPickup() {
   smart.callRequested = true;
   smart.requests.push({ at: Date.now(), fee: 500 });
   toast('ส่งคำขอเรียกรถเก็บนอกรอบแล้ว · ค่าบริการ 500 บาท · แจ้งเขตปทุมวันแล้ว');
+  truck.arrive(() => toast('รถเก็บขยะไฟฟ้ามินิมาถึงแล้ว · กด "จำลอง: รถมาเก็บแล้ว" เมื่อเก็บเสร็จ'));
   applySmart();
 }
 function markCollected() {
   smart.fills = smart.fills.map(() => 3);
   smart.callRequested = false;
   smart.lastPickup = Date.now();
+  truck.leave();
   toast('รถมาเก็บแล้ว · ไฟเปลี่ยนเป็นสีเขียว');
   applySmart();
 }
@@ -391,6 +401,8 @@ function animate() {
   }
   if (riser.update(dt)) invalidate(true);
   if (hardware.update(dt)) invalidate();
+  const tr = truck.update(dt);
+  if (tr) invalidate(tr === 2);
   const c = composter.update(dt);
   if (c) invalidate(c === 2);
   controls.update();                    // fires 'change' while damping / auto-rotating
