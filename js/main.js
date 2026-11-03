@@ -340,6 +340,7 @@ const smart = {
   lastPickup: Date.now() - 3 * 3600e3, requests: [],
   // composter beside the station; compost output is simulated at an accelerated rate while it runs
   composter: { running: false, compostKg: 0, capacityL: COMPOSTER.capacityL, dailyKg: COMPOSTER.dailyKg },
+  truck: 'away',                                   // EV mini truck: away / arriving / parked / leaving
 };
 const channel = 'BroadcastChannel' in window ? new BroadcastChannel('hackawork') : null;
 function publish() {
@@ -349,7 +350,13 @@ function publish() {
   channel?.postMessage({ type: 'station', station: smart });
 }
 function applySmart() {
-  smart.status = smart.callRequested || smart.fills.some((f) => f >= 80) ? 'pending' : 'collected';
+  const full = smart.fills.some((f) => f >= 80);
+  smart.status = smart.callRequested || full ? 'pending' : 'collected';
+  // a bin at 80 % or more also dispatches the EV mini truck (the dashboard queues the same job)
+  if (full && (truck.state() === 'away' || truck.state() === 'leaving')) {
+    truck.arrive(() => toast('รถเก็บขยะไฟฟ้ามินิมาถึงแล้ว · กด "จำลอง: รถมาเก็บแล้ว" เมื่อเก็บเสร็จ'));
+    toast('ถังใกล้เต็ม (≥ 80%) · ระบบจัดรถมินิ EV มาเก็บอัตโนมัติ');
+  }
   hardware.apply(smart);
   smart.fills.forEach((f, i) => {
     const r = $(`fill-${i}`);
@@ -467,6 +474,7 @@ function animate() {
   const hw = hardware.update(dt);
   if (hw === 3) lightDirty = true; else if (hw) invalidate(hw === 2);
   const tr = truck.update(dt);
+  if (smart.truck !== truck.state()) { smart.truck = truck.state(); publish(); }
   if (tr === 3) lightDirty = true; else if (tr) invalidate(tr === 2);
   if (composter.isRunning()) smart.composter.compostKg += dt * 0.05;   // demo rate (accelerated)
   if (smart.composter.running !== composter.isRunning()) { smart.composter.running = composter.isRunning(); publish(); }

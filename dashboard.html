@@ -162,6 +162,7 @@
     const mins = Math.round((next - h) * 60);
     return { label: `${String(next % 24).padStart(2, '0')}:00`, mins };
   }
+  const TRUCK_TEXT = { arriving: 'รถกำลังมา', parked: 'รถถึงแล้ว · กำลังเก็บ', leaving: 'เก็บเสร็จ · รถออกแล้ว' };
   const statusOf = (s) => (s.callRequested || s.fills.some((f) => f >= 80) ? 'pending' : 'collected');
 
   // ---------- live link with the 3D page ----------
@@ -220,7 +221,7 @@
       const truck = trucks[i % trucks.length], eta = 8 + Math.floor(i / trucks.length) * 15 + (i % trucks.length) * 4;
       return `<div class="job ${s.callRequested ? 'call' : ''}">
         <span class="who">${s.name}</span><span class="eta">~${eta} น.</span>
-        <span class="meta">${truck} · ${s.callRequested ? 'คำขอนอกรอบ 500 บาท' : `ถังเต็ม ${Math.round(Math.max(...s.fills))}%`} · ${s.id}</span>
+        <span class="meta">${truck} · ${s.callRequested ? 'คำขอนอกรอบ 500 บาท' : `ถังเต็ม ${Math.round(Math.max(...s.fills))}%`} · ${s.id}${s.live && TRUCK_TEXT[s.truck] ? ` · <b>${TRUCK_TEXT[s.truck]}</b>` : ''}</span>
       </div>`;
     }).join('') : '<div class="empty">ไม่มีงานค้าง · ทุกถังไฟเขียว</div>';
     const busy = new Set(pending.map((_, i) => trucks[i % trucks.length]));
