@@ -30,6 +30,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.autoUpdate = false;           // shadows re-rendered only when something moves
 renderer.toneMapping = THREE.NeutralToneMapping;
 renderer.toneMappingExposure = 1.0;
+renderer.domElement.setAttribute('role', 'img');
+renderer.domElement.setAttribute('aria-label', 'โมเดล 3 มิติสถานีคัดแยกขยะ กทม. 4 ช่อง พร้อมฐานยกกันหนู เครื่องหมักปุ๋ย และรถเก็บขยะไฟฟ้า · ใช้ปุ่มในแผงด้านข้างเพื่อเปิดฝา ดูภายใน และจำลองระบบ');
 viewport.appendChild(renderer.domElement);
 
 const labelRenderer = new CSS2DRenderer();

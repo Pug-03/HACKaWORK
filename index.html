@@ -110,6 +110,7 @@
   #loading { position: fixed; inset: 0; display: grid; place-items: center; font-size: 14px; color: var(--muted); transition: opacity .4s; }
   body.ready #loading { opacity: 0; pointer-events: none; }
   #loading[hidden] { display: none; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   #loading.error { color: #b91c1c; padding: 0 24px; text-align: center; line-height: 1.6; }
 
   @media (max-width: 640px) {
@@ -125,7 +126,8 @@
 </style>
 </head>
 <body>
-  <div id="viewport"></div>
+  <div id="viewport" aria-describedby="viewport-help"></div>
+  <p id="viewport-help" class="sr-only">ลากเพื่อหมุนมุมมอง สกรอลหรือใช้สองนิ้วเพื่อซูม ทุกการกระทำในโมเดลมีปุ่มเทียบเท่าในแผงตัวควบคุม</p>
   <div id="loading">กำลังโหลดโมเดล 3D…</div>
 
   <header>
