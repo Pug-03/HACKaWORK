@@ -415,6 +415,13 @@ function invalidate(sceneChanged = false) {
 }
 controls.addEventListener('change', () => invalidate());
 
+// GTAO treats see-through meshes as solid (dark halos on the faded composter front, the
+// see-through sensors and the scale figure), so skip AO while any of them is showing
+function hqRender() {
+  const seeThrough = cutaway || hardware.isInsideView() || human.visible;
+  if (seeThrough) renderer.render(scene, camera); else composer.render();
+}
+
 const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
@@ -468,12 +475,12 @@ function animate() {
     needHQ = true;
     lastMotion = now;
   } else if (needHQ && now - lastMotion > 150) {
-    composer.render();
+    hqRender();
     labelRenderer.render(scene, camera);
     needHQ = false;
     lightDirty = false;
   } else if (lightDirty && !needHQ) {
-    composer.render();
+    hqRender();
     lightDirty = false;
   }
 }
