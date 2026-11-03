@@ -25,7 +25,11 @@ const viewport = document.getElementById('viewport');
 
 /* ---------- renderer / scene ---------- */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-const DPR = Math.min(devicePixelRatio, 1.5);   // 1.5 is visually close to 2 at ~half the pixels
+// starting resolution: phones / low-core machines start in eco mode at 1x
+const LOW_END = matchMedia('(pointer: coarse)').matches || (navigator.hardwareConcurrency || 8) <= 4;
+const DPR_MAX = Math.min(devicePixelRatio, 1.5);   // 1.5 is visually close to 2 at ~half the pixels
+const DPR = LOW_END ? 1 : DPR_MAX;
+let eco = LOW_END;
 renderer.setPixelRatio(DPR);
 renderer.setSize(viewport.clientWidth, viewport.clientHeight);
 renderer.shadowMap.enabled = true;
@@ -302,6 +306,7 @@ syncers.push(bindToggle('t-hw-open', () => hardware.isInsideView(), (v) => {
   hardware.setInsideView(v);
   if (v) document.querySelector('[data-view=smart]').click();
 }));
+syncers.push(bindToggle('t-eco', () => eco, (v) => setEco(v)));
 syncers.push(bindToggle('t-riser', () => riserOn, (v) => { riserOn = v; placeStation(); }));
 syncers.push(bindToggle('t-trays', () => !!riser.trays[0].userData.target, (v) => { if (!riserOn && v) { riserOn = true; placeStation(); } riser.setTraysOpen(v); }));
 syncers.push(bindToggle('t-comp-run', () => composter.isRunning(), (v) => composter.setRunning(v)));
@@ -505,7 +510,41 @@ controls.addEventListener('change', () => invalidate());
 // see-through sensors and the scale figure), so skip AO while any of them is showing
 function hqRender() {
   const seeThrough = cutaway || hardware.isInsideView() || human.visible;
-  if (seeThrough) renderer.render(scene, camera); else composer.render();
+  if (seeThrough || eco) renderer.render(scene, camera); else composer.render();   // eco: no AO / bloom / SMAA
+}
+
+/* ---------- adaptive resolution ----------
+   While the camera moves, track frame time; if it stays slow, drop the pixel ratio a step
+   (1.5 -> 1.25 -> 1, never below 1x so the image never goes blurry); step back up when fast. */
+const DPR_STEPS = [DPR_MAX, 1.25, 1].filter((v, i, a) => v <= DPR_MAX && a.indexOf(v) === i);
+let dprIdx = DPR_STEPS.indexOf(DPR) === -1 ? DPR_STEPS.length - 2 : DPR_STEPS.indexOf(DPR);
+let frameEMA = 16, slowFrames = 0, fastFrames = 0, prevRender = 0;
+function setDPR(i) {
+  dprIdx = Math.max(0, Math.min(DPR_STEPS.length - 1, i));
+  const d = DPR_STEPS[dprIdx], w = viewport.clientWidth, h = viewport.clientHeight;
+  renderer.setPixelRatio(d);
+  renderer.setSize(w, h);
+  composer.setPixelRatio(d);
+  composer.setSize(w, h);
+  smaa.setSize(w * d, h * d);
+  invalidate();
+}
+function trackFrame(now) {
+  if (prevRender && now - prevRender < 100) {
+    frameEMA = frameEMA * 0.85 + (now - prevRender) * 0.15;
+    if (frameEMA > 28) { slowFrames++; fastFrames = 0; } else if (frameEMA < 14) { fastFrames++; slowFrames = 0; } else { slowFrames = fastFrames = 0; }
+    if (slowFrames > 20 && dprIdx < DPR_STEPS.length - 1) { setDPR(dprIdx + 1); slowFrames = 0; frameEMA = 16; }
+    if (fastFrames > 90 && dprIdx > 0 && !eco) { setDPR(dprIdx - 1); fastFrames = 0; frameEMA = 16; }
+  }
+  prevRender = now;
+}
+function setEco(v) {
+  eco = v;
+  env.sun.shadow.mapSize.set(v ? 1024 : 2048, v ? 1024 : 2048);
+  env.sun.shadow.map?.dispose();
+  env.sun.shadow.map = null;
+  shadowsDirty = true;
+  setDPR(v ? DPR_STEPS.indexOf(1) : 0);
 }
 
 const clock = new THREE.Clock();
@@ -560,6 +599,7 @@ function animate() {
     if (shadowsDirty) { renderer.shadowMap.needsUpdate = true; shadowsDirty = false; }
     renderer.render(scene, camera);
     labelRenderer.render(scene, camera);
+    trackFrame(now);
     dirty = false;
     needHQ = true;
     lastMotion = now;
@@ -573,6 +613,7 @@ function animate() {
     lightDirty = false;
   }
 }
+if (LOW_END) setEco(true);          // phones / low-core machines start in eco mode
 animate();
 
 new ResizeObserver(() => {
@@ -591,4 +632,4 @@ setTimeout(() => ($('loading').hidden = true), 500);
 
 // expose for future features / debugging
 // call HACKaWORK.invalidate(true) after changing the scene from outside so it re-renders
-window.HACKaWORK = { scene, camera, controls, station, riser, hardware, composter, smart, CONFIG, invalidate };
+window.HACKaWORK = { scene, camera, controls, renderer, station, riser, hardware, composter, smart, CONFIG, invalidate, quality: () => ({ dpr: DPR_STEPS[dprIdx], eco, frameEMA }) };
