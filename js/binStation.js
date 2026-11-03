@@ -138,7 +138,8 @@ export function buildStation(renderer) {
     const inner = bay.width - P;
 
     if (bay.type === 'bin') {
-      const { bottom, top } = CONFIG.coloredPanel;
+      const { bottom } = CONFIG.coloredPanel;
+      const top = H - 0.05;                  // flush under the top rail, no gap
       const ph = top - bottom;
       const tex = makeBinPanelTexture(bay, inner, ph, renderer);
       const faceMat = new THREE.MeshStandardMaterial({ map: tex, metalness: 0.2, roughness: 0.5 });

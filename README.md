@@ -31,7 +31,7 @@ ES modules need a local server (opening index.html directly via file:// will not
 ## Dimension notes
 
 Bins follow the TAB120HW drawing (500 x 550 x 1100 mm). Frame estimated from site photos.
-Bays: 3 x 0.58 m + 1.10 m = 2.84 m long, 0.70 m deep, 1.00 m frame height.
+Bays: 3 x 0.58 m + 0.90 m = 2.64 m long, 0.70 m deep, 0.89 m frame height (bin collars stand about 8 cm above the frame).
 
 ## Notes
 

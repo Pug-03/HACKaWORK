@@ -4,7 +4,7 @@
 
 export const CONFIG = {
   frame: {
-    height: 1.0,        // top of steel frame from ground
+    height: 0.89,       // top of steel frame; bin collars stand ~8 cm proud of it (site photos)
     depth: 0.70,        // front to back
     footHeight: 0.05,   // clearance under base plate
     post: 0.04,         // square tube size
@@ -17,7 +17,7 @@ export const CONFIG = {
     { id: 'recycle', type: 'bin', width: 0.58, th: 'รีไซเคิล',   en: 'RECYCLE',        panel: '#f3c200', bin: 0xf0a800, ink: '#2a2208' },
     { id: 'food',    type: 'bin', width: 0.58, th: 'เศษอาหาร',   en: 'FOOD WASTE',     panel: '#2f9e45', bin: 0x1f8a3a, ink: '#0f2a14' },
     { id: 'general', type: 'bin', width: 0.58, th: 'ขยะทั่วไป',  en: 'GENERAL WASTE',  panel: '#2f7bd0', bin: 0x1d55c0, ink: '#0b1f3d' },
-    { id: 'bag',     type: 'open', width: 1.10, th: 'ถุงขยะ(มัด)', en: 'SEALED BIN BAG', panel: '#8c9196', ink: '#1e2124' },
+    { id: 'bag',     type: 'open', width: 0.90, th: 'ถุงขยะ(มัด)', en: 'SEALED BIN BAG', panel: '#8c9196', ink: '#1e2124' },
   ],
 
   // 120 L wheelie bin with waste-slot lid, per TAB120HW drawing (mm -> m):
@@ -44,7 +44,7 @@ export const CONFIG = {
     openAngle: 1.62,        // rad (~93°): lid rests just past vertical, clear of the frame's back rail
   },
 
-  coloredPanel: { bottom: 0.07, top: 0.93 },
+  coloredPanel: { bottom: 0.07 },   // top follows the frame: height - 0.05 (under the top rail)
   lattice: { height: 0.16, hole: 0.05, bar: 0.02 },   // two rows of square holes
   humanHeight: 1.7,
 };

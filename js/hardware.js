@@ -34,7 +34,7 @@ export function buildHardware(station) {
   const poleCap = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), steel);
   poleCap.position.set(poleX, poleTop, poleZ);
   poleGrp.add(poleCap);
-  for (const y of [0.25, 0.95]) {
+  for (const y of [0.25, 0.8]) {                    // clamps sit on the frame (top at 0.89)
     poleGrp.add(rbox(0.05, 0.04, 0.03, steel, X0 - 0.025, y, poleZ, 0.004));
     const clamp = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.006, 8, 24), dark);
     clamp.rotation.x = Math.PI / 2;
@@ -146,7 +146,7 @@ export function buildHardware(station) {
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
   conduit([V(poleX, 0.76, poleZ + 0.03), V(poleX, 0.76, -0.2), V(poleX, 0.645, -0.2)], 'cableSolar');          // solar -> battery
   conduit([V(X0 - 0.04, 0.4, -0.04), V(X0 - 0.04, 0.4, 0.12), V(X0 - 0.04, 0.535, 0.12)], 'cableBatt');       // battery -> control unit
-  conduit([V(X0 - 0.04, 0.83, 0.17), V(X0 - 0.04, 1.06, 0.17), V(X0 - 0.04, 1.06, poleZ + 0.02), V(poleX, 1.06, poleZ + 0.02)], 'cableBeacon'); // unit -> pole -> beacon
+  conduit([V(X0 - 0.04, 0.83, 0.05), V(X0 - 0.04, 0.87, 0.05), V(X0 - 0.04, 0.87, poleZ + 0.02), V(poleX, 0.87, poleZ + 0.02)], 'cableBeacon'); // unit -> pole -> beacon
 
   /* ---------- wireless fill sensors under each lid (battery + LoRa, no cable) ---------- */
   const sensorBody = new THREE.MeshStandardMaterial({ color: 0xe3e6e9, roughness: 0.45 });
