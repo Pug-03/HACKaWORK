@@ -94,7 +94,8 @@ export function buildRiser(renderer, stationLength, stationDepth) {
   const stepTex = stripes();
   stepTex.repeat.set(W / 0.25, 1);
   const stepTop = new THREE.MeshStandardMaterial({ map: stepTex, roughness: 0.85, metalness: 0.3 });
-  const stepZ = Dp / 2 + R.stepDepth / 2 + 0.01;
+  // free-standing step, 12 cm clear of the deck so it doesn't form a ramp around the leg guards
+  const stepZ = Dp / 2 + R.stepDepth / 2 + 0.12;
   const step = new THREE.Mesh(new THREE.BoxGeometry(W, 0.03, R.stepDepth), [galv, galv, stepTop, galv, galv, galv]);
   step.position.set(0, R.stepHeight - 0.015, stepZ);
   step.castShadow = step.receiveShadow = true;
