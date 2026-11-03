@@ -242,11 +242,14 @@
     render();
   });
 
+  // don't rebuild the table under the user's pointer / keyboard focus (it would eat clicks and focus)
+  const busy = () => !!document.querySelector('#rows button:hover, #rows button:focus, #queue :hover');
+
   // bins fill slowly over time; compost output accumulates
   setInterval(() => {
     for (const s of state.stations) s.fills = s.fills.map((f) => Math.min(100, f + s.rate * Math.random()));
     state.compostKg += 0.05 + Math.random() * 0.05;
-    render();
+    if (!busy()) render();
   }, 3000);
 
   state.stations = makeStations(state.district);
