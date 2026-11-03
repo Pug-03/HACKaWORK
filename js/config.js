@@ -1,6 +1,6 @@
 // All dimensions in metres (1 unit = 1 m) so the model is true to scale.
-// Values are estimated from site photos + standard 240 L wheelie-bin specs
-// (EN 840: ~580 W x 730 D x 1070 H mm). Adjust here when real drawings arrive.
+// The frame is estimated from site photos; the bins follow the TAB120HW 120 L drawing
+// (500 W x 550 D x 1100 H mm). Adjust here when real drawings arrive.
 
 export const CONFIG = {
   frame: {

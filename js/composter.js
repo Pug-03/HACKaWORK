@@ -3,7 +3,7 @@ import { rbox } from './geom.js';
 import { makeBrushedTexture } from './textures.js';
 
 // Stand-alone food-waste composter cabinet (separate unit beside the bin station).
-// 40 L horizontal stainless drum with a heated jacket and a rotating paddle shaft.
+// 200 L horizontal stainless drum (~50 kg food waste/day) with a heated jacket and a rotating paddle shaft.
 // Food scraps go in through the top hatch; finished compost comes out of the bottom drawer.
 export const COMPOSTER = {
   width: 1.2, depth: 0.8, height: 1.2,
