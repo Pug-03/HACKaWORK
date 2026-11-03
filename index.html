@@ -109,6 +109,8 @@
 
   #loading { position: fixed; inset: 0; display: grid; place-items: center; font-size: 14px; color: var(--muted); transition: opacity .4s; }
   body.ready #loading { opacity: 0; pointer-events: none; }
+  #loading[hidden] { display: none; }
+  #loading.error { color: #b91c1c; padding: 0 24px; text-align: center; line-height: 1.6; }
 
   @media (max-width: 640px) {
     .controls { top: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: calc(50% - 22px); padding: 10px; max-height: 45vh; }
@@ -188,6 +190,27 @@
   <div id="tooltip" hidden></div>
   <div id="toast" role="status" hidden></div>
 
+  <script>
+    // tell the user when the 3D scene can't start, instead of "loading…" forever
+    (function () {
+      const fail = (msg) => {
+        if (window.HACKaWORK) return;
+        const l = document.getElementById('loading');
+        l.hidden = false;
+        l.classList.add('error');
+        l.textContent = msg;
+      };
+      const probe = document.createElement('canvas');
+      if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) {
+        fail('เบราว์เซอร์หรือเครื่องนี้ไม่รองรับ WebGL จึงแสดงโมเดล 3D ไม่ได้ · ลองเปิดด้วย Chrome / Safari / Edge รุ่นใหม่');
+        return;
+      }
+      window.addEventListener('error', (e) => {
+        if (e.target && e.target.tagName === 'SCRIPT') fail('โหลดสคริปต์ไม่สำเร็จ · ตรวจสอบอินเทอร์เน็ตแล้วรีเฟรช');
+      }, true);
+      setTimeout(() => fail('โหลดโมเดล 3D ไม่สำเร็จ · ต้องต่ออินเทอร์เน็ตเพื่อโหลด three.js และฟอนต์ แล้วรีเฟรชอีกครั้ง'), 20000);
+    })();
+  </script>
   <script type="module" src="./js/main.js"></script>
 </body>
 </html>
