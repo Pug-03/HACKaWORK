@@ -112,8 +112,13 @@ function wedgeHood(B, zBack, zFront, mat, inset = 0) {
   // drop triangles lying on the base plane (open bottom)
   const src = geo.toNonIndexed();
   const sp = src.attributes.position, keep = [];
+  const va = new THREE.Vector3(), vb = new THREE.Vector3(), vc = new THREE.Vector3(), nrm = new THREE.Vector3();
   for (let i = 0; i < sp.count; i += 3) {
     if (sp.getY(i) < 1e-4 && sp.getY(i + 1) < 1e-4 && sp.getY(i + 2) < 1e-4) continue;
+    // open the flat front face: the push-flap opening is framed separately (see frontFrame)
+    va.fromBufferAttribute(sp, i); vb.fromBufferAttribute(sp, i + 1); vc.fromBufferAttribute(sp, i + 2);
+    nrm.subVectors(vb, va).cross(vc.clone().sub(va)).normalize();
+    if (nrm.z > 0.95) continue;
     for (let k = 0; k < 3; k++) keep.push(sp.getX(i + k), sp.getY(i + k), sp.getZ(i + k));
   }
   const out = new THREE.BufferGeometry();
@@ -261,7 +266,7 @@ export function createWheelieBin(color) {
 
   // push flap on the front face: thin dark gap outline + flap panel, hinged at its top edge
   const hh = B.hoodHeight;
-  const fBot = 0.018, fTop = hh - 0.035;
+  const fBot = 0.018, fTop = hh - 0.054;      // flap sits inside the flat front face (top at hh - 0.037)
   const wAt = (y, inset) => THREE.MathUtils.lerp(B.hoodBaseWidth, B.hoodTopWidth, y / hh) / 2 - inset;
   const trap = (inset, y0, y1) => {
     const sh = new THREE.Shape();
@@ -272,9 +277,22 @@ export function createWheelieBin(color) {
   const flapPivot = new THREE.Group();
   flapPivot.position.set(0, t, zFront);
   flapPivot.rotation.x = -lean;
-  const gap = new THREE.Mesh(new THREE.ShapeGeometry(trap(0.026, fBot - 0.004, fTop + 0.004)), new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 1 }));   // reads as the dark opening when the flap swings in
-  gap.position.z = 0.0015;
-  flapPivot.add(gap);
+  // front frame around the real opening: closes the flat front face of the hood (which is left open
+  // in the mesh) and gives the opening a 12 mm moulded edge that joins the inner shell
+  const faceTop = hh - 0.033, kFlat = 0.5 / (1 + 2 * 0.018);           // flat-face extent (bevel excluded)
+  const outerHalf = (y) => kFlat * THREE.MathUtils.lerp(B.hoodBaseWidth, B.hoodTopWidth, (y + 0.007) / hh) + 0.001;
+  const frameShape = new THREE.Shape();
+  frameShape.moveTo(-outerHalf(0), 0); frameShape.lineTo(outerHalf(0), 0);
+  frameShape.lineTo(outerHalf(faceTop), faceTop); frameShape.lineTo(-outerHalf(faceTop), faceTop); frameShape.closePath();
+  const slotOutline = trap(0.026, fBot - 0.004, fTop + 0.004);
+  const holePts = slotOutline.getPoints();
+  if (holePts.length > 1 && holePts[0].equals(holePts[holePts.length - 1])) holePts.pop();   // drop closing duplicate
+  frameShape.holes.push(new THREE.Path(holePts));
+  const frontFrame = new THREE.Mesh(new THREE.ExtrudeGeometry(frameShape, { depth: 0.012, bevelEnabled: false }), plastic);
+  frontFrame.position.z = -0.012;
+  frontFrame.castShadow = frontFrame.receiveShadow = true;
+  frontFrame.userData.part = 'flap';
+  flapPivot.add(frontFrame);
   const flapGeo = new THREE.ExtrudeGeometry(trap(0.03, fBot, fTop), { depth: 0.006, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.002, bevelSegments: 2 });
   const flap = new THREE.Mesh(flapGeo, plastic);
   flap.castShadow = true;
