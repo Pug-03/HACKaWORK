@@ -167,6 +167,7 @@ export function buildStation(renderer) {
       group.add(panel);
 
       const latFront = new THREE.Mesh(latticeGeometry(inner, latH, S), gray);
+      latFront.userData.part = 'lattice';
       latFront.position.set(x0 + P / 2, solidTop, zf);
       latFront.castShadow = true;
       group.add(latFront);
@@ -178,6 +179,14 @@ export function buildStation(renderer) {
       bagPile.position.set(cx, F.footHeight, 0);
       group.add(bagPile);
     }
+  });
+
+  // hover names for everything that isn't a bin or a sign panel
+  bagPile?.traverse((o) => { if (o.isMesh) o.userData.part = 'bags'; });
+  group.traverse((o) => {
+    if (!o.isMesh || o.userData.part || o.userData.bayId) return;
+    for (let p = o.parent; p; p = p.parent) if (bins.includes(p)) return;   // bin parts keep their own handling
+    o.userData.part = 'frame';
   });
 
   return { group, bins, bagPile, length: L, xs };

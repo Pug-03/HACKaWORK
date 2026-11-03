@@ -155,6 +155,7 @@ export function buildComposter(renderer) {
   const estop = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.022, 0.018, 24), new THREE.MeshStandardMaterial({ color: 0xc62828, roughness: 0.4 }));
   estop.rotation.x = Math.PI / 2;
   estop.position.set(0.42, (ctrlY0 + ctrlY1) / 2, Dd / 2 + 0.009);
+  estop.userData.part = 'estop';
   group.add(estop);
 
   const brand = brandingTexture(frontW, brandY1 - brandY0);
