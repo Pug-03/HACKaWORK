@@ -179,9 +179,20 @@ export function buildComposter(renderer) {
   dh.position.set(0, -0.035, t / 2 + 0.022);
   drawer.add(dh);
   for (const sx of [-1, 1]) drawer.add(rbox(0.016, 0.016, 0.026, ssDark, sx * 0.23, -0.035, t / 2 + 0.01, 0.003));
-  // drawer bin behind the front
-  drawer.add(rbox(W - 0.08, dH - 0.04, Dd - 0.12, ssDark, 0, -0.005, -(Dd - 0.12) / 2 - t / 2, 0.004));
-  drawer.position.set(0, drawerY0 + dH / 2, Dd / 2 - t / 2);
+  // open-top drawer tub behind the front, filled with finished compost
+  const tubW = W - 0.08, tubD = Dd - 0.12, tubH = dH - 0.05, tubZ = -tubD / 2 - t / 2, tubY = -dH / 2 + 0.012 + tubH / 2;
+  const wall = 0.008;
+  drawer.add(rbox(tubW, wall, tubD, ssDark, 0, tubY - tubH / 2 + wall / 2, tubZ, 0.003));                 // floor
+  drawer.add(rbox(tubW, tubH, wall, ssDark, 0, tubY, tubZ - tubD / 2 + wall / 2, 0.003));                 // back
+  for (const sx of [-1, 1]) drawer.add(rbox(wall, tubH, tubD, ssDark, sx * (tubW / 2 - wall / 2), tubY, tubZ, 0.003));
+  const compostMat = new THREE.MeshStandardMaterial({ color: 0x4a3423, roughness: 1 });
+  const fill = rbox(tubW - 2 * wall - 0.004, tubH * 0.6, tubD - wall - 0.004, compostMat, 0, tubY - tubH / 2 + wall + tubH * 0.3, tubZ + wall / 2, 0.02);
+  drawer.add(fill);
+  const drawerZ = Dd / 2 - t / 2;
+  drawer.position.set(0, drawerY0 + dH / 2, drawerZ);
+  drawer.traverse((o) => { if (o.isMesh) o.userData.part = 'drawer'; });
+  drawer.userData = { open: 0, target: 0 };
+  const DRAWER_TRAVEL = 0.5;
   group.add(drawer);
 
   /* ---------- interior: drum, paddles, heater, motor ---------- */
@@ -231,7 +242,11 @@ export function buildComposter(renderer) {
   }
   inside.add(rotor);
   // drum cradle + gear motor on the right
-  for (const sx of [-1, 1]) inside.add(rbox(0.04, dy - R - y0 - t, 0.45, ssDark, sx * (Lg / 2 - 0.03), y0 + t + (dy - R - y0 - t) / 2, dz, 0.004));   // cradles
+  // shelf separating the drum compartment from the drawer bay, with the drum cradles on top
+  const shelfY = drawerY1 + 0.005;
+  inside.add(rbox(W - 2 * t, 0.01, Dd - 2 * t, ssDark, 0, shelfY, 0, 0.003));
+  const cradleH = dy - R - shelfY - 0.005;
+  for (const sx of [-1, 1]) inside.add(rbox(0.04, cradleH, 0.45, ssDark, sx * (Lg / 2 - 0.03), shelfY + 0.005 + cradleH / 2, dz, 0.004));
   const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.09, 24), new THREE.MeshStandardMaterial({ color: 0x2f5d8a, metalness: 0.4, roughness: 0.45 }));
   motor.rotation.z = Math.PI / 2;
   motor.position.set(Lg / 2 + 0.06, dy, dz);                  // gear motor, inside the cabinet wall
@@ -274,6 +289,8 @@ export function buildComposter(renderer) {
     isHatchOpen: () => !!hatch.userData.target,
     setCutaway,
     toggleHatch() { hatch.userData.target = hatch.userData.target ? 0 : 1; },
+    isDrawerOpen: () => !!drawer.userData.target,
+    toggleDrawer() { drawer.userData.target = drawer.userData.target ? 0 : 1; },
     // returns 2 = geometry moved (shadows need update), 1 = repaint only, 0 = idle
     update(dt) {
       let res = 0;
@@ -282,6 +299,13 @@ export function buildComposter(renderer) {
         u.open += (u.target - u.open) * Math.min(1, dt * 6);
         if (Math.abs(u.target - u.open) <= 1e-4) u.open = u.target;
         hatch.rotation.x = -u.open * 1.7;
+        res = 2;
+      }
+      const d = drawer.userData;
+      if (Math.abs(d.target - d.open) > 1e-4) {
+        d.open += (d.target - d.open) * Math.min(1, dt * 5);
+        if (Math.abs(d.target - d.open) <= 1e-4) d.open = d.target;
+        drawer.position.z = drawerZ + d.open * DRAWER_TRAVEL;
         res = 2;
       }
       const heat = running ? 1.2 : 0;

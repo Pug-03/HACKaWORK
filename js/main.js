@@ -167,6 +167,7 @@ const PART_TIPS = {
   ratGuard: 'แผ่นกันหนูปีน (rat guard) Ø 26 ซม. · หนูปีนเสาขึ้นมาแล้วติดใต้กรวย อ้อมขึ้นไปไม่ได้',
   composter: `เครื่องหมักปุ๋ยจากเศษอาหาร ${COMPOSTER.capacityL} ลิตร`,
   hatch: 'ช่องเติมเศษอาหาร — คลิกเพื่อเปิด/ปิด',
+  drawer: 'ลิ้นชักปุ๋ยพร้อมใช้ — คลิกเพื่อดึงออก/ดันกลับ',
   composterStart: 'ปุ่มเดินเครื่องหมัก — คลิกเพื่อเริ่ม/หยุด',
   flap: 'ช่องทิ้งแบบบานผลัก — คลิกเพื่อดันบานเข้าไป แล้วบานจะปิดกลับเอง',
   sensor: 'เซ็นเซอร์อัลตราโซนิกไร้สาย · แบตในตัว ~5 ปี · ส่ง LoRa ไปกล่องควบคุม (ไม่ต้องเดินสาย เพราะถังถูกเข็นออกทุกรอบ)',
@@ -179,7 +180,7 @@ const PART_TIPS = {
   cableBeacon: 'ท่อร้อยสาย: กล่องควบคุม → เสา → ไฟแจ้งเตือน',
   truck: 'รถเก็บขยะไฟฟ้ามินิ (EV) · บรรทุก ~500 กก. · ร่วมกับภาคเอกชน',
 };
-const CLICKABLE = new Set(['callButton', 'tray', 'hatch', 'composterStart', 'flap']);
+const CLICKABLE = new Set(['callButton', 'tray', 'hatch', 'composterStart', 'flap', 'drawer']);
 
 // push flap: swings in while "held", then springs back shut like the real gravity flap
 function pushFlap(bin) {
@@ -218,6 +219,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   else if (part === 'callButton') requestPickup();
   else if (part === 'tray') { riser.setTraysOpen(!riser.trays[0].userData.target); syncAll(); }
   else if (part === 'hatch') { composter.toggleHatch(); syncAll(); }
+  else if (part === 'drawer') { composter.toggleDrawer(); syncAll(); }
   else if (part === 'composterStart') { composter.setRunning(!composter.isRunning()); syncAll(); }
   else if (bin) bin.userData.target = bin.userData.target ? 0 : 1;
   syncAll();
@@ -267,6 +269,7 @@ syncers.push(bindToggle('t-trays', () => !!riser.trays[0].userData.target, (v) =
 syncers.push(bindToggle('t-comp-run', () => composter.isRunning(), (v) => composter.setRunning(v)));
 syncers.push(bindToggle('t-comp-cut', () => cutaway, (v) => { cutaway = v; composter.setCutaway(v); }));
 syncers.push(bindToggle('t-comp-hatch', () => hatchOpen(), () => composter.toggleHatch()));
+syncers.push(bindToggle('t-comp-drawer', () => composter.isDrawerOpen(), () => composter.toggleDrawer()));
 function syncAll() { syncers.forEach((f) => f()); }
 
 // camera presets
