@@ -213,9 +213,25 @@ function pick(ev) {
   if (part && part !== 'unit') bin = null;   // hardware parts take priority over the bin under them
   return { bin, bayId, part, owner };
 }
-renderer.domElement.addEventListener('pointerdown', (e) => (downAt = [e.clientX, e.clientY]));
+// a click = one pointer pressed and released in place; multi-touch gestures (pinch/rotate) never count
+const activePointers = new Set();
+let gestured = false;
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  activePointers.add(e.pointerId);
+  if (activePointers.size > 1) gestured = true;
+  downAt = activePointers.size === 1 ? [e.clientX, e.clientY, e.pointerId] : null;
+});
+const endPointer = (e) => {
+  activePointers.delete(e.pointerId);
+  if (activePointers.size === 0) setTimeout(() => (gestured = false), 0);
+};
+renderer.domElement.addEventListener('pointercancel', (e) => { endPointer(e); downAt = null; });
 renderer.domElement.addEventListener('pointerup', (e) => {
-  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
+  const wasGesture = gestured;
+  endPointer(e);
+  const start = downAt;
+  downAt = null;
+  if (wasGesture || !start || start[2] !== e.pointerId || Math.hypot(e.clientX - start[0], e.clientY - start[1]) > 5) return;
   const { bin, part, owner } = pick(e);
   if (part === 'flap' && owner) pushFlap(owner);
   else if (part === 'callButton') requestPickup();
