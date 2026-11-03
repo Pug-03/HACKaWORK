@@ -20,7 +20,8 @@ export function buildHardware(station) {
 
   /* ---------- "look inside" helpers ---------- */
   const insideLabels = [];
-  function label(parent, text, x, y, z) {
+  // owner: the door this label belongs to, or 'sensor' (shown while the sensor covers are see-through)
+  function label(parent, text, x, y, z, owner) {
     const el = document.createElement('div');
     el.className = 'dim hw';
     el.textContent = text;
@@ -28,7 +29,7 @@ export function buildHardware(station) {
     o.position.set(x, y, z);
     o.visible = false;
     parent.add(o);
-    insideLabels.push(o);
+    insideLabels.push({ o, owner });
     return o;
   }
   // open-front enclosure: back + 4 walls (front is a hinged door)
@@ -202,9 +203,9 @@ export function buildHardware(station) {
   bIn.add(wire(0xd42a1e, 0.08, 0.11, -0.035, 0.08, 0.155, -0.035));         // from solar (top gland)
   bIn.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = 'batteryInside'; } });
   batt.add(bIn);
-  label(batt, 'แบต LiFePO4 12.8V 20Ah', 0, -0.075, 0.04);
-  label(batt, 'MPPT ชาร์จจากโซลาร์', -0.015, 0.125, 0);
-  label(batt, 'เบรกเกอร์ DC', 0.08, 0.04, 0);
+  label(batt, 'แบต LiFePO4 12.8V 20Ah', 0, -0.075, 0.04, battDoor);
+  label(batt, 'MPPT ชาร์จจากโซลาร์', -0.015, 0.125, 0, battDoor);
+  label(batt, 'เบรกเกอร์ DC', 0.08, 0.04, 0, battDoor);
   group.add(batt);
 
   // conduits: rounded-corner tubes between the boxes
@@ -280,7 +281,7 @@ export function buildHardware(station) {
     s.add(cell);
     s.add(rbox(0.02, 0.004, 0.016, shield, 0.025, -0.012, 0.012, 0.001));     // LoRa radio
     s.traverse((m) => { if (m.isMesh) m.userData.part = 'sensor'; });
-    if (bin === station.bins[0]) label(s, 'เซ็นเซอร์: ถ่านลิเธียม + บอร์ด LoRa + หัววัดอัลตราโซนิก', 0, -0.06, 0);
+    if (bin === station.bins[0]) label(s, 'เซ็นเซอร์: ถ่านลิเธียม + บอร์ด LoRa + หัววัดอัลตราโซนิก', 0, -0.06, 0, 'sensor');
     s.position.set(0, 0, 0.1);
     bin.userData.lidPivot.add(s);
   }
@@ -357,12 +358,12 @@ export function buildHardware(station) {
   for (const [x, c] of [[-0.036, 0xd42a1e], [-0.018, 0x111111], [0.018, 0x2563eb], [0.036, 0x16a34a]]) uIn.add(wire(c, x, -0.106, -0.02, x, -0.148, -0.02));
   uIn.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = 'unitInside'; } });
   unit.add(uIn);
-  label(unit, 'MCU ควบคุมหลัก', -0.05, 0.085, 0.01);
-  label(unit, 'โมดูล 4G LTE → แดชบอร์ด', 0.04, 0.125, 0.01);
-  label(unit, 'LoRa รับสัญญาณเซ็นเซอร์', 0.035, -0.005, 0.01);
-  label(unit, 'DC-DC 12→5V', -0.06, 0.0, 0.01);
-  label(unit, 'รีเลย์ไฟแจ้งเตือน', -0.055, -0.065, 0.01);
-  label(unit, 'ขั้วต่อสาย', 0, -0.125, 0.01);
+  label(unit, 'MCU ควบคุมหลัก', -0.05, 0.085, 0.01, unitDoor);
+  label(unit, 'โมดูล 4G LTE → แดชบอร์ด', 0.04, 0.125, 0.01, unitDoor);
+  label(unit, 'LoRa รับสัญญาณเซ็นเซอร์', 0.035, -0.005, 0.01, unitDoor);
+  label(unit, 'DC-DC 12→5V', -0.06, 0.0, 0.01, unitDoor);
+  label(unit, 'รีเลย์ไฟแจ้งเตือน', -0.055, -0.065, 0.01, unitDoor);
+  label(unit, 'ขั้วต่อสาย', 0, -0.125, 0.01, unitDoor);
   // LoRa gateway + LTE antenna on top of the unit
   const antBase = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.02, 16), dark);
   antBase.position.set(0.07, 0.16, 0);
@@ -452,9 +453,9 @@ export function buildHardware(station) {
           res = 2;
         }
       }
-      const showLabels = doors.some((d) => d.userData.open > 0.6) || sensorBody.opacity < 1;
-      for (const l of insideLabels) {
-        if (l.visible !== showLabels) { l.visible = showLabels; res = Math.max(res, 1); }
+      for (const { o, owner } of insideLabels) {
+        const show = owner === 'sensor' ? sensorBody.opacity < 1 : owner.userData.open > 0.6;
+        if (o.visible !== show) { o.visible = show; res = Math.max(res, 1); }
       }
       if (blink) {
         blinkT += dt;
