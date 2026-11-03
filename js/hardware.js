@@ -59,6 +59,47 @@ export function buildHardware(station) {
   const chip = new THREE.MeshStandardMaterial({ color: 0x111317, roughness: 0.4 });
   const shield = new THREE.MeshStandardMaterial({ color: 0xc9cdd1, metalness: 0.9, roughness: 0.25 });
   const plate = new THREE.MeshStandardMaterial({ color: 0xd3d7da, metalness: 0.3, roughness: 0.6 });
+  // polyline with rounded corners -> tube (used for both field conduits and panel wiring)
+  function routed(pts, radius, bend, mat) {
+    const path = new THREE.CurvePath();
+    let prev = pts[0];
+    for (let i = 1; i < pts.length; i++) {
+      const p = pts[i];
+      if (i < pts.length - 1) {
+        const inLen = p.distanceTo(prev), outLen = p.distanceTo(pts[i + 1]);
+        const r = Math.min(bend, inLen / 2, outLen / 2);
+        const a = p.clone().addScaledVector(new THREE.Vector3().subVectors(p, prev).normalize(), -r);
+        const b = p.clone().addScaledVector(new THREE.Vector3().subVectors(pts[i + 1], p).normalize(), r);
+        if (a.distanceTo(prev) > 1e-5) path.add(new THREE.LineCurve3(prev, a));
+        path.add(new THREE.QuadraticBezierCurve3(a, p, b));
+        prev = b;
+      } else path.add(new THREE.LineCurve3(prev, p));
+    }
+    const m = new THREE.Mesh(new THREE.TubeGeometry(path, Math.max(24, pts.length * 16), radius, 8, false), mat);
+    m.castShadow = true;
+    return m;
+  }
+  const P = (x, y, z) => new THREE.Vector3(x, y, z);
+  const wireMats = {};
+  const wmat = (c) => (wireMats[c] ??= new THREE.MeshStandardMaterial({ color: c, roughness: 0.45 }));
+  // panel wire: rounded route between two terminals
+  const pwire = (color, pts) => routed(pts.map((p) => P(...p)), 0.0022, 0.008, wmat(color));
+  // IP68 cable gland: hex nut on the wall + domed sealing cap, local +Y = outward
+  const glandMat = new THREE.MeshStandardMaterial({ color: 0x2a2d31, roughness: 0.5 });
+  function gland(pos, dir) {
+    const g = new THREE.Group();
+    const nut = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.008, 6), glandMat);
+    nut.position.y = 0.004;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.008, 20), glandMat);
+    body.position.y = 0.012;
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.0095, 0.012, 0.01, 20), glandMat);
+    cap.position.y = 0.021;
+    g.add(nut, body, cap);
+    g.position.copy(pos);
+    g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    g.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+    return g;
+  }
   const wire = (color, x0, y0, z0, x1, y1, z1, r = 0.0025) => {
     const a = new THREE.Vector3(x0, y0, z0), b = new THREE.Vector3(x1, y1, z1);
     const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, a.distanceTo(b), 8), new THREE.MeshStandardMaterial({ color, roughness: 0.5 }));
@@ -168,9 +209,12 @@ export function buildHardware(station) {
   keyLock.position.set(0.085, -0.13, bD / 2 + 0.008);
   battDoor.attachFront(keyLock);
   battDoor.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = 'battery'; } });
-  // internals
+  // internals: real panel layout — mounting plate, battery on a bracket with strap, MPPT controller
+  // with a terminal strip, DIN rail with DC breakers / fuse / terminal blocks, wire duct, routed wiring
   const bIn = new THREE.Group();
-  bIn.add(rbox(bW - 0.02, bH - 0.02, 0.003, plate, 0, 0, -bD / 2 + 0.006, 0.001));       // mounting plate
+  const zp = -bD / 2 + 0.006;                                                   // mounting plate face
+  bIn.add(rbox(bW - 0.02, bH - 0.02, 0.003, plate, 0, 0, zp - 0.0015, 0.001));
+  // battery + shelf bracket + strap
   const packTex = document.createElement('canvas');
   packTex.width = 320; packTex.height = 200;
   const pk = packTex.getContext('2d');
@@ -181,67 +225,76 @@ export function buildHardware(station) {
   pk.font = `400 22px ${FONT}`; pk.fillText('BMS ในตัว', 160, 170);
   const pkT = new THREE.CanvasTexture(packTex); pkT.colorSpace = THREE.SRGBColorSpace;
   const packBlue = new THREE.MeshStandardMaterial({ color: 0x1e4fa3, roughness: 0.5 });
-  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.13, 0.09), [packBlue, packBlue, packBlue, packBlue, new THREE.MeshStandardMaterial({ map: pkT, roughness: 0.5 }), packBlue]);
-  pack.position.set(0, -0.075, -0.012);
+  const packD = 0.075, packZ = zp + packD / 2 + 0.002, packTop = -0.035;
+  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.1, packD), [packBlue, packBlue, packBlue, packBlue, new THREE.MeshStandardMaterial({ map: pkT, roughness: 0.5 }), packBlue]);
+  pack.position.set(0, packTop - 0.05, packZ);
   bIn.add(pack);
-  for (const [x, c] of [[-0.06, 0xd42a1e], [0.06, 0x111111]]) {          // terminals
-    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.012, 12), new THREE.MeshStandardMaterial({ color: c, roughness: 0.4 }));
-    t.position.set(x, -0.004, -0.012);
+  bIn.add(rbox(0.18, 0.006, packD + 0.01, steel, 0, packTop - 0.103, packZ, 0.002));          // shelf
+  bIn.add(rbox(0.012, 0.102, packD + 0.004, dark, 0, packTop - 0.05, packZ, 0.002));          // strap
+  const termRed = wmat(0xd42a1e), termBlk = wmat(0x111111);
+  const bt = [[-0.06, termRed], [0.06, termBlk]].map(([x, m]) => {
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.01, 12), m);
+    t.position.set(x, packTop + 0.005, packZ);
     bIn.add(t);
-  }
-  const mppt = new THREE.Group();
-  mppt.position.set(-0.015, 0.085, -0.035);
-  mppt.add(rbox(0.13, 0.075, 0.035, chip, 0, 0, 0, 0.004));
-  for (let i = 0; i < 7; i++) mppt.add(rbox(0.004, 0.07, 0.012, chip, -0.054 + i * 0.018, 0, -0.022, 0.001));   // heat-sink fins
-  const mpptScr = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.025), new THREE.MeshBasicMaterial({ color: 0x38bdf8, toneMapped: false }));
-  mpptScr.position.set(-0.025, 0.012, 0.018);
-  mppt.add(mpptScr);
-  bIn.add(mppt);
-  for (const x of [0.07, 0.09]) bIn.add(rbox(0.017, 0.045, 0.035, new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.4 }), x, 0.085, -0.035, 0.002));   // DC breakers
-  bIn.add(rbox(0.16, 0.008, 0.004, new THREE.MeshStandardMaterial({ color: 0xb87333, metalness: 0.9, roughness: 0.3 }), 0, 0.03, -0.055, 0.001));   // busbar
-  bIn.add(wire(0xd42a1e, -0.06, 0.002, -0.012, -0.04, 0.05, -0.035));
-  bIn.add(wire(0x111111, 0.06, 0.002, -0.012, 0.01, 0.05, -0.035));
-  bIn.add(wire(0xd42a1e, 0.08, 0.11, -0.035, 0.08, 0.155, -0.035));         // from solar (top gland)
+    return [x, packTop + 0.01, packZ];
+  });
+  // MPPT controller (heat-sink back against the plate) with a 6-way terminal strip along its bottom
+  const mpptY = 0.09, mpptZ = zp + 0.02;
+  bIn.add(rbox(0.15, 0.075, 0.03, chip, 0, mpptY, mpptZ, 0.005));
+  const mpptScr = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.022), new THREE.MeshBasicMaterial({ color: 0x38bdf8, toneMapped: false }));
+  mpptScr.position.set(-0.03, mpptY + 0.012, mpptZ + 0.0155);
+  bIn.add(mpptScr);
+  for (let i = 0; i < 3; i++) bIn.add(rbox(0.008, 0.008, 0.004, shield, 0.03 + i * 0.016, mpptY + 0.012, mpptZ + 0.016, 0.001));   // keypad
+  const mpptT = [-0.0625, -0.0375, -0.0125, 0.0125, 0.0375, 0.0625].map((x) => {    // PV+ PV- BAT+ BAT- LOAD+ LOAD-
+    bIn.add(rbox(0.018, 0.012, 0.012, shield, x, mpptY - 0.042, mpptZ + 0.006, 0.001));
+    return [x, mpptY - 0.048, mpptZ + 0.006];
+  });
+  // DIN rail with PV breaker, battery breaker, load fuse and terminal blocks
+  const railY = 0.005, railZ = zp + 0.004;
+  bIn.add(rbox(bW - 0.04, 0.035, 0.007, steel, 0, railY, railZ, 0.001));
+  const dinMod = (x, w, color, h = 0.05) => { bIn.add(rbox(w, h, 0.035, new THREE.MeshStandardMaterial({ color, roughness: 0.45 }), x, railY, railZ + 0.02, 0.002)); };
+  dinMod(-0.07, 0.018, 0xf2f2f2); dinMod(-0.05, 0.018, 0xf2f2f2);           // DC breakers
+  for (const x of [-0.07, -0.05]) bIn.add(rbox(0.006, 0.012, 0.008, chip, x, railY + 0.004, railZ + 0.041, 0.001));   // toggles
+  dinMod(-0.025, 0.02, 0x1f2937);                                             // fuse holder
+  for (let i = 0; i < 4; i++) dinMod(0.01 + i * 0.008, 0.007, i % 2 ? 0x1d4ed8 : 0x9ca3af, 0.04);   // terminal blocks
+  // wiring (rounded runs between real terminal points)
+  const zw = railZ + 0.03;
+  bIn.add(pwire(0xd42a1e, [bt[0], [bt[0][0], railY - 0.035, packZ], [-0.05, railY - 0.035, zw], [-0.05, railY - 0.025, zw]]));                 // BAT+ -> breaker
+  bIn.add(pwire(0xd42a1e, [[-0.05, railY + 0.025, zw], [-0.05, railY + 0.035, zw], [-0.0125, railY + 0.035, zw], mpptT[2]]));                 // breaker -> BAT+
+  bIn.add(pwire(0x111111, [bt[1], [bt[1][0], railY - 0.04, packZ], [0.0125, railY - 0.04, zw], [0.0125, railY + 0.04, zw], mpptT[3]]));      // BAT- -> MPPT
+  bIn.add(pwire(0xd42a1e, [[-0.07, bH / 2 - 0.006, -0.02], [-0.07, bH / 2 - 0.03, -0.02], [-0.085, bH / 2 - 0.05, zw], [-0.085, railY + 0.035, zw], [-0.07, railY + 0.035, zw], [-0.07, railY + 0.025, zw]]));   // PV+ in -> breaker
+  bIn.add(pwire(0xd42a1e, [[-0.07, railY - 0.025, zw], [-0.07, railY - 0.04, zw], [-0.0625, railY - 0.04, zw], mpptT[0]]));                  // breaker -> PV+
+  bIn.add(pwire(0x111111, [[-0.062, bH / 2 - 0.006, -0.02], [-0.062, bH / 2 - 0.03, -0.02], [-0.0375, mpptY + 0.06, zw], mpptT[1]]));        // PV-
+  bIn.add(pwire(0xd42a1e, [mpptT[4], [0.0375, railY + 0.035, zw], [0.014, railY + 0.035, zw], [0.014, railY + 0.02, zw]]));                  // LOAD+ -> terminal
+  bIn.add(pwire(0x111111, [mpptT[5], [0.0625, railY + 0.035, zw], [0.03, railY + 0.035, zw], [0.03, railY + 0.02, zw]]));                     // LOAD- -> terminal
+  bIn.add(pwire(0xd42a1e, [[0.014, railY - 0.02, zw], [0.014, -0.05, zw], [0.07, -0.07, zw], [0.07, -bH / 2 + 0.03, -0.02], [0.07, -bH / 2 + 0.006, -0.02]]));   // to control unit
+  bIn.add(pwire(0x111111, [[0.03, railY - 0.02, zw], [0.03, -0.045, zw], [0.078, -0.065, zw], [0.078, -bH / 2 + 0.03, -0.02], [0.078, -bH / 2 + 0.006, -0.02]]));
   bIn.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = 'batteryInside'; } });
   batt.add(bIn);
-  label(batt, 'แบต LiFePO4 12.8V 20Ah', 0, -0.075, 0.04, battDoor);
-  label(batt, 'MPPT ชาร์จจากโซลาร์', -0.015, 0.125, 0, battDoor);
-  label(batt, 'เบรกเกอร์ DC', 0.08, 0.04, 0, battDoor);
+  // cable glands: solar in (top), load out to the control unit (bottom)
+  const battGlandTop = gland(P(-0.066, bH / 2, -0.02), P(0, 1, 0));
+  const battGlandBot = gland(P(0.074, -bH / 2, -0.02), P(0, -1, 0));
+  batt.add(battGlandTop, battGlandBot);
+  label(batt, 'แบต LiFePO4 12.8V 20Ah + BMS', 0, packTop - 0.05, packZ + 0.05, battDoor);
+  label(batt, 'MPPT ชาร์จจากโซลาร์', 0.02, mpptY + 0.05, 0, battDoor);
+  label(batt, 'เบรกเกอร์ DC / ฟิวส์', -0.05, railY - 0.03, 0.03, battDoor);
   group.add(batt);
 
-  // conduits: rounded-corner tubes between the boxes
+  // field conduits run gland-to-gland (box walls and the pole), with real bends
+  const toLocal = (obj, v) => { obj.updateMatrix(); return v.clone().applyMatrix4(obj.matrix); };
+  const tipOf = (obj, gl) => { obj.updateMatrix(); gl.updateMatrix(); const tip = P(0, 0.026, 0).applyMatrix4(gl.matrix).applyMatrix4(obj.matrix); return tip; };
   function conduit(pts, part) {
-    const path = new THREE.CurvePath();
-    const r = 0.03;
-    let prev = pts[0];
-    for (let i = 1; i < pts.length; i++) {
-      const p = pts[i];
-      if (i < pts.length - 1) {
-        const inDir = new THREE.Vector3().subVectors(p, prev).normalize();
-        const outDir = new THREE.Vector3().subVectors(pts[i + 1], p).normalize();
-        const a = p.clone().addScaledVector(inDir, -r), b = p.clone().addScaledVector(outDir, r);
-        path.add(new THREE.LineCurve3(prev, a));
-        path.add(new THREE.QuadraticBezierCurve3(a, p, b));
-        prev = b;
-      } else path.add(new THREE.LineCurve3(prev, p));
-    }
-    const m = new THREE.Mesh(new THREE.TubeGeometry(path, 48, 0.009, 10, false), conduitMat);
-    m.castShadow = true;
+    const m = routed(pts, 0.009, 0.03, conduitMat);
     m.userData.part = part;
     group.add(m);
-    // cable glands at both ends
-    for (const e of [pts[0], pts[pts.length - 1]]) {
-      const g = new THREE.Mesh(new THREE.SphereGeometry(0.014, 12, 8), dark);
-      g.position.copy(e);
-      g.userData.part = part;
-      group.add(g);
-    }
   }
-  const V = (x, y, z) => new THREE.Vector3(x, y, z);
-  conduit([V(poleX, 0.76, poleZ + 0.03), V(poleX, 0.76, -0.2), V(poleX, 0.645, -0.2)], 'cableSolar');          // solar -> battery
-  conduit([V(X0 - 0.04, 0.4, -0.04), V(X0 - 0.04, 0.4, 0.12), V(X0 - 0.04, 0.535, 0.12)], 'cableBatt');       // battery -> control unit
-  conduit([V(X0 - 0.04, 0.83, 0.05), V(X0 - 0.04, 0.87, 0.05), V(X0 - 0.04, 0.87, poleZ + 0.02), V(poleX, 0.87, poleZ + 0.02)], 'cableBeacon'); // unit -> pole -> beacon
-
+  // glands on the pole wall (pole is the duct up to the solar panel and the beacon)
+  const poleGlandSolar = gland(P(poleX, 0.76, poleZ + 0.03), P(0, 0, 1));
+  const poleGlandBeacon = gland(P(poleX, 0.18, poleZ + 0.03), P(0, 0, 1));
+  group.add(poleGlandSolar, poleGlandBeacon);
+  const pS = P(poleX, 0.76, poleZ + 0.056), pB = P(poleX, 0.18, poleZ + 0.056);
+  const bTop = tipOf(batt, battGlandTop), bBot = tipOf(batt, battGlandBot);
+  conduit([pS, P(pS.x, pS.y, pS.z + 0.03), P(bTop.x, pS.y, bTop.z), P(bTop.x, bTop.y + 0.03, bTop.z), bTop], 'cableSolar');      // solar -> battery
   /* ---------- wireless fill sensors under each lid (battery + LoRa, no cable) ---------- */
   const sensorBody = new THREE.MeshStandardMaterial({ color: 0xe3e6e9, roughness: 0.45, transparent: true, opacity: 1 });
   const cellMat2 = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.4 });
@@ -342,38 +395,91 @@ export function buildHardware(station) {
   const capPlate = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.033), new THREE.MeshStandardMaterial({ map: capTex, roughness: 0.7 }));
   capPlate.position.set(0, -0.122, 0.0395);
   unitDoor.attachFront(capPlate);
-  // internals: controller board with MCU, LTE modem, LoRa gateway radio, DC-DC, beacon relay, terminals
+  // internals: DIN-rail controller panel — controller, LTE router, LoRa gateway, DC-DC, relay,
+  // breaker and terminal blocks on two rails, slotted wire duct between, routed wiring and coax
   const uIn = new THREE.Group();
-  uIn.add(rbox(uW - 0.02, uH - 0.02, 0.003, plate, 0, 0, -uD / 2 + 0.006, 0.001));
-  uIn.add(rbox(0.17, 0.12, 0.003, pcb, 0, 0.05, -0.028, 0.001));
-  uIn.add(rbox(0.026, 0.026, 0.004, chip, -0.045, 0.065, -0.025, 0.001));                 // MCU
-  uIn.add(rbox(0.046, 0.036, 0.006, shield, 0.035, 0.075, -0.024, 0.001));               // LTE modem
-  uIn.add(rbox(0.012, 0.016, 0.003, new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.3 }), 0.07, 0.04, -0.025, 0.001));   // SIM
-  uIn.add(rbox(0.032, 0.026, 0.005, shield, 0.03, 0.02, -0.024, 0.001));                 // LoRa gateway radio
-  uIn.add(wire(0x222222, 0.03, 0.033, -0.022, 0.07, 0.148, -0.01, 0.0018));             // coax to antenna
-  uIn.add(rbox(0.04, 0.026, 0.016, new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.5 }), -0.05, 0.01, -0.02, 0.002));   // DC-DC
-  uIn.add(rbox(0.026, 0.022, 0.016, chip, -0.055, -0.045, -0.02, 0.002));               // beacon relay
-  const tbMat = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.5 });
-  const tbOrange = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.5 });
-  for (let i = 0; i < 7; i++) uIn.add(rbox(0.016, 0.022, 0.018, i % 3 === 0 ? tbOrange : tbMat, -0.054 + i * 0.018, -0.095, -0.02, 0.002));   // terminal blocks
-  for (const [x, c] of [[-0.036, 0xd42a1e], [-0.018, 0x111111], [0.018, 0x2563eb], [0.036, 0x16a34a]]) uIn.add(wire(c, x, -0.106, -0.02, x, -0.148, -0.02));
+  const uz = -uD / 2 + 0.006;
+  uIn.add(rbox(uW - 0.02, uH - 0.02, 0.003, plate, 0, 0, uz - 0.0015, 0.001));
+  const rail = (y) => uIn.add(rbox(uW - 0.03, 0.035, 0.007, steel, 0, y, uz + 0.004, 0.001));
+  const mod = (x, y, w, h, color, d = 0.04) => { const m = rbox(w, h, d, new THREE.MeshStandardMaterial({ color, roughness: 0.45 }), x, y, uz + 0.007 + d / 2, 0.003); uIn.add(m); return m; };
+  const r1y = 0.075, r2y = -0.035;
+  rail(r1y); rail(r2y);
+  // rail 1: controller (MCU), LTE router, LoRa gateway
+  mod(-0.055, r1y, 0.06, 0.07, 0xe5e7eb);
+  const ctrlScr = new THREE.Mesh(new THREE.PlaneGeometry(0.035, 0.018), new THREE.MeshBasicMaterial({ color: 0x22c55e, toneMapped: false }));
+  ctrlScr.position.set(-0.055, r1y + 0.012, uz + 0.0475);
+  uIn.add(ctrlScr);
+  mod(0.012, r1y, 0.045, 0.07, 0xf8fafc);
+  mod(0.06, r1y, 0.035, 0.07, 0x1f2937);
+  for (const [x, c] of [[0.0, 0x22c55e], [0.012, 0x22c55e], [0.024, 0xf59e0b], [0.06, 0x3b82f6]]) {
+    const led = new THREE.Mesh(new THREE.SphereGeometry(0.0025, 8, 6), new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 1.5 }));
+    led.position.set(x, r1y - 0.02, uz + 0.048);
+    uIn.add(led);
+  }
+  // SMA connectors on top of LTE / LoRa modules + coax up to the two antennas
+  for (const x of [0.012, 0.06]) uIn.add(rbox(0.008, 0.01, 0.008, shield, x, r1y + 0.04, uz + 0.027, 0.001));
+  uIn.add(routed([P(0.012, r1y + 0.045, uz + 0.027), P(0.012, r1y + 0.06, uz + 0.027), P(0.07, uH / 2 - 0.02, 0), P(0.07, uH / 2 - 0.004, 0)], 0.0018, 0.01, wmat(0x111111)));
+  uIn.add(routed([P(0.06, r1y + 0.045, uz + 0.027), P(0.06, r1y + 0.055, uz + 0.027), P(-0.07, uH / 2 - 0.025, 0), P(-0.07, uH / 2 - 0.004, 0)], 0.0018, 0.01, wmat(0x111111)));
+  // slotted wire duct between the rails and along the bottom
+  const ductMat = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.6 });
+  const duct = (y) => {
+    uIn.add(rbox(uW - 0.03, 0.022, 0.03, ductMat, 0, y, uz + 0.017, 0.002));
+    for (let i = 0; i < 12; i++) uIn.add(rbox(0.003, 0.012, 0.031, chip, -0.09 + i * 0.0165, y + 0.006, uz + 0.017, 0.0005));
+  };
+  duct(0.02); duct(-0.095);
+  // rail 2: DC breaker, DC-DC converter, beacon relay, terminal blocks
+  mod(-0.085, r2y, 0.018, 0.05, 0xf2f2f2);
+  uIn.add(rbox(0.006, 0.012, 0.008, chip, -0.085, r2y + 0.004, uz + 0.051, 0.001));
+  mod(-0.055, r2y, 0.035, 0.05, 0x1d4ed8);
+  mod(-0.024, r2y, 0.018, 0.05, 0x111827);
+  const relayLed = new THREE.Mesh(new THREE.SphereGeometry(0.0022, 8, 6), new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 1.5 }));
+  relayLed.position.set(-0.024, r2y + 0.018, uz + 0.048);
+  uIn.add(relayLed);
+  const tbColors = [0xd42a1e, 0x111111, 0x9ca3af, 0x9ca3af, 0x1d4ed8, 0x16a34a, 0x9ca3af];
+  tbColors.forEach((c, i) => mod(0.0 + i * 0.0105, r2y, 0.009, 0.045, c === 0xd42a1e || c === 0x111111 ? 0x9ca3af : c, 0.038));
+  // short jumpers from modules into the ducts (the runs inside the duct are hidden, like a real panel)
+  const uzw = uz + 0.03;
+  for (const [x, c] of [[-0.065, 0xd42a1e], [-0.045, 0x111111], [0.005, 0xd42a1e], [0.02, 0x111111], [0.055, 0x1d4ed8]]) uIn.add(pwire(c, [[x, r1y - 0.035, uzw], [x, 0.031, uzw]]));
+  for (const [x, c] of [[-0.085, 0xd42a1e], [-0.06, 0xd42a1e], [-0.05, 0x111111], [-0.024, 0xf59e0b], [0.0, 0xd42a1e], [0.0105, 0x111111], [0.042, 0x1d4ed8], [0.0525, 0x16a34a]]) {
+    uIn.add(pwire(c, [[x, r2y + 0.025, uzw], [x, 0.009, uzw]]));
+    uIn.add(pwire(c, [[x, r2y - 0.025, uzw], [x, -0.084, uzw]]));
+  }
+  // field cables leave the bottom duct straight down to the two glands
+  uIn.add(pwire(0xd42a1e, [[-0.064, -0.106, uzw], [-0.064, -0.12, uzw], [-0.062, -uH / 2 + 0.02, 0], [-0.062, -uH / 2 + 0.004, 0]]));
+  uIn.add(pwire(0x111111, [[-0.056, -0.106, uzw], [-0.056, -0.12, uzw], [-0.058, -uH / 2 + 0.02, 0], [-0.058, -uH / 2 + 0.004, 0]]));
+  uIn.add(pwire(0xf59e0b, [[0.056, -0.106, uzw], [0.056, -0.12, uzw], [0.058, -uH / 2 + 0.02, 0], [0.058, -uH / 2 + 0.004, 0]]));
+  uIn.add(pwire(0x111111, [[0.064, -0.106, uzw], [0.064, -0.12, uzw], [0.062, -uH / 2 + 0.02, 0], [0.062, -uH / 2 + 0.004, 0]]));
   uIn.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = 'unitInside'; } });
   unit.add(uIn);
-  label(unit, 'MCU ควบคุมหลัก', -0.05, 0.085, 0.01, unitDoor);
-  label(unit, 'โมดูล 4G LTE → แดชบอร์ด', 0.04, 0.125, 0.01, unitDoor);
-  label(unit, 'LoRa รับสัญญาณเซ็นเซอร์', 0.035, -0.005, 0.01, unitDoor);
-  label(unit, 'DC-DC 12→5V', -0.06, 0.0, 0.01, unitDoor);
-  label(unit, 'รีเลย์ไฟแจ้งเตือน', -0.055, -0.065, 0.01, unitDoor);
-  label(unit, 'ขั้วต่อสาย', 0, -0.125, 0.01, unitDoor);
+  const unitGlandPower = gland(P(-0.06, -uH / 2, 0), P(0, -1, 0));
+  const unitGlandBeacon = gland(P(0.06, -uH / 2, 0), P(0, -1, 0));
+  unit.add(unitGlandPower, unitGlandBeacon);
+  label(unit, 'คอนโทรลเลอร์ (MCU)', -0.055, r1y + 0.05, 0.02, unitDoor);
+  label(unit, 'เราเตอร์ 4G LTE → แดชบอร์ด', 0.025, r1y - 0.05, 0.03, unitDoor);
+  label(unit, 'LoRa gateway', 0.065, r1y + 0.055, 0.02, unitDoor);
+  label(unit, 'DC-DC 12→5V · รีเลย์ไฟ', -0.045, r2y - 0.035, 0.03, unitDoor);
+  label(unit, 'เบรกเกอร์ · ขั้วต่อสาย', 0.035, r2y + 0.035, 0.03, unitDoor);
+  label(unit, 'รางเดินสาย', 0, -0.095, 0.035, unitDoor);
   // LoRa gateway + LTE antenna on top of the unit
   const antBase = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.02, 16), dark);
   antBase.position.set(0.07, 0.16, 0);
   const whip = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.007, 0.16, 12), dark);
   whip.position.set(0.07, 0.25, 0);
-  unit.add(antBase, whip);
+  const antBase2 = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.012, 0.016, 16), dark);
+  antBase2.position.set(-0.07, 0.158, 0);
+  const stubby = new THREE.Mesh(new THREE.CapsuleGeometry(0.007, 0.05, 4, 10), dark);
+  stubby.position.set(-0.07, 0.2, 0);
+  unit.add(antBase, whip, antBase2, stubby);
   unit.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.userData.part ??= 'unit'; } });
   button.userData.part = 'callButton';
   group.add(unit);
+
+  // conduits that need the control unit: battery load -> unit, unit -> pole (beacon)
+  {
+    const uPow = tipOf(unit, unitGlandPower), uBea = tipOf(unit, unitGlandBeacon);
+    conduit([bBot, P(bBot.x, 0.25, bBot.z), P(uPow.x, 0.25, uPow.z), uPow], 'cableBatt');
+    conduit([uBea, P(uBea.x, pB.y, uBea.z), P(uBea.x, pB.y, pB.z + 0.03), P(pB.x, pB.y, pB.z + 0.03), pB], 'cableBeacon');
+  }
 
   function drawScreen(state) {
     const ctx = scr.getContext('2d');
