@@ -9,8 +9,8 @@ open bay for sealed bin bags.
 ES modules need a local server (opening index.html directly via file:// will not work):
 
     cd ~/code/HACKaWORK
-    python3 -m http.server 8765
-    # open http://localhost:8765
+    python3 -m http.server 8766
+    # open http://localhost:8766
 
 ## Structure
 
