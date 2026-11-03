@@ -127,7 +127,7 @@ export function buildRiser(renderer, stationLength, stationDepth) {
     // lid (fixed to drawer) so contents stay covered and out of reach of children / pets
     drawer.add(rbox(T.w, th, T.d, trayBodyMat, 0, T.h / 2 - th / 2, 0, 0.002));
     // front plate with handle, lock and label
-    const front = rbox(T.w + 0.02, T.h + 0.01, 0.012, trayBodyMat, 0, 0, T.d / 2 + 0.006, 0.003);
+    const front = rbox(T.w + 0.002, T.h + 0.01, 0.012, trayBodyMat, 0, 0, T.d / 2 + 0.006, 0.003);   // fits between the guide rails
     front.userData.part = 'tray';
     drawer.add(front);
     const lbl = new THREE.Mesh(new THREE.PlaneGeometry(T.w - 0.06, 0.045), new THREE.MeshStandardMaterial({ map: trayLabel, roughness: 0.7 }));

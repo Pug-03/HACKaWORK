@@ -132,7 +132,8 @@ export function buildComposter(renderer) {
 
   // front: control panel (top), branding panel (middle, see-through in cutaway), drawer (bottom)
   const ctrlY0 = H - 0.25, ctrlY1 = H - t, brandY0 = 0.32, brandY1 = ctrlY0, drawerY0 = y0 + t, drawerY1 = 0.32;
-  const ctrl = rbox(W, ctrlY1 - ctrlY0, t, ss, 0, (ctrlY0 + ctrlY1) / 2, Dd / 2 - t / 2, 0.004);
+  const frontW = W - 2 * t - 0.002;          // front panels fit between the side walls (no shared faces)
+  const ctrl = rbox(frontW, ctrlY1 - ctrlY0, t, ss, 0, (ctrlY0 + ctrlY1) / 2, Dd / 2 - t / 2, 0.004);
   group.add(ctrl);
   const screen = canvasTex(480, 200, () => {});
   const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.15), new THREE.MeshBasicMaterial({ map: screen.tex, toneMapped: false }));
@@ -156,16 +157,16 @@ export function buildComposter(renderer) {
   estop.position.set(0.42, (ctrlY0 + ctrlY1) / 2, Dd / 2 + 0.009);
   group.add(estop);
 
-  const brand = brandingTexture(W - 0.004, brandY1 - brandY0);
+  const brand = brandingTexture(frontW, brandY1 - brandY0);
   const brandFace = new THREE.MeshStandardMaterial({ map: brand.tex, roughness: 0.55, metalness: 0.1, transparent: true, opacity: 1 });
-  const brandPanel = new THREE.Mesh(new THREE.BoxGeometry(W - 0.004, brandY1 - brandY0, t), [frontMat, frontMat, frontMat, frontMat, brandFace, frontMat]);
+  const brandPanel = new THREE.Mesh(new THREE.BoxGeometry(frontW, brandY1 - brandY0, t), [frontMat, frontMat, frontMat, frontMat, brandFace, frontMat]);
   brandPanel.position.set(0, (brandY0 + brandY1) / 2, Dd / 2 - t / 2);
   brandPanel.castShadow = true;
   group.add(brandPanel);
 
   const drawer = new THREE.Group();
   const dH = drawerY1 - drawerY0;
-  drawer.add(rbox(W - 0.01, dH - 0.008, t, ss, 0, 0, 0, 0.004));
+  drawer.add(rbox(frontW - 0.004, dH - 0.008, t, ss, 0, 0, 0, 0.004));
   const dLabel = canvasTex(400, 70, (ctx, w, h) => {
     ctx.fillStyle = '#2b3036'; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = '#f2f4f6'; ctx.textAlign = 'center'; ctx.font = `600 34px ${FONT}`;
@@ -198,13 +199,14 @@ export function buildComposter(renderer) {
   /* ---------- interior: drum, paddles, heater, motor ---------- */
   const inside = new THREE.Group();
   const R = C.drum.radius, Lg = C.drum.length, dy = C.drum.y, dz = -0.02;
+  const capMat = new THREE.MeshStandardMaterial({ color: 0x8e959b, metalness: 0.8, roughness: 0.4, side: THREE.DoubleSide });
   const drumMat = new THREE.MeshStandardMaterial({ color: 0xd5d9dd, metalness: 0.9, roughness: 0.25, transparent: true, opacity: 1, side: THREE.DoubleSide });
   const drum = new THREE.Mesh(new THREE.CylinderGeometry(R, R, Lg, 48, 1, true), drumMat);
   drum.rotation.z = Math.PI / 2;
   drum.position.set(0, dy, dz);
   inside.add(drum);
   for (const sx of [-1, 1]) {
-    const cap = new THREE.Mesh(new THREE.CircleGeometry(R, 48), ssDark);
+    const cap = new THREE.Mesh(new THREE.CircleGeometry(R, 48), capMat);   // double-sided: visible through the see-through drum
     cap.rotation.y = sx * Math.PI / 2;
     cap.position.set(sx * Lg / 2, dy, dz);
     inside.add(cap);
