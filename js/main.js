@@ -57,7 +57,8 @@ const station = buildStation(renderer);
 const L = station.length, D = CONFIG.frame.depth, H = CONFIG.frame.height;
 const env = buildEnvironment(scene, renderer, L, D);
 const B = CONFIG.bin;
-const lidTopOnPad = env.padHeight + CONFIG.frame.footHeight + 0.008 + B.rimHeight + 0.005 + B.lidThickness + B.hoodHeight;
+// heights are measured from the station's own base (the dimension group sits on the pad / riser with it)
+const lidTop = CONFIG.frame.footHeight + 0.008 + B.rimHeight + 0.005 + B.lidThickness + B.hoodHeight;
 scene.add(station.group);
 
 // separate raised anti-rodent base; the station is placed on top of it
@@ -69,7 +70,7 @@ const lift = () => (riserOn ? RISER.height : 0);
 function placeStation() {
   station.group.position.y = env.padHeight + lift();
   riser.group.visible = riserOn;
-  if (dimsRef) dimsRef.position.y = lift();
+  if (dimsRef) dimsRef.position.y = env.padHeight + lift();   // same base as the station group
 }
 placeStation();
 
@@ -114,7 +115,7 @@ const off = 0.18;
 dims.add(dimLine(new THREE.Vector3(-L / 2, 0.01, D / 2 + off), new THREE.Vector3(L / 2, 0.01, D / 2 + off), `ยาว ${fmt(L)}`, new THREE.Vector3(0, 0, 0.05)));
 dims.add(dimLine(new THREE.Vector3(L / 2 + off, 0.01, D / 2), new THREE.Vector3(L / 2 + off, 0.01, -D / 2), `ลึก ${fmt(D)}`, new THREE.Vector3(0.05, 0, 0)));
 dims.add(dimLine(new THREE.Vector3(L / 2 + off, 0, D / 2), new THREE.Vector3(L / 2 + off, H, D / 2), `สูงโครง ${fmt(H)}`, new THREE.Vector3(0.05, 0, 0)));
-dims.add(dimLine(new THREE.Vector3(-L / 2 - off, 0, -0.05), new THREE.Vector3(-L / 2 - off, lidTopOnPad, -0.05), `สูงรวมถัง ${fmt(lidTopOnPad)}`, new THREE.Vector3(0.05, 0, 0)));
+dims.add(dimLine(new THREE.Vector3(-L / 2 - off, 0, -0.05), new THREE.Vector3(-L / 2 - off, lidTop, -0.05), `สูงรวมถัง ${fmt(lidTop)}`, new THREE.Vector3(0.05, 0, 0)));
 let x = -L / 2;
 for (const bay of CONFIG.bays) {
   dims.add(dimLine(new THREE.Vector3(x, H + 0.25, D / 2), new THREE.Vector3(x + bay.width, H + 0.25, D / 2), fmt(bay.width), new THREE.Vector3(0, 0.03, 0)));
@@ -323,7 +324,7 @@ $('spec').innerHTML = `
   <div><dt>ยาวรวม</dt><dd>${fmt(L)}</dd></div>
   <div><dt>ลึก</dt><dd>${fmt(D)}</dd></div>
   <div><dt>สูงโครง</dt><dd>${fmt(H)}</dd></div>
-  <div><dt>สูงรวมถัง</dt><dd>${fmt(lidTopOnPad)}</dd></div>
+  <div><dt>สูงรวมถัง</dt><dd>${fmt(lidTop)}</dd></div>
   <div><dt>ฐานยกกันหนู</dt><dd>${fmt(RISER.height)}</dd></div>
   <div><dt>ถังล้อเลื่อน</dt><dd>${CONFIG.bin.capacityL} ลิตร × 3</dd></div>
   <div><dt>รุ่นถัง</dt><dd>${CONFIG.bin.model} (50×55×110)</dd></div>
