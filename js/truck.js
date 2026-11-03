@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { rbox } from './geom.js';
+import { rbox, mergeStatic } from './geom.js';
 
 // Electric mini garbage truck (about 3.6 x 1.5 x 1.9 m, ~500 kg payload) run with a private partner.
 // Drives in along the road behind the station when an out-of-round pickup is requested,
@@ -101,6 +101,8 @@ export function buildTruck() {
   g.position.x = -FAR;
 
   const ease = (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
+
+  mergeStatic(body);
 
   return {
     group: g,

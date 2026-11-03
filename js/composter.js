@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { rbox } from './geom.js';
+import { rbox, mergeStatic } from './geom.js';
 import { makeBrushedTexture } from './textures.js';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
@@ -428,6 +428,9 @@ export function buildComposter(renderer) {
   }
 
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.part ??= 'composter'; } });
+
+  mergeStatic(inside, (n) => [rotor, sprocketA, sprocketB, fan, gate, drumFront].includes(n));
+  mergeStatic(group, (n) => [hatch, drawer, consolePivot, brandPanel, inside].includes(n));
 
   /* ---------- state ---------- */
   let running = false, cutaway = false, clock = 0;

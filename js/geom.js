@@ -39,3 +39,44 @@ export function roundedRect(target, w, d, r) {
   target.lineTo(-x, -z + r); target.quadraticCurveTo(-x, -z, -x + r, -z);
   return target;
 }
+
+// Merge static meshes under `root` into one mesh per (material, hover part, bay, shadow flag) to cut draw
+// calls. Subtrees for which skip(node) is true (animated / toggled / focus targets) are left untouched.
+// Only single-material, opaque, visible leaf meshes are merged; hover/click metadata is kept per bucket.
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+export function mergeStatic(root, skip = () => false) {
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const buckets = new Map();
+  const victims = [];
+  const walk = (node) => {
+    for (const o of node.children.slice()) {
+      if (skip(o)) continue;
+      if (o.isMesh && !Array.isArray(o.material) && o.visible && !o.material.transparent && o.children.length === 0 && !o.userData.noMerge) {
+        const key = `${o.material.uuid}|${o.userData.part ?? ''}|${o.userData.bayId ?? ''}|${o.castShadow}`;
+        let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+        for (const name of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(name)) g.deleteAttribute(name);
+        if (!g.attributes.normal) g.computeVertexNormals();
+        if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+        g.clearGroups();
+        g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+        if (!buckets.has(key)) buckets.set(key, { mat: o.material, part: o.userData.part, bayId: o.userData.bayId, cast: o.castShadow, geos: [] });
+        buckets.get(key).geos.push(g);
+        victims.push(o);
+      } else if (o.children.length) walk(o);
+    }
+  };
+  walk(root);
+  for (const v of victims) v.parent.remove(v);
+  for (const b of buckets.values()) {
+    const merged = b.geos.length === 1 ? b.geos[0] : mergeGeometries(b.geos, false);
+    if (!merged) continue;
+    const m = new THREE.Mesh(merged, b.mat);
+    if (b.part) m.userData.part = b.part;
+    if (b.bayId) m.userData.bayId = b.bayId;
+    m.castShadow = b.cast;
+    m.receiveShadow = true;
+    root.add(m);
+  }
+  return victims.length;
+}

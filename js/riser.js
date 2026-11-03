@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { rbox } from './geom.js';
+import { rbox, mergeStatic } from './geom.js';
 import { makeBrushedTexture } from './textures.js';
 
 // Raised anti-rodent base: a SEPARATE steel platform the bin station sits on.
@@ -159,6 +159,8 @@ export function buildRiser(renderer, stationLength, stationDepth) {
   }
 
   group.traverse((o) => { if (o.isMesh) { o.receiveShadow = true; o.userData.part ??= 'riser'; } });
+
+  mergeStatic(group, (n) => trays.includes(n));
 
   return {
     group,

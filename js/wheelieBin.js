@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { rbox, smooth, roundedRect } from './geom.js';
+import { rbox, smooth, roundedRect, mergeStatic } from './geom.js';
 
 // 120 L wheelie bin with waste-slot (hood) lid — modelled on the TAB120HW drawing.
 // Local frame: origin on the ground under the body centre, front = +Z, hinge at the back.
@@ -340,6 +340,8 @@ export function createWheelieBin(color) {
   }
 
   g.add(lidPivot);
+  mergeStatic(lidPivot, (n) => n === flapPivot);
+  mergeStatic(g, (n) => n === lidPivot);
   g.userData = { lidPivot, open: 0, target: 0, flap: { hinge: flapHinge, open: 0, hold: 0 } };
   return g;
 }

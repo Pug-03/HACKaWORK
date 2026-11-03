@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG, totalLength } from './config.js';
 import { createWheelieBin } from './wheelieBin.js';
-import { rbox, roundedBoxGeometry } from './geom.js';
+import { rbox, roundedBoxGeometry, mergeStatic } from './geom.js';
 import { makeBinPanelTexture, makeBagPanelTexture, makeBrushedTexture, makeNoiseTexture } from './textures.js';
 
 const F = CONFIG.frame;
@@ -188,6 +188,8 @@ export function buildStation(renderer) {
     for (let p = o.parent; p; p = p.parent) if (bins.includes(p)) return;   // bin parts keep their own handling
     o.userData.part = 'frame';
   });
+
+  mergeStatic(group, (n) => bins.includes(n) || n === bagPile);   // frame + panels -> few draw calls
 
   return { group, bins, bagPile, length: L, xs };
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { rbox, roundedBoxGeometry } from './geom.js';
+import { rbox, roundedBoxGeometry, mergeStatic } from './geom.js';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
 // Smart hardware mounted on the bin station:
@@ -630,6 +630,11 @@ export function buildHardware(station) {
     bagOrder.forEach((o, i) => (o.visible = i / bagOrder.length < fb));
     drawScreen(state);
   }
+
+  // fewer draw calls: merge each enclosure (except its door) and the remaining static hardware
+  mergeStatic(unit, (n) => n === unitDoor);
+  mergeStatic(batt, (n) => n === battDoor);
+  mergeStatic(group, (n) => [unit, batt, solar, beacon].includes(n));
 
   /* ---------- circuit flow: glowing dots running along the conduits ---------- */
   const FLOW_COLORS = { cableSolar: 0xff5a36, cableBatt: 0xff5a36, cableBeacon: 0xffb020 };
