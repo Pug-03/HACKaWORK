@@ -114,10 +114,11 @@ function wedgeHood(B, zBack, zFront, mat, inset = 0) {
   const sp = src.attributes.position, keep = [];
   const va = new THREE.Vector3(), vb = new THREE.Vector3(), vc = new THREE.Vector3(), nrm = new THREE.Vector3();
   for (let i = 0; i < sp.count; i += 3) {
-    if (sp.getY(i) < 1e-4 && sp.getY(i + 1) < 1e-4 && sp.getY(i + 2) < 1e-4) continue;
-    // open the flat front face: the push-flap opening is framed separately (see frontFrame)
     va.fromBufferAttribute(sp, i); vb.fromBufferAttribute(sp, i + 1); vc.fromBufferAttribute(sp, i + 2);
     nrm.subVectors(vb, va).cross(vc.clone().sub(va)).normalize();
+    // open bottom: drop every downward-facing face at the base (the bevel leaves it a few 0.1 mm off zero)
+    if (Math.max(va.y, vb.y, vc.y) < 0.01 && nrm.y < -0.7) continue;
+    // open the flat front face: the push-flap opening is framed separately (see frontFrame)
     if (nrm.z > 0.95) continue;
     for (let k = 0; k < 3; k++) keep.push(sp.getX(i + k), sp.getY(i + k), sp.getZ(i + k));
   }
@@ -136,8 +137,8 @@ export function createWheelieBin(color) {
     clearcoat: 0.2, clearcoatRoughness: 0.55,
   });
   // inner surfaces: rendered BackSide on the same geometry, so outer and inner never fight for the same pixel
-  const inner = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(0.5), roughness: 0.8, side: THREE.BackSide });
-  const innerDeep = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(0.28), roughness: 0.9, side: THREE.BackSide });
+  const inner = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(0.28), roughness: 0.85, envMapIntensity: 0.3, side: THREE.BackSide });   // dim cavity
+  const innerDeep = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(0.16), roughness: 0.9, envMapIntensity: 0.2, side: THREE.BackSide });
   const hidden = new THREE.MeshBasicMaterial({ visible: false });
   const black = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.75 });
 
@@ -229,7 +230,9 @@ export function createWheelieBin(color) {
   plateShape.lineTo(-LW / 2, rc); plateShape.quadraticCurveTo(-LW / 2, 0, -LW / 2 + rc, 0);
   // opening under the hood: waste pushed through the front flap drops through here into the bin
   const zFront = Ld - 0.15 * Ld, zBack = Ld - 0.63 * Ld, wall = 0.01;
-  const hx = B.hoodBaseWidth / 2 - wall - 0.022, hz0 = zBack + 0.07, hz1 = zFront - wall - 0.012;
+  // the hole fills the whole footprint inside the hood (no plastic floor under it): from just behind
+  // the front frame back to where the inner shell meets the plate, wall to wall
+  const hx = B.hoodBaseWidth / 2 - wall - 0.004, hz0 = zBack + 0.05, hz1 = zFront - 0.014;
   const hole = new THREE.Path();
   hole.moveTo(-hx, hz0); hole.lineTo(-hx, hz1); hole.lineTo(hx, hz1); hole.lineTo(hx, hz0); hole.closePath();
   plateShape.holes.push(hole);
