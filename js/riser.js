@@ -164,20 +164,42 @@ export function buildRiser(renderer, stationLength, stationDepth) {
   // front and back stringers only under the fixed treads, so nothing crosses the tray paths
   for (const [x0, x1] of fixedSpans) for (const z of [stepZ + R.stepDepth / 2 - 0.02, stepBack + 0.02]) group.add(rbox(x1 - x0, 0.02, 0.03, galv, (x0 + x1) / 2, sTop - 0.04, z, 0.003));
   // ledge angles on the cut legs that the lift-out panels rest on
-  for (const x of cuts.flat()) group.add(rbox(0.05, 0.004, R.stepDepth - 0.02, galv, x, sTop - 0.032, stepZ, 0.001));
+  for (const x of cuts.flat()) group.add(rbox(0.05, 0.004, R.stepDepth - 0.02, galv, x, sTop - 0.0305, stepZ, 0.001));   // top 1.5 mm up into the tread end plates, clear of the leg / stringer / pin-guide tops
   const stepHatches = [];
   for (const [x0, x1] of cuts) {
     const panel = new THREE.Group();
     panel.position.set((x0 + x1) / 2, sTop - 0.015, stepZ);
     panel.add(tread(x0 + 0.004, x1 - 0.004));
-    for (const sx of [-1, 1]) {                       // finger holes (dark slots) near each end
-      const slot = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.025), dark);
-      slot.rotation.x = -Math.PI / 2;
-      slot.position.set(sx * ((x1 - x0) / 2 - 0.07), 0.0155, 0);
-      panel.add(slot);
+    // two spring latches under the front corners (like a removable store-shelf tray): a steel pin shoots out
+    // under the ledge angle; squeezing the finger tab up under the nosing pulls it in. Both corners must be
+    // squeezed at the same time before the panel can be lifted out. Nothing on top to kick or tamper with.
+    const tabMat = new THREE.MeshStandardMaterial({ color: 0xd93a2b, roughness: 0.5 });
+    const pinMat = new THREE.MeshStandardMaterial({ color: 0xd8dde2, metalness: 1, roughness: 0.2 });
+    const locks = [];
+    const half = (x1 - x0) / 2 - 0.004, fz = R.stepDepth / 2;
+    for (const sx of [-1, 1]) {
+      const lx = sx * (half - 0.05);
+      // finger tab: hinged at its back edge to a bracket under the tread, front lip drops just behind the nosing
+      const tab = new THREE.Group();
+      tab.position.set(lx, -0.017, fz - 0.05);
+      tab.add(rbox(0.036, 0.004, 0.034, tabMat, 0, -0.004, 0.017, 0.001));
+      tab.add(rbox(0.035, 0.014, 0.004, tabMat, 0, -0.011, 0.0315, 0.001));       // lip the fingertip pulls on (just inside the tab's front / side faces)
+      panel.add(tab);
+      panel.add(rbox(0.044, 0.006, 0.01, galv, lx, -0.017, fz - 0.05, 0.001));    // hinge bracket
+      // pin + link rod back to the tab (pin rides in two guides at mid-depth)
+      const pin = new THREE.Group();
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.06, 16).rotateZ(Math.PI / 2), pinMat);
+      rod.position.x = sx * (half - 0.02);            // tip 1 cm past the panel end, under the ledge
+      const link = new THREE.Mesh(new THREE.CylinderGeometry(0.0025, 0.0025, fz - 0.05, 8).rotateX(Math.PI / 2), pinMat);
+      link.position.set(sx * (half - 0.048), 0, (fz - 0.05) / 2);
+      pin.add(rod, link);
+      pin.position.y = -0.0245;
+      panel.add(pin);
+      for (const gx of [half - 0.045, half - 0.012]) panel.add(rbox(0.008, 0.014, 0.02, galv, sx * gx, -0.022, 0, 0.001));   // pin guides
+      locks.push({ tab, pin, sx });
     }
     panel.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.userData.part = 'stepHatch'; } });
-    panel.userData = { open: 0, y0: panel.position.y, z0: stepZ };
+    panel.userData = { open: 0, lock: 0, locks, y0: panel.position.y, z0: stepZ };
     group.add(panel);
     stepHatches.push(panel);
   }
@@ -373,11 +395,20 @@ export function buildRiser(renderer, stationLength, stationDepth) {
       const frontBusy = trays.some((t) => t.userData.target === 1 || t.userData.open > 0.003);
       for (const p of stepHatches) {
         const u = p.userData, goal = frontBusy ? 1 : 0;
+        // squeeze both corner tabs (pins retract) before lifting; release (pins shoot out) only once it is back down
+        const lockGoal = goal || u.open > 1e-4 ? 1 : 0;
+        if (Math.abs(lockGoal - u.lock) > 1e-4) {
+          u.lock += Math.sign(lockGoal - u.lock) * Math.min(Math.abs(lockGoal - u.lock), dt * 3);
+          const press = Math.min(1, u.lock / 0.3), pull = Math.min(1, Math.max(0, (u.lock - 0.2) / 0.8));
+          for (const l of u.locks) { l.tab.rotation.x = -0.35 * press; l.pin.position.x = -l.sx * 0.045 * pull; }
+          moving = true;
+          if (goal && u.lock < 1) continue;
+        }
         if (Math.abs(goal - u.open) > 1e-4) {
           u.open += Math.sign(goal - u.open) * Math.min(Math.abs(goal - u.open), dt * 1.4);
           const q = u.open, a = Math.min(1, q / 0.2), b = Math.min(1, Math.max(0, (q - 0.2) / 0.5)), c = Math.min(1, Math.max(0, (q - 0.7) / 0.3));
           // lift 4 cm, carry 50 cm forward, set down flat on the pavement
-          p.position.y = u.y0 + 0.04 * a - (u.y0 + 0.04 - 0.015) * c;
+          p.position.y = u.y0 + 0.04 * a - (u.y0 + 0.04 - 0.03) * c;   // set down on the pavement (resting on the pin guides)
           p.position.z = u.z0 + 0.5 * b;
           moving = true;
         }
