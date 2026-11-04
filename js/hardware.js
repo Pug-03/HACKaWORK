@@ -725,8 +725,9 @@ export function buildHardware(station) {
     for (const [hh, dd, yy, zz] of [[0.012, gz1 - gz0, iy + 0.0615, (gz0 + gz1) / 2], [0.012, gz1 - gz0, iy - 0.0615, (gz0 + gz1) / 2], [0.135, 0.012, iy, iz + 0.0615], [0.135, 0.012, iy, -cD / 2 + 0.009]])
       cab.add(rbox(0.01, hh, dd, dark, ix + 0.005, yy, zz, 0.002));   // back bar kept inside the cabinet's rear edge
     for (let i = 0; i < 6; i++) { const sl = rbox(0.012, 0.003, 0.115, dark, ix + 0.011, iy - 0.05 + i * 0.02, iz, 0.001); sl.rotation.z = -0.7; cab.add(sl); }
-    cab.add(rbox(0.045, 0.004, 0.155, cabMat, ix + 0.0225, iy + 0.074, iz, 0.001));
-    for (const s2 of [-1, 1]) {
+    const iz0 = -cD / 2 + 0.002, iz1 = iz + 0.0775, ihz = (iz0 + iz1) / 2;   // hood stays within the wall, no overhang past the back
+    cab.add(rbox(0.045, 0.004, iz1 - iz0, cabMat, ix + 0.0225, iy + 0.074, ihz, 0.001));
+    for (const zc of [iz0, iz1 - 0.003]) {
       const cheek = new THREE.Shape(); cheek.moveTo(0, 0); cheek.lineTo(0.045, 0); cheek.lineTo(0, -0.145); cheek.closePath();
       const cm = new THREE.Mesh(new THREE.ExtrudeGeometry(cheek, { depth: 0.003, bevelEnabled: false }), cabMat);
       cm.position.set(ix, iy + 0.072, iz + s2 * 0.077 - (s2 > 0 ? 0.003 : 0));
