@@ -130,9 +130,17 @@ export function buildHardware(station) {
         g.fillStyle = ink; g.font = `700 ${Math.round(H2 * 0.13)}px ${FONT}`; g.textAlign = 'right';
         g.fillText('MPPT 75|10', W2 * 0.94, H2 * 0.36);
         g.font = `500 ${Math.round(H2 * 0.07)}px ${FONT}`; g.fillText('SOLAR CHARGE CONTROLLER', W2 * 0.94, H2 * 0.48);
-        for (let i = 0; i < 3; i++) { g.fillStyle = '#e5e7eb'; g.beginPath(); g.arc(W2 * (0.14 + i * 0.1), H2 * 0.66, H2 * 0.05, 0, Math.PI * 2); g.fill(); }
-        g.fillStyle = 'rgba(255,255,255,0.75)'; g.font = `500 ${Math.round(H2 * 0.06)}px ${FONT}`; g.textAlign = 'center';
-        ['PV+', 'PV−', 'BAT+', 'BAT−', 'LD+', 'LD−'].forEach((t, i) => g.fillText(t, W2 * (0.083 + i * 0.167), H2 * 0.82));
+        // status LEDs (bulk / absorption / float) up top, then the terminal legend right above the screw row
+        [['#22c55e', 0.62], ['#f59e0b', 0.7], ['#38bdf8', 0.78]].forEach(([col, x]) => { g.fillStyle = col; g.beginPath(); g.arc(W2 * x, H2 * 0.14, H2 * 0.03, 0, Math.PI * 2); g.fill(); });
+        g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, H2 * 0.62, W2, H2 * 0.38);           // terminal block recess
+        g.fillStyle = 'rgba(255,255,255,0.85)'; g.font = `600 ${Math.round(H2 * 0.07)}px ${FONT}`; g.textAlign = 'center';
+        ['PV+', 'PV−', 'BAT+', 'BAT−', 'LD+', 'LD−'].forEach((t, i) => g.fillText(t, W2 * (0.083 + i * 0.167), H2 * 0.7));
+        for (let i = 0; i < 6; i++) {                // one screw per terminal, under its legend
+          const x = W2 * (0.083 + i * 0.167), y = H2 * 0.84;
+          g.fillStyle = '#2b2f33'; g.fillRect(x - 16, y - 16, 32, 32);
+          g.fillStyle = '#c9ced3'; g.beginPath(); g.arc(x, y, 11, 0, Math.PI * 2); g.fill();
+          g.strokeStyle = '#4b5563'; g.lineWidth = 3; g.beginPath(); g.moveTo(x - 7, y); g.lineTo(x + 7, y); g.stroke();
+        }
       }
     }
     const tex = new THREE.CanvasTexture(c);
@@ -170,7 +178,8 @@ export function buildHardware(station) {
     return new THREE.TubeGeometry(curve, n, radius, radial, false);
   }
   // polyline with rounded corners -> tube (used for both field conduits and panel wiring)
-  function routed(pts, radius, bend, mat) {
+  function routed(pts, radius, bend, mat, radial = 8, bendDiv = 6) {
+    pts = pts.filter((p, i) => i === 0 || p.distanceTo(pts[i - 1]) > 1e-5);
     const path = new THREE.CurvePath();
     let prev = pts[0];
     for (let i = 1; i < pts.length; i++) {
@@ -349,7 +358,8 @@ export function buildHardware(station) {
   pack.position.set(0, packTop - 0.05, packZ);
   bIn.add(pack);
   bIn.add(rbox(0.18, 0.006, packD + 0.01, steel, 0, packTop - 0.103, packZ, 0.002));          // shelf
-  bIn.add(rbox(0.012, 0.102, packD + 0.004, dark, 0, packTop - 0.05, packZ, 0.002));          // strap
+  for (const x of [-0.068, 0.068]) bIn.add(rbox(0.01, 0.102, packD + 0.004, dark, x, packTop - 0.05, packZ, 0.002));   // hold-down straps (clear of the label)
+  // terminal posts under booted covers, right below the battery breaker / BAT- terminal they feed
   const termRed = wmat(0xd42a1e), termBlk = wmat(0x111111);
   for (const [x, m] of [[-0.0125, termRed], [0.0125, termBlk]]) {
     const t = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.007, 0.01, 12), m);
@@ -360,36 +370,22 @@ export function buildHardware(station) {
   // (PV+ PV- BAT+ BAT- LOAD+ LOAD- at x = -0.0625 ... 0.0625, 25 mm pitch)
   const mpptY = 0.09, mpptZ = zp + 0.02;
   bIn.add(device('mppt', 0.15, 0.075, 0.03, 0, mpptY, mpptZ));
-  const mpptT = [-0.0625, -0.0375, -0.0125, 0.0125, 0.0375, 0.0625].map((x) => {    // PV+ PV- BAT+ BAT- LOAD+ LOAD-
-    bIn.add(rbox(0.018, 0.012, 0.012, shield, x, mpptY - 0.042, mpptZ + 0.006, 0.001));
-    return [x, mpptY - 0.048, mpptZ + 0.006];
-  });
-  // DIN rail with PV breaker, battery breaker, load fuse and terminal blocks
-  const railY = 0.005, railZ = zp + 0.004;
+  // DIN rail right under the MPPT strip: every device sits under the MPPT terminal it feeds, so the
+  // jumpers are short straight drops: PV breaker | PV- | battery breaker | BAT- | load fuse | LOAD-
+  const railY = 0.01, railZ = zp + 0.004;
   bIn.add(rbox(bW - 0.04, 0.035, 0.007, steel, 0, railY, railZ, 0.001));
   const dinDev = (kind, x, w, h = 0.05) => bIn.add(device(kind, w, h, 0.035, x, railY, railZ + 0.02));
-  dinDev('brk', -0.07, 0.018); dinDev('brk', -0.05, 0.018);                  // DC breakers (PV, battery)
-  for (const x of [-0.07, -0.05]) bIn.add(rbox(0.006, 0.012, 0.008, chip, x, railY + 0.002, railZ + 0.041, 0.001));   // toggles
-  dinDev('fuse', -0.025, 0.02);                                               // load fuse holder
-  for (let i = 0; i < 4; i++) dinDev(i % 2 ? 'tbBlue' : 'tb', 0.01 + i * 0.008, 0.007, 0.04);   // terminal blocks
-  // wiring (rounded runs between real terminal points)
-  const zw = railZ + 0.03;
-  bIn.add(pwire(0xd42a1e, [bt[0], [bt[0][0], railY - 0.035, packZ], [-0.05, railY - 0.035, zw], [-0.05, railY - 0.025, zw]]));                 // BAT+ -> breaker
-  bIn.add(pwire(0xd42a1e, [[-0.05, railY + 0.025, zw], [-0.05, railY + 0.035, zw], [-0.0125, railY + 0.035, zw], mpptT[2]]));                 // breaker -> BAT+
-  bIn.add(pwire(0x111111, [bt[1], [bt[1][0], railY - 0.04, packZ], [0.0125, railY - 0.04, zw], [0.0125, railY + 0.04, zw], mpptT[3]]));      // BAT- -> MPPT
-  bIn.add(pwire(0xd42a1e, [[-0.07, bH / 2 - 0.006, -0.02], [-0.07, bH / 2 - 0.03, -0.02], [-0.085, bH / 2 - 0.05, zw], [-0.085, railY + 0.035, zw], [-0.07, railY + 0.035, zw], [-0.07, railY + 0.025, zw]]));   // PV+ in -> breaker
-  bIn.add(pwire(0xd42a1e, [[-0.07, railY - 0.025, zw], [-0.07, railY - 0.04, zw], [-0.0625, railY - 0.04, zw], mpptT[0]]));                  // breaker -> PV+
-  bIn.add(pwire(0x111111, [[-0.062, bH / 2 - 0.006, -0.02], [-0.062, bH / 2 - 0.03, -0.02], [-0.0375, mpptY + 0.06, zw], mpptT[1]]));        // PV-
-  bIn.add(pwire(0xd42a1e, [mpptT[4], [0.0375, railY + 0.035, zw], [0.014, railY + 0.035, zw], [0.014, railY + 0.02, zw]]));                  // LOAD+ -> terminal
-  bIn.add(pwire(0x111111, [mpptT[5], [0.0625, railY + 0.035, zw], [0.03, railY + 0.035, zw], [0.03, railY + 0.02, zw]]));                     // LOAD- -> terminal
-  bIn.add(pwire(0xd42a1e, [[0.014, railY - 0.02, zw], [0.014, -0.05, zw], [0.07, -0.07, zw], [0.07, -bH / 2 + 0.03, -0.02], [0.07, -bH / 2 + 0.006, -0.02]]));   // to control unit
-  bIn.add(pwire(0x111111, [[0.03, railY - 0.02, zw], [0.03, -0.045, zw], [0.078, -0.065, zw], [0.078, -bH / 2 + 0.03, -0.02], [0.078, -bH / 2 + 0.006, -0.02]]));
+  dinDev('brk', -0.0625, 0.018); dinDev('brk', -0.0125, 0.018);                // DC breakers (PV, battery)
+  for (const x of [-0.0625, -0.0125]) bIn.add(rbox(0.006, 0.012, 0.008, chip, x, railY + 0.002, railZ + 0.041, 0.001));   // toggles
+  dinDev('fuse', 0.0375, 0.02);                                               // load fuse holder
+  for (const x of [-0.0375, 0.0125, 0.0625]) dinDev('tbBlue', x, 0.009, 0.04);  // negative terminal blocks
+  for (const x of [-0.084, 0.079]) bIn.add(rbox(0.006, 0.03, 0.02, dark, x, railY, railZ + 0.012, 0.001));   // rail end stops
   bIn.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = 'batteryInside'; } });
   batt.add(bIn);
   // cable glands: solar in (top), load out to the control unit (bottom)
   const battGlandTop = gland(P(-0.066, bH / 2, -0.02), P(0, 1, 0));
   const battGlandBot = gland(P(0.074, -bH / 2, -0.02), P(0, -1, 0));
-  batt.add(battGlandTop, battGlandBot);
+  // (no glands on the battery block any more: it has no box of its own, its wires run in the cabinet ducts)
   label(batt, 'แบต LiFePO4 12.8V 20Ah + BMS', 0, packTop - 0.05, packZ + 0.05, battDoor);
   label(batt, 'MPPT ชาร์จจากโซลาร์', 0.02, mpptY + 0.05, 0, battDoor);
   label(batt, 'เบรกเกอร์ DC / ฟิวส์', -0.05, railY - 0.03, 0.03, battDoor);
@@ -411,7 +407,7 @@ export function buildHardware(station) {
   group.add(poleGlandSolar, poleGlandBeacon);
   const pS = P(poleX, 0.21, poleZ + 0.056), pB = P(poleX, 0.15, poleZ + 0.056);
   const bTop = tipOf(batt, battGlandTop), bBot = tipOf(batt, battGlandBot);
-  conduit([pS, P(pS.x, pS.y, pS.z + 0.03), P(bTop.x, pS.y, bTop.z), P(bTop.x, bTop.y + 0.03, bTop.z), bTop], 'cableSolar');      // solar -> battery
+  // (solar conduit is laid once the cabinet exists: it enters through the cabinet floor)
   /* ---------- wireless fill sensors under each lid (battery + LoRa, no cable) ---------- */
   const sensorBody = new THREE.MeshStandardMaterial({ color: 0xe3e6e9, roughness: 0.45, transparent: true, opacity: 1 });
   const cellMat2 = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.4 });
@@ -531,8 +527,6 @@ export function buildHardware(station) {
   }
   // SMA connectors on top of LTE / LoRa modules + coax up to the two antennas
   for (const x of [0.012, 0.06]) uIn.add(rbox(0.008, 0.01, 0.008, shield, x, r1y + 0.04, uz + 0.027, 0.001));
-  uIn.add(routed([P(0.012, r1y + 0.045, uz + 0.027), P(0.012, r1y + 0.06, uz + 0.027), P(0.07, uH / 2 - 0.02, 0), P(0.07, uH / 2 - 0.004, 0)], 0.0018, 0.01, wmat(0x111111)));
-  uIn.add(routed([P(0.06, r1y + 0.045, uz + 0.027), P(0.06, r1y + 0.055, uz + 0.027), P(-0.07, uH / 2 - 0.025, 0), P(-0.07, uH / 2 - 0.004, 0)], 0.0018, 0.01, wmat(0x111111)));
   // slotted wire duct between the rails and along the bottom
   const ductMat = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.6 });
   // slotted PVC wire duct: channel + snap-on cover, wires enter through the fingers on the top/bottom edges
@@ -554,18 +548,7 @@ export function buildHardware(station) {
   uIn.add(relayLed);
   const tbColors = [0xd42a1e, 0x111111, 0x9ca3af, 0x9ca3af, 0x1d4ed8, 0x16a34a, 0x9ca3af];
   tbColors.forEach((c, i) => dev(c === 0x1d4ed8 ? 'tbBlue' : c === 0x16a34a ? 'tbGreen' : 'tb', 0.0 + i * 0.0105, r2y, 0.009, 0.045, 0.038));
-  // short jumpers from modules into the ducts (the runs inside the duct are hidden, like a real panel)
-  const uzw = uz + 0.03;
-  for (const [x, c] of [[-0.065, 0xd42a1e], [-0.045, 0x111111], [0.005, 0xd42a1e], [0.02, 0x111111], [0.055, 0x1d4ed8]]) uIn.add(pwire(c, [[x, r1y - 0.035, uzw], [x, 0.031, uzw]]));
-  for (const [x, c] of [[-0.085, 0xd42a1e], [-0.06, 0xd42a1e], [-0.05, 0x111111], [-0.024, 0xf59e0b], [0.0, 0xd42a1e], [0.0105, 0x111111], [0.042, 0x1d4ed8], [0.0525, 0x16a34a]]) {
-    uIn.add(pwire(c, [[x, r2y + 0.025, uzw], [x, 0.009, uzw]]));
-    uIn.add(pwire(c, [[x, r2y - 0.025, uzw], [x, -0.084, uzw]]));
-  }
-  // field cables leave the bottom duct straight down to the two glands
-  uIn.add(pwire(0xd42a1e, [[-0.064, -0.106, uzw], [-0.064, -0.12, uzw], [-0.062, -uH / 2 + 0.02, 0], [-0.062, -uH / 2 + 0.004, 0]]));
-  uIn.add(pwire(0x111111, [[-0.056, -0.106, uzw], [-0.056, -0.12, uzw], [-0.058, -uH / 2 + 0.02, 0], [-0.058, -uH / 2 + 0.004, 0]]));
-  uIn.add(pwire(0xf59e0b, [[0.056, -0.106, uzw], [0.056, -0.12, uzw], [0.058, -uH / 2 + 0.02, 0], [0.058, -uH / 2 + 0.004, 0]]));
-  uIn.add(pwire(0x111111, [[0.064, -0.106, uzw], [0.064, -0.12, uzw], [0.062, -uH / 2 + 0.02, 0], [0.062, -uH / 2 + 0.004, 0]]));
+  // (all unit wiring is laid later, together with the cabinet wiring, in cabinet coordinates)
   uIn.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = 'unitInside'; } });
   unit.add(uIn);
   const unitGlandPower = gland(P(-0.06, -uH / 2, 0), P(0, -1, 0));
