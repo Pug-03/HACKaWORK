@@ -41,7 +41,7 @@ export const CONFIG = {
     hoodTopWidth: 0.328,
     wheel: 0.205,
     wheelSpan: 0.48,
-    openAngle: 1.62,        // rad (~93°): lid rests just past vertical, clear of the frame's back rail
+    openAngle: 1.95,        // rad (~112°): lid swings well back over the frame rail for easy loading
   },
 
   coloredPanel: { bottom: 0.07 },   // top follows the frame: height - 0.05 (under the top rail)

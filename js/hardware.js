@@ -63,7 +63,7 @@ export function buildHardware(station) {
     }
     const latch = rbox(0.008, 0.026, 0.008, gasket, -side * (w - 0.016), 0, 0.012, 0.002);
     hinge.add(latch);
-    hinge.userData = { open: 0, target: 0, side };
+    hinge.userData = { open: 0, target: 0, side, max: 1.42 };   // inner doors stop short of the cabinet door
     hinge.attachFront = (m) => { m.position.x -= side * w / 2; m.position.z -= d / 2 - 0.004; hinge.add(m); return m; };
     parent.add(hinge);
     return hinge;
@@ -492,8 +492,8 @@ export function buildHardware(station) {
   button.rotation.x = Math.PI / 2;
   button.position.set(0, -0.06, 0.059);
   button.userData.part = 'callButton';
-  unitDoor.attachFront(button);
-  const buttonZ = button.position.z;
+  let buttonZ = button.position.z;
+  const btnParts = [];                                // ring, caption, shroud: whole bezel presses the button
   // caption plate under the button
   const cap2 = document.createElement('canvas');
   cap2.width = 440; cap2.height = 80;
@@ -588,9 +588,482 @@ export function buildHardware(station) {
   const cabMat = new THREE.MeshStandardMaterial({ color: 0xc9ced3, metalness: 0.75, roughness: 0.35, roughnessMap: null });
   const cW = CAB.w, cH = CAB.h, cD = CAB.d;
   {
-    const uPow = tipOf(unit, unitGlandPower), uBea = tipOf(unit, unitGlandBeacon);
-    conduit([bBot, P(bBot.x, 0.25, bBot.z), P(uPow.x, 0.25, uPow.z), uPow], 'cableBatt');
-    conduit([uBea, P(uBea.x, pB.y, uBea.z), P(uBea.x, pB.y, pB.z + 0.03), P(pB.x, pB.y, pB.z + 0.03), pB], 'cableBeacon');
+    const th = 0.004, shell = new THREE.Group();
+    shell.add(rbox(cW, cH, th, cabMat, 0, 0, -cD / 2 + th / 2, 0.002));                                   // back
+    {                                                // door-side wall with the intake cut-out
+      const rs = new THREE.Shape();
+      rs.moveTo(-cD / 2, -cH / 2); rs.lineTo(cD / 2, -cH / 2); rs.lineTo(cD / 2, cH / 2); rs.lineTo(-cD / 2, cH / 2); rs.closePath();
+      const hole = new THREE.Path(); hole.absarc(-CAB.inZ, CAB.inY, 0.058, 0, Math.PI * 2, true); rs.holes.push(hole);
+      const rw = new THREE.Mesh(new THREE.ExtrudeGeometry(rs, { depth: th, bevelEnabled: false, curveSegments: 40 }), cabMat);
+      rw.rotation.y = Math.PI / 2; rw.position.x = cW / 2 - th;
+      shell.add(rw);
+    }
+    for (const sy of [-1, 1]) shell.add(rbox(cW - 2 * th, th, cD, cabMat, 0, sy * (cH / 2 - th / 2), 0, 0.002));
+    // pole-side wall: a real 2 mm sheet with three round fan cut-outs punched through it
+    const wsh = new THREE.Shape();
+    wsh.moveTo(-cD / 2, -cH / 2); wsh.lineTo(cD / 2, -cH / 2); wsh.lineTo(cD / 2, cH / 2); wsh.lineTo(-cD / 2, cH / 2); wsh.closePath();
+    for (const fy of CAB.fanYs) { const hole = new THREE.Path(); hole.absarc(-CAB.fanZ, fy, 0.058, 0, Math.PI * 2, true); wsh.holes.push(hole); }
+    const wall = new THREE.Mesh(new THREE.ExtrudeGeometry(wsh, { depth: th, bevelEnabled: false, curveSegments: 40 }), cabMat);
+    wall.rotation.y = Math.PI / 2;                   // shape x -> -Z, extrusion -> +X
+    wall.position.x = -cW / 2;
+    shell.add(wall);
+    shell.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = 'cabinet'; } });
+    cab.add(shell);
+  }
+  // double-skin sun-shield roof: 25 mm air gap on spacers, 40 mm overhang, folded drip edges, slight fall to the front
+  const sunShield = new THREE.Group();
+  sunShield.position.set(0, cH / 2 + 0.027, -CAB.gap / 2 + 0.005);   // reaches back over the fan gap to the panel
+  sunShield.rotation.x = 0.05;
+  const shD = cD + CAB.gap + 0.05;
+  sunShield.add(rbox(cW + 0.08, 0.003, shD, cabMat, 0, 0, 0, 0.001));
+  for (const sx of [-1, 1]) sunShield.add(rbox(0.003, 0.018, shD, cabMat, sx * (cW / 2 + 0.04), -0.009, 0, 0.001));
+  sunShield.add(rbox(cW + 0.08, 0.018, 0.003, cabMat, 0, -0.009, shD / 2, 0.001));
+  sunShield.add(rbox(cW + 0.08, 0.03, 0.003, cabMat, 0, -0.012, -shD / 2 + 0.0015, 0.001));   // flashing down onto the panel
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) sunShield.add(rbox(0.02, 0.025, 0.02, cabMat, sx * (cW / 2 - 0.04), -0.014, sz * (cD / 2 - 0.03), 0.002));
+  cab.add(sunShield);
+  // exhaust: three 120 mm fans stacked on the pole-side wall, each behind a louvred grille under its own
+  // rain hood that opens downward, so driving rain can't get in; air comes in through the door intake below
+  const fanRotors = [];
+  const fanMats = { frame: dark, blade: new THREE.MeshStandardMaterial({ color: 0x2b2e33, roughness: 0.45 }), guard: steel };
+  const sideX = -cW / 2, fanZ = CAB.fanZ;
+  for (const fy of CAB.fanYs) {
+    const { group: f, rotor } = axialFan(0.12, fanMats);
+    f.rotation.y = -Math.PI / 2;                     // outlet -> local -X, out through the side wall
+    f.position.set(sideX + 0.0165, fy, fanZ);
+    cab.add(f);
+    fanRotors.push(rotor);
+    for (const [hh, dd, yy, zz] of [[0.012, 0.135, fy + 0.0615, fanZ], [0.012, 0.135, fy - 0.0615, fanZ], [0.135, 0.012, fy, fanZ + 0.0615], [0.135, 0.012, fy, fanZ - 0.0615]])
+      cab.add(rbox(0.01, hh, dd, dark, sideX - 0.005, yy, zz, 0.002));                                 // open grille frame
+    for (let i = 0; i < 6; i++) { const sl = rbox(0.012, 0.003, 0.115, dark, sideX - 0.011, fy - 0.05 + i * 0.02, fanZ, 0.001); sl.rotation.z = 0.7; cab.add(sl); }
+    cab.add(rbox(0.045, 0.004, 0.155, cabMat, sideX - 0.0225, fy + 0.074, fanZ, 0.001));               // hood top
+    for (const s2 of [-1, 1]) {
+      const cheek = new THREE.Shape(); cheek.moveTo(0, 0); cheek.lineTo(-0.045, 0); cheek.lineTo(0, -0.145); cheek.closePath();
+      const cm = new THREE.Mesh(new THREE.ExtrudeGeometry(cheek, { depth: 0.003, bevelEnabled: false }), cabMat);
+      cm.position.set(sideX, fy + 0.072, fanZ + s2 * 0.077 - (s2 > 0 ? 0.003 : 0));
+      cab.add(cm);
+    }
+  }
+  // intake: one 120 mm fan high on the door-side wall (opposite the three exhausts), blowing in through a
+  // filter behind an open louvred grille, under a rain hood that opens downward
+  {
+    const ix = cW / 2, iy = CAB.inY, iz = CAB.inZ;
+    const { group: f, rotor } = axialFan(0.12, fanMats);
+    f.rotation.y = -Math.PI / 2;                     // outlet -> local -X: pushes air into the cabinet
+    f.position.set(ix - 0.0165, iy, iz);
+    cab.add(f);
+    fanRotors.push(rotor);
+    for (const [hh, dd, yy, zz] of [[0.012, 0.135, iy + 0.0615, iz], [0.012, 0.135, iy - 0.0615, iz], [0.135, 0.012, iy, iz + 0.0615], [0.135, 0.012, iy, iz - 0.0615]])
+      cab.add(rbox(0.01, hh, dd, dark, ix + 0.005, yy, zz, 0.002));
+    for (let i = 0; i < 6; i++) { const sl = rbox(0.012, 0.003, 0.115, dark, ix + 0.011, iy - 0.05 + i * 0.02, iz, 0.001); sl.rotation.z = -0.7; cab.add(sl); }
+    cab.add(rbox(0.045, 0.004, 0.155, cabMat, ix + 0.0225, iy + 0.074, iz, 0.001));
+    for (const s2 of [-1, 1]) {
+      const cheek = new THREE.Shape(); cheek.moveTo(0, 0); cheek.lineTo(0.045, 0); cheek.lineTo(0, -0.145); cheek.closePath();
+      const cm = new THREE.Mesh(new THREE.ExtrudeGeometry(cheek, { depth: 0.003, bevelEnabled: false }), cabMat);
+      cm.position.set(ix, iy + 0.072, iz + s2 * 0.077 - (s2 > 0 ? 0.003 : 0));
+      cab.add(cm);
+    }
+  }
+  const breather = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.011, 0.014, 6), dark);
+  breather.position.set(cW / 2 - 0.04, -cH / 2 - 0.007, 0.03);
+  cab.add(breather);
+  // 4 SHS standoff brackets to the panel, M10 tamper-proof (pin-hex) bolts on wall flanges
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+    const bx = sx * (cW / 2 - 0.05), by = sy * (cH / 2 - 0.05);
+    cab.add(rbox(0.04, 0.04, CAB.gap, steel, bx, by, -cD / 2 - CAB.gap / 2, 0.002));
+    cab.add(rbox(0.07, 0.05, 0.004, steel, bx, by, -cD / 2 - CAB.gap + 0.002, 0.001));
+    for (const ox of [-0.024, 0.024]) {
+      const bh = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.005, 20).rotateX(Math.PI / 2), steel);
+      bh.position.set(bx + ox, by, -cD / 2 - CAB.gap + 0.007);
+      const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.0015, 0.0015, 0.004, 8).rotateX(Math.PI / 2), dark);
+      pin.position.set(bx + ox, by, -cD / 2 - CAB.gap + 0.011);
+      cab.add(bh, pin);
+    }
+  }
+  // fixed HMI: 7" panel in its own bezel on a stand-off bracket from the backplate, right behind the door
+  // window, so it never moves with the door
+  {
+    const hz = cD / 2 - 0.022;
+    screen.position.set(CAB.unitX, CAB.scrY, hz + 0.0045);
+    screen.userData.noMerge = true;
+    cab.add(screen, rbox(0.2, 0.14, 0.008, dark, CAB.unitX, CAB.scrY, hz, 0.003));
+    for (const sx of [-1, 1]) {
+      cab.add(rbox(0.02, 0.1, 0.004, steel, CAB.unitX + sx * 0.085, CAB.scrY, hz - 0.006, 0.001));               // bracket ears
+      cab.add(rbox(0.02, 0.02, hz - (-cD / 2 + 0.008), steel, CAB.unitX + sx * 0.085, CAB.scrY, (hz + -cD / 2 + 0.008) / 2 - 0.004, 0.002));   // stand-offs
+    }
+  }
+  // finger-type wire ducts (25 x 35 mm, 5 mm slots): one down the middle, one full width along the top
+  const cabDuct = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.55 });
+  const ductZ = -cD / 2 + 0.026, bz = -cD / 2 + 0.0095;
+  function fingerDuct(x0, y0, x1, y1) {           // straight run between two points on the backplate
+    const vert = x0 === x1, len = vert ? Math.abs(y1 - y0) : Math.abs(x1 - x0), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    cab.add(rbox(vert ? 0.025 : len, vert ? len : 0.025, 0.003, cabDuct, cx, cy, bz, 0.001));                  // base
+    const n = Math.floor(len / 0.01);
+    for (const s2 of [-1, 1]) for (let i = 0; i < n; i++) {
+      const t = -len / 2 + 0.005 + i * 0.01;
+      cab.add(rbox(vert ? 0.003 : 0.005, vert ? 0.005 : 0.003, 0.033, cabDuct, vert ? cx + s2 * 0.0115 : cx + t, vert ? cy + t : cy + s2 * 0.0115, ductZ, 0.0005));
+    }
+    cab.add(rbox(vert ? 0.027 : len, vert ? len : 0.027, 0.002, new THREE.MeshStandardMaterial({ color: 0xa7adb3, roughness: 0.5 }), cx, cy, ductZ + 0.0175, 0.0008));   // lid
+  }
+  fingerDuct(0, -0.27, 0, 0.24);
+  fingerDuct(-0.245, 0.255, 0.245, 0.255);
+  // brass earth bar (PE) on insulators low on the back wall; the wiring to it is laid with the rest below
+  const brass2 = brassMat();
+  cab.add(rbox(0.16, 0.012, 0.006, brass2, -0.13, -0.265, -cD / 2 + 0.02, 0.001));
+  for (let i = 0; i < 6; i++)
+    cab.add(new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.008, 8).rotateX(Math.PI / 2), steel).translateX(-0.2 + i * 0.028).translateY(-0.265).translateZ(-cD / 2 + 0.026));
+  for (const x of [-0.215, -0.045]) cab.add(rbox(0.01, 0.012, 0.012, dark, x, -0.265, -cD / 2 + 0.01, 0.001));   // insulators
+  // fan rail (top left): fuse, thermostat (35 °C), AUTO / OFF / ON selector, pilot lamp, 4 fan terminals
+  // (+ + 0V 0V, bridged in pairs); sits 17 mm under the top duct so its wires drop straight into the slots
+  const fanRailY = 0.185;
+  cab.add(rbox(0.2, 0.035, 0.007, steel, -0.13, fanRailY, -cD / 2 + 0.012, 0.001));
+  const dinM = (x, w, color) => cab.add(rbox(w, 0.08, 0.06, new THREE.MeshStandardMaterial({ color, roughness: 0.45 }), x, fanRailY, -cD / 2 + 0.045, 0.002));
+  dinM(-0.205, 0.018, 0xf2f2f0);                   // fan fuse
+  dinM(-0.17, 0.035, 0xe5e7eb);                    // thermostat
+  cab.add(new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.008, 20).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.4 })).translateX(-0.17).translateY(fanRailY + 0.012).translateZ(-cD / 2 + 0.079));
+  dinM(-0.115, 0.045, 0x374151);                   // selector switch body
+  dinM(-0.08, 0.016, 0x374151);                    // pilot lamp module
+  for (const [i, c] of [0xd9dde1, 0xd9dde1, 0x3b82f6, 0x3b82f6].entries()) {   // fan supply terminals
+    const x = -0.065 + i * 0.01;
+    cab.add(rbox(0.0085, 0.06, 0.05, new THREE.MeshStandardMaterial({ color: c, roughness: 0.5 }), x, fanRailY, -cD / 2 + 0.04, 0.001));
+    for (const yy of [0.022, -0.022]) cab.add(new THREE.Mesh(new THREE.CylinderGeometry(0.0022, 0.0022, 0.002, 10).rotateX(Math.PI / 2), steel).translateX(x).translateY(fanRailY + yy).translateZ(-cD / 2 + 0.0655));
+  }
+  for (const [x, c] of [[-0.06, 0xd42a1e], [-0.04, 0x1d4ed8]]) cab.add(rbox(0.014, 0.004, 0.003, new THREE.MeshStandardMaterial({ color: c, roughness: 0.5 }), x, fanRailY + 0.012, -cD / 2 + 0.0665, 0.001));   // bridge bars
+  fanKnob = new THREE.Group();
+  fanKnob.position.set(-0.115, fanRailY + 0.01, -cD / 2 + 0.077);
+  fanKnob.add(new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.01, 24).rotateX(Math.PI / 2), dark));
+  fanKnob.add(rbox(0.006, 0.024, 0.012, dark, 0, 0, 0.008, 0.002));
+  fanKnob.traverse((m) => { if (m.isMesh) m.userData.part = 'fanSwitch'; });
+  cab.add(fanKnob);
+  fanLampMat = new THREE.MeshStandardMaterial({ color: 0x14532d, emissive: 0x22c55e, emissiveIntensity: 1.6 });
+  cab.add(new THREE.Mesh(new THREE.SphereGeometry(0.0065, 16, 8), fanLampMat).translateX(-0.08).translateY(fanRailY + 0.02).translateZ(-cD / 2 + 0.077));
+  {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+    const x2 = c.getContext('2d'); x2.fillStyle = '#e9ecef'; x2.fillRect(0, 0, 256, 64); x2.fillStyle = '#111'; x2.textAlign = 'center'; x2.textBaseline = 'middle';
+    x2.font = `600 26px ${FONT}`; x2.fillText('พัดลม: อัตโนมัติ · ปิด · เปิด', 128, 33);
+    const tt = new THREE.CanvasTexture(c); tt.colorSpace = THREE.SRGBColorSpace;
+    const lg = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.022), new THREE.MeshStandardMaterial({ map: tt, roughness: 0.6 }));
+    lg.position.set(-0.13, fanRailY - 0.055, -cD / 2 + 0.0085);
+    cab.add(lg);
+  }
+  // galvanised backplate that every component bolts to
+  cab.add(rbox(cW - 0.02, cH - 0.2, 0.003, new THREE.MeshStandardMaterial({ color: 0xb9bec3, metalness: 0.6, roughness: 0.45 }), 0, -0.04, -cD / 2 + 0.006, 0.001));
+  cab.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = 'cabinet'; } });
+
+  // outer door: hinge on the front-side edge (+X local = toward the sidewalk), opens away from the pole
+  const cabDoor = new THREE.Group();
+  cabDoor.position.set(cW / 2, 0, cD / 2);
+  const ux = CAB.unitX, scrY = CAB.scrY, btnY = -0.06;
+  {
+    const sh = new THREE.Shape();
+    const x0 = -cW, x1 = 0, y0 = -cH / 2, y1 = cH / 2;   // door spans from the hinge (x = 0) to the free edge
+    sh.moveTo(x0, y0); sh.lineTo(x1, y0); sh.lineTo(x1, y1); sh.lineTo(x0, y1); sh.closePath();
+    const wx = ux - cW / 2, win = new THREE.Path();
+    win.moveTo(wx - 0.105, scrY - 0.075); win.lineTo(wx - 0.105, scrY + 0.075); win.lineTo(wx + 0.105, scrY + 0.075); win.lineTo(wx + 0.105, scrY - 0.075); win.closePath();
+    const hole = new THREE.Path();
+    hole.absarc(wx, btnY, 0.031, 0, Math.PI * 2, true);
+    sh.holes.push(win, hole);
+    const dg = new THREE.ExtrudeGeometry(sh, { depth: 0.006, bevelEnabled: true, bevelThickness: 0.001, bevelSize: 0.001, bevelSegments: 1, curveSegments: 32 });
+    const panel = new THREE.Mesh(dg, cabMat);
+    panel.position.z = 0.001;
+    cabDoor.add(panel);
+    // window: 6 mm vandal-resistant polycarbonate in a black EPDM frame
+    const glass = new THREE.MeshStandardMaterial({ color: 0xdfe8ee, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.14, depthWrite: false });
+    const g = new THREE.Mesh(new THREE.PlaneGeometry(0.21, 0.15), glass);
+    g.position.set(wx, scrY, 0.0045);
+    g.userData.noMerge = true;
+    cabDoor.add(g);
+    const epdm = new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.85 });
+    for (const [w, h, x, y] of [[0.222, 0.008, wx, scrY + 0.079], [0.222, 0.008, wx, scrY - 0.079], [0.008, 0.166, wx - 0.111, scrY], [0.008, 0.166, wx + 0.111, scrY]])
+      cabDoor.add(rbox(w, h, 0.01, epdm, x, y, 0.004, 0.002));
+    // button bezel: yellow ring around the hole + caption plate
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.031, 0.046, 40), new THREE.MeshStandardMaterial({ color: 0xf2c200, roughness: 0.5 }));
+    ring.position.set(wx, btnY, 0.0085);
+    cabDoor.add(ring);
+    btnParts.push(ring);
+    const cp = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.033), new THREE.MeshStandardMaterial({ map: capTex, roughness: 0.7 }));
+    cp.position.set(wx, btnY - 0.068, 0.0085);
+    cabDoor.add(cp);
+    btnParts.push(cp);
+    // battery-side panel: warning label
+    const wl = document.createElement('canvas'); wl.width = 400; wl.height = 260;
+    const w2 = wl.getContext('2d');
+    w2.fillStyle = '#f4f5f6'; w2.fillRect(0, 0, 400, 260);
+    w2.fillStyle = '#1f7a3a'; w2.fillRect(0, 0, 400, 56);
+    w2.fillStyle = '#fff'; w2.textAlign = 'center'; w2.font = `600 30px ${FONT}`; w2.fillText('ตู้ควบคุม · กทม.', 200, 39);
+    w2.fillStyle = '#f2c200'; w2.beginPath(); w2.moveTo(200, 80); w2.lineTo(244, 156); w2.lineTo(156, 156); w2.closePath(); w2.fill();
+    w2.fillStyle = '#1d2228'; w2.font = `700 52px ${FONT}`; w2.fillText('!', 200, 150);
+    w2.font = `600 26px ${FONT}`; w2.fillText('ระบบไฟฟ้า · เฉพาะเจ้าหน้าที่', 200, 198);
+    w2.font = `400 22px ${FONT}`; w2.fillText('แบตเตอรี่ LiFePO4 + ชุดควบคุมภายใน', 200, 236);
+    const wlT = new THREE.CanvasTexture(wl); wlT.colorSpace = THREE.SRGBColorSpace;
+    const wlm = new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.11), new THREE.MeshStandardMaterial({ map: wlT, roughness: 0.6 }));
+    wlm.position.set(-cW + CAB.battX + cW / 2 - 0.0, 0.04, 0.0085);
+    cabDoor.add(wlm);
+    // status screen on a bracket just behind the window, call button through the bezel hole
+
+    button.position.set(wx, btnY, 0.016);
+    buttonZ = button.position.z;
+    cabDoor.add(button, new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.03, 24).rotateX(Math.PI / 2), dark).translateX(wx).translateY(btnY).translateZ(-0.012));
+    // raised stainless shroud round the call button (no kicking / prying it out)
+    const shroud = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.047, 0.022, 40, 1, true).rotateX(Math.PI / 2), steel);
+    shroud.position.set(wx, btnY, 0.019);
+    shroud.material = new THREE.MeshStandardMaterial({ color: 0xc9ced3, metalness: 0.9, roughness: 0.25, side: THREE.DoubleSide });
+    cabDoor.add(shroud);
+    btnParts.push(shroud);
+    // concealed hinges (inside only, nothing to unscrew); 3-point swing handle lock on the free edge
+    const handleX = -cW + 0.035;
+    cabDoor.add(rbox(0.03, 0.12, 0.006, dark, handleX, 0.03, 0.009, 0.004));                          // handle escutcheon
+    const lever = rbox(0.016, 0.085, 0.012, steel, handleX, 0.03, 0.017, 0.005);
+    cabDoor.add(lever);
+    cabDoor.add(new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.004, 16).rotateX(Math.PI / 2), brassMat()).translateX(handleX).translateY(0.08).translateZ(0.014));
+    for (const sy of [1, -1]) cabDoor.add(rbox(0.008, cH * 0.42, 0.006, steel, handleX - 0.01, sy * cH * 0.25, -0.006, 0.001));   // lock rods (inside)
+    cabDoor.add(rbox(0.04, 0.024, 0.006, steel, -cW + 0.012, -0.1, 0.011, 0.002));
+    const lockBody = rbox(0.04, 0.032, 0.016, new THREE.MeshStandardMaterial({ color: 0xc9a227, metalness: 0.8, roughness: 0.3 }), -cW - 0.004, -0.13, 0.022, 0.004);
+    const shackle = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.0028, 8, 20, Math.PI), steel);
+    shackle.position.set(-cW - 0.004, -0.114, 0.022);
+    cabDoor.add(lockBody, shackle);
+    // EPDM gasket on the inside
+    for (const [w, h, x, y] of [[cW - 0.012, 0.006, -cW / 2, cH / 2 - 0.009], [cW - 0.012, 0.006, -cW / 2, -cH / 2 + 0.009], [0.006, cH - 0.012, -cW + 0.009, 0], [0.006, cH - 0.012, -0.009, 0]])
+      cabDoor.add(rbox(w, h, 0.004, epdm, x, y, -0.001, 0.001));
+  }
+  cabDoor.traverse((m) => { if (m.isMesh) { m.castShadow = !m.material.transparent; m.userData.part = 'cabinet'; } });
+  button.userData.part = 'callButton';                 // door traverse above would swallow the button
+  for (const m of btnParts) m.userData.part = 'callButton';
+  cabDoor.userData = { open: 0, target: 0, side: 1, max: 2.0 };   // ~115°, stops before the station's front face
+  cab.add(cabDoor);
+  doors.push(cabDoor);
+  // LTE + LoRa in one low anti-vandal dome on the sun shield (IP67, nothing to snap off); coax runs inside
+  {
+    const domeMat = new THREE.MeshStandardMaterial({ color: 0x2a2d31, roughness: 0.55 });
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.052, 0.008, 32), domeMat);
+    base.position.set(ux, cH / 2 + 0.034, -0.0);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.046, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2), domeMat);
+    dome.scale.y = 0.6;
+    dome.position.set(ux, cH / 2 + 0.038, 0);
+    base.userData.part = dome.userData.part = 'unit';
+    cab.add(base, dome);
+  }
+  // every cable enters through the cabinet floor (IP68 glands), so rain can never run along a cable into the box
+  group.add(cab);
+  const floorY = CAB.y - CAB.h / 2;
+  const ez = CAB.z - CAB.w / 2 + 0.025, rx = cabX + 0.07;   // solar riser: pole-side wall, behind the fans, near the backplate
+  group.add(gland(P(rx, floorY, ez), P(0, -1, 0)));
+  conduit([pS, P(pS.x, pS.y, pS.z + 0.03), P(rx, pS.y, ez), P(rx, floorY - 0.004, ez)], 'cableSolar');   // outside: steel conduit to the floor gland
+  // inside the cabinet the field cables become ordinary insulated cores, laid in the panel wiring below
+  unit.updateMatrix();
+  const uL = (x, y, z) => P(x, y, z).applyMatrix4(unit.matrix);
+  // beacon feed: steel conduit from the floor gland under the controller up the pole
+  {
+    const uBea = uL(0.06, -uH / 2, 0);
+    group.add(gland(P(uBea.x, floorY, uBea.z), P(0, -1, 0)));
+    conduit([P(uBea.x, floorY - 0.004, uBea.z), P(uBea.x, pB.y, uBea.z), P(uBea.x, pB.y, pB.z + 0.03), P(pB.x, pB.y, pB.z + 0.03), pB], 'cableBeacon');
+    // galvanised steel trunking from the pole to under the cabinet: both conduits run inside it, the lid is held
+    // by tamper-proof screws (comes off in the inside / circuit views so the runs can be seen)
+    const tz0 = poleZ + 0.03, tz1 = uBea.z + 0.04, ty0 = 0.11, ty1 = floorY - 0.004, tx0 = X0, tx1 = X0 - 0.15;   // deep enough to swallow both conduit drops under the cabinet
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0xa9afb5, metalness: 0.75, roughness: 0.4 });
+    const trunk = new THREE.Group();
+    trunk.add(rbox(tx0 - tx1, 0.003, tz1 - tz0, trunkMat, (tx0 + tx1) / 2, ty0, (tz0 + tz1) / 2, 0.001));      // bottom
+    trunk.add(rbox(tx0 - tx1, ty1 - ty0, 0.003, trunkMat, (tx0 + tx1) / 2, (ty0 + ty1) / 2, tz1, 0.001));      // end cap
+    group.add(tag(trunk, 'trunking'));
+    trunkLid = new THREE.Group();
+    trunkLid.add(rbox(0.003, ty1 - ty0 + 0.006, tz1 - tz0 + 0.006, trunkMat, tx1, (ty0 + ty1) / 2, (tz0 + tz1) / 2, 0.001));
+    trunkLid.add(rbox(tx0 - tx1, 0.003, tz1 - tz0, trunkMat, (tx0 + tx1) / 2, ty1, (tz0 + tz1) / 2, 0.001));
+    for (const yy of [ty0 + 0.025, ty1 - 0.025]) for (const zz of [tz0 + 0.03, (tz0 + tz1) / 2, tz1 - 0.03]) {
+      const sc = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.003, 12).rotateZ(Math.PI / 2), steel);
+      sc.position.set(tx1 - 0.002, yy, zz);
+      trunkLid.add(sc);
+    }
+    const tl = document.createElement('canvas'); tl.width = 512; tl.height = 96;
+    const t2 = tl.getContext('2d'); t2.fillStyle = '#f2c200'; t2.fillRect(0, 0, 512, 96); t2.fillStyle = '#111'; t2.textAlign = 'center'; t2.textBaseline = 'middle';
+    t2.font = `700 40px ${FONT}`; t2.fillText('อันตราย · สายไฟฟ้า', 256, 48);
+    const tlT = new THREE.CanvasTexture(tl); tlT.colorSpace = THREE.SRGBColorSpace;
+    const tlm = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.03), new THREE.MeshStandardMaterial({ map: tlT, roughness: 0.6 }));
+    tlm.rotation.y = -Math.PI / 2; tlm.position.set(tx1 - 0.002, (ty0 + ty1) / 2, (tz0 + tz1) / 2);
+    trunkLid.add(tlm);
+    group.add(tag(trunkLid, 'trunking'));
+  }
+
+  /* ---------- panel wiring ----------
+     Every run is written in cabinet-local coordinates (x across, y up, z out of the door; backplate face at
+     z = -0.0775) and lands on a real terminal. Runs between parts go through the finger ducts: the middle
+     duct (x = 0, slots at every whole cm of y) and the top duct (y = 0.255, slots at x = ...5 mm), and through
+     the controller's own ducts. Home 'b' / 'u' = battery / controller block (kept with their hover part),
+     'c' = cabinet, 'g' = field cables in hardware space that also carry the current-flow animation.
+     Colours (12 V DC panel): + red, 0 V black, PE green-yellow, signals grey, data blue, coax black. */
+  {
+    cab.updateMatrix(); batt.updateMatrix(); unit.updateMatrix();
+    const inv = (o) => new THREE.Matrix4().copy(o.matrix).invert();
+    const homes = {
+      c: { obj: cab, m: new THREE.Matrix4(), part: 'cabinet' },
+      b: { obj: bIn, m: inv(batt).multiply(cab.matrix), part: 'batteryInside' },
+      u: { obj: uIn, m: inv(unit).multiply(cab.matrix), part: 'unitInside' },
+      g: { obj: group, m: cab.matrix.clone(), part: 'cabinet' },
+    };
+    const RED = 0xd42a1e, BLK = 0x151515, GRY = 0x8b939c, BLU = 0x2563eb, GY = 'gy', COAX = 0x1a1a1a;
+    const gyMat = (() => {                        // green with yellow longitudinal stripes (wraps round the core)
+      const c = document.createElement('canvas'); c.width = 2; c.height = 10;
+      const g = c.getContext('2d');
+      g.fillStyle = '#1f9d3a'; g.fillRect(0, 0, 2, 10);
+      g.fillStyle = '#f2c200'; g.fillRect(0, 0, 2, 2); g.fillRect(0, 5, 2, 2);
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+      return new THREE.MeshStandardMaterial({ map: t, roughness: 0.45 });
+    })();
+    const M = (c) => (c === GY ? gyMat : wmat(c));
+    const cyl1 = new THREE.CylinderGeometry(1, 1, 1, 8);
+    const tipMat = new THREE.MeshStandardMaterial({ color: 0xd8dcdf, metalness: 0.85, roughness: 0.3 });
+    const markMat = new THREE.MeshStandardMaterial({ color: 0xf4f4f0, roughness: 0.6 });
+    const Yax = new THREE.Vector3(0, 1, 0);
+    const put = (home, m) => { m.castShadow = true; m.userData.part = home.part; home.obj.add(m); return m; };
+    function sleeve(home, mat, at, dir, r, len) {
+      const m = new THREE.Mesh(cyl1, mat);
+      m.scale.set(r, len, r);
+      m.quaternion.setFromUnitVectors(Yax, dir);
+      m.position.copy(at);
+      return put(home, m);
+    }
+    // run(home, colour, points, { a / b: 'f' = insulated ferrule into a screw terminal (default), 'n' = plain end
+    //   (gland, sheath, lug, fan lead, hidden in a duct), r, bend, mark: wire-number sleeve, flow: flow part })
+    function run(h, color, pts, o = {}) {
+      const home = homes[h];
+      const v = pts.map((p) => P(...p).applyMatrix4(home.m));
+      const r = o.r ?? 0.0022, mat = M(color), collar = color === GY ? wmat(0x1f9d3a) : mat;
+      for (const [flag, i, j] of [[o.a ?? 'f', 0, 1], [o.b ?? 'f', v.length - 1, v.length - 2]]) {
+        if (flag !== 'f') continue;
+        const T = v[i].clone(), d = T.clone().sub(v[j]).normalize();      // points into the terminal
+        v[i] = T.clone().addScaledVector(d, -0.003);
+        sleeve(home, collar, T.clone().addScaledVector(d, -0.0045), d, r + 0.0006, 0.005);
+        sleeve(home, tipMat, T, d, 0.0011, 0.004);
+      }
+      if (o.mark) {                               // marker sleeve 16 mm back from whichever end has room
+        for (const [i, j] of [[v.length - 1, v.length - 2], [0, 1]]) {
+          const d = v[i].clone().sub(v[j]);
+          if (d.length() < 0.03) continue;
+          d.normalize();
+          sleeve(home, markMat, v[i].clone().addScaledVector(d, -0.014), d, r + 0.0007, 0.008);
+          break;
+        }
+      }
+      const m = put(home, routed(v, r, o.bend ?? 0.008, mat, 6, 5));
+      if (o.flow) flows.push({ curve: m.userData.curve, part: o.flow });
+      return m;
+    }
+    const cabM = (mesh, x, y, z) => { mesh.position.set(x, y, z); return put(homes.c, mesh); };
+    const tieMat = new THREE.MeshStandardMaterial({ color: 0x1b1b1b, roughness: 0.6 });
+    function tie(x, y, z, r, along = 'y') {           // nylon cable tie round a bundle
+      const t = new THREE.Mesh(new THREE.TorusGeometry(r, 0.0011, 4, 14), tieMat);
+      if (along === 'y') t.rotation.x = Math.PI / 2; else if (along === 'x') t.rotation.y = Math.PI / 2;
+      cabM(t, x, y, z);
+    }
+    const nutGeo = new THREE.CylinderGeometry(1, 1, 1, 6);
+    function nut(x, y, z, r, h, axis = 'y', mat = steel) {
+      const n = new THREE.Mesh(nutGeo, mat);
+      n.scale.set(r, h, r);
+      if (axis === 'z') n.rotation.x = Math.PI / 2; else if (axis === 'x') n.rotation.z = Math.PI / 2;
+      cabM(n, x, y, z);
+    }
+
+    // ---- floor glands (inside): locknut, stripped-back sheath, P-clip strain relief to the back wall ----
+    const sheathMat = new THREE.MeshStandardMaterial({ color: 0x1c1d20, roughness: 0.7 });
+    const sheath = (x, z, y0, y1) => { const s = new THREE.Mesh(cyl1, sheathMat); s.scale.set(0.0065, y1 - y0, 0.0065); cabM(s, x, (y0 + y1) / 2, z); };
+    function pclip(x, y, z) {
+      const t = new THREE.Mesh(new THREE.TorusGeometry(0.0075, 0.0016, 5, 16), steel);
+      t.rotation.x = Math.PI / 2;
+      cabM(t, x, y, z);
+      const len = z - 0.0075 - (-cD / 2 + 0.004);
+      cabM(rbox(0.009, 0.005, len, steel, 0, 0, 0, 0.001), x, y, -cD / 2 + 0.004 + len / 2);   // tab / bracket to the back wall
+      nut(x, y, -cD / 2 + 0.0055, 0.003, 0.003, 'z', dark);
+    }
+    const floorIn = -cH / 2 + 0.004;
+    const SX = -0.255, SZ = -0.07, BX = 0.19, BZ = -0.037;                 // solar / beacon gland axes
+    for (const [x, z, top] of [[SX, SZ, -0.262], [BX, BZ, -0.252]]) {
+      nut(x, floorIn + 0.002, z, 0.0125, 0.004, 'y', glandMat);
+      sheath(x, z, floorIn, top);
+      pclip(x, floorIn + 0.014, z);
+    }
+
+    // ---- battery block: MPPT strip <- straight drops from the rail devices right below it ----
+    const XPVp = -0.1925, XPVn = -0.1675, XBATp = -0.1425, XBATn = -0.1175, XLDp = -0.0925, XLDn = -0.0675;
+    const mpptBot = -0.0175, brkTop = -0.035, brkBot = -0.085, tbTop = -0.04, tbBot = -0.08, tzB = -0.034;
+    for (const [x, c, top] of [[XPVp, RED, brkTop], [XPVn, BLK, tbTop], [XBATp, RED, brkTop], [XBATn, BLK, tbTop], [XLDp, RED, brkTop], [XLDn, BLK, tbTop]])
+      run('b', c, [[x, top, tzB], [x, mpptBot, tzB]]);
+    // battery cables (thicker) from the booted posts straight up into the battery breaker / BAT- terminal
+    run('b', RED, [[XBATp, -0.103, -0.0265], [XBATp, -0.094, -0.031], [XBATp, brkBot, tzB]], { a: 'n', r: 0.003 });
+    run('b', BLK, [[XBATn, -0.103, -0.0265], [XBATn, -0.092, -0.031], [XBATn, tbBot, tzB]], { a: 'n', r: 0.003 });
+
+    // ---- solar field cable: floor gland -> up the pole-side corner (behind the fans) -> PV breaker / PV- ----
+    run('g', RED, [[SX - 0.0025, floorIn, SZ - 0.0015], [SX - 0.0025, -0.092, SZ - 0.0015], [-0.236, -0.092, -0.035], [XPVp, -0.092, -0.035], [XPVp, brkBot, tzB]], { a: 'n', r: 0.0024, mark: true, flow: 'cableSolar' });
+    run('c', BLK, [[SX + 0.0025, -0.264, SZ - 0.0015], [SX + 0.0025, -0.1, SZ - 0.0015], [-0.236, -0.1, -0.046], [XPVn, -0.1, -0.046], [XPVn, tbBot, -0.04]], { a: 'n', r: 0.0024, mark: true });
+    for (const y of [-0.2, -0.14]) tie(SX, y, SZ - 0.0015, 0.0055);
+    // panel-frame earth from the same cable straight to the earth bar
+    run('c', GY, [[SX, -0.264, SZ + 0.0035], [SX, -0.252, SZ + 0.0035], [-0.235, -0.25, -0.065], [-0.2, -0.25, -0.065], [-0.2, -0.2595, -0.065]], { a: 'n', mark: true });
+
+    // ---- earth bar -> backplate bond stud, and -> controller PE terminal through the middle duct ----
+    nut(-0.172, -0.226, -cD / 2 + 0.0105, 0.004, 0.005, 'z');
+    cabM(new THREE.Mesh(new THREE.TorusGeometry(0.0045, 0.0012, 5, 12), brass2), -0.172, -0.226, -cD / 2 + 0.0095);   // ring lug
+    run('c', GY, [[-0.172, -0.2595, -0.065], [-0.172, -0.24, -0.068], [-0.172, -0.2305, -0.0745]], { b: 'n' });
+    run('c', GY, [[-0.06, -0.2595, -0.065], [-0.06, -0.25, -0.062], [0.005, -0.25, -0.062], [0.005, -0.19, -0.062], [0.17, -0.19, -0.058], [0.1825, -0.178, -0.05], [0.1825, -0.1475, -0.045]], { mark: true });
+
+    // ---- 12 V load: fuse / LOAD- -> middle duct -> controller's lower duct -> breaker / 0 V terminal ----
+    run('g', RED, [[XLDp, brkBot, tzB], [XLDp, -0.1, -0.04], [-0.025, -0.1, -0.05], [-0.004, -0.1, -0.05], [-0.004, -0.19, -0.048], [0.03, -0.19, -0.048], [0.045, -0.18, -0.046], [0.045, -0.15, -0.045]], { r: 0.0024, mark: true, flow: 'cableBatt' });
+    run('c', BLK, [[XLDn, tbBot, tzB], [XLDn, -0.09, -0.038], [-0.025, -0.09, -0.058], [0.003, -0.09, -0.058], [0.003, -0.18, -0.058], [0.128, -0.18, -0.054], [0.1405, -0.17, -0.05], [0.1405, -0.1475, -0.045]], { r: 0.0024, mark: true });
+
+    // ---- controller block: short drops from every module into its two ducts (runs inside are hidden) ----
+    const XTB = (i) => 0.13 + i * 0.0105;
+    for (const [x, c] of [[0.055, RED], [0.062, BLK], [0.09, BLU], [0.098, GRY], [0.128, RED], [0.135, BLK], [0.155, BLU], [0.18, RED], [0.187, BLK], [0.2, BLU]])
+      run('u', c, [[x, -0.05, -0.04], [x, -0.066, -0.046]], { b: 'n' });                        // rail 1 bottoms -> upper duct
+    for (const [x, c, top, z] of [[0.045, RED, -0.1, -0.04], [0.068, RED, -0.1, -0.04], [0.082, BLK, -0.1, -0.04], [0.102, GRY, -0.1, -0.04], [0.11, RED, -0.1, -0.04],
+      [XTB(0), RED, -0.1025, -0.034], [XTB(1), BLK, -0.1025, -0.034], [XTB(2), RED, -0.1025, -0.04], [XTB(3), GRY, -0.1025, -0.04], [XTB(4), BLK, -0.1025, -0.04]])
+      run('u', c, [[x, top, z], [x, -0.075, -0.046]], { b: 'n' });                               // rail 2 tops -> upper duct
+    for (const [x, c, bot] of [[0.068, RED, -0.15], [0.082, BLK, -0.15], [0.106, RED, -0.15], [XTB(0), RED, -0.1475]])
+      run('u', c, [[x, bot, -0.04], [x, -0.18, -0.046]], { b: 'n' });                            // rail 2 bottoms -> lower duct
+    // beacon cable: relay-switched +12 V, colour-select signal and 0 V out of the lower duct to the floor gland
+    run('g', RED, [[XTB(2), -0.1475, -0.045], [XTB(2), -0.188, -0.05], [BX - 0.003, -0.188, -0.048], [BX - 0.003, -0.24, -0.04], [BX - 0.003, floorIn, -0.039]], { b: 'n', mark: true, flow: 'cableBeacon' });
+    run('c', GRY, [[XTB(3), -0.1475, -0.045], [XTB(3), -0.192, -0.046], [BX + 0.003, -0.192, -0.044], [BX + 0.003, -0.24, -0.04], [BX + 0.003, -0.256, -0.039]], { b: 'n', mark: true });
+    run('c', BLK, [[XTB(4), -0.1475, -0.045], [XTB(4), -0.184, -0.042], [BX, -0.184, -0.04], [BX, -0.24, -0.034], [BX, -0.256, -0.034]], { b: 'n', mark: true });
+    tie(BX, -0.226, -0.038, 0.0062);
+    // HMI: cable from the controller's top connector up to the plug on the back of the screen bezel
+    cabM(rbox(0.016, 0.008, 0.012, dark, 0, 0, 0, 0.001), 0.075, 0.024, -0.03);
+    cabM(rbox(0.018, 0.012, 0.007, dark, 0, 0, 0, 0.001), 0.07, 0.115, 0.0555);
+    run('c', 0x52525b, [[0.075, 0.028, -0.03], [0.075, 0.055, -0.03], [0.07, 0.105, 0.02], [0.07, 0.115, 0.0522]], { a: 'n', b: 'n', r: 0.0026, bend: 0.02 });
+    // antenna coax: SMA on the router / gateway -> up through the top duct -> roof bulkheads under the dome
+    for (const [x0, xs, xr, z] of [[0.142, 0.145, 0.115, -0.05], [0.19, 0.195, 0.135, -0.058]]) {
+      nut(x0, 0.033, -0.039, 0.0042, 0.007, 'y', shield);                                       // SMA plug
+      nut(xr, cH / 2 - 0.006, z, 0.0065, 0.004, 'y', shield);                                   // bulkhead nut
+      run('c', COAX, [[x0, 0.036, -0.039], [x0, 0.05, -0.039], [xs, 0.07, z], [xs, 0.255, z], [xr, 0.255, z], [xr, cH / 2 - 0.008, z]], { a: 'n', b: 'n', r: 0.0025, bend: 0.012 });
+    }
+
+    // ---- fan circuit: +12 V / 0 V from the controller terminals -> middle duct -> top duct -> fan rail ----
+    const fTop = 0.225, fBot = 0.145;
+    run('c', RED, [[XTB(0), -0.1025, -0.047], [XTB(0), -0.07, -0.05], [0.004, -0.07, -0.05], [0.004, 0.247, -0.05], [-0.012, 0.247, -0.068], [-0.195, 0.247, -0.068], [-0.205, 0.247, -0.062], [-0.205, fTop, -0.062]], { mark: true });
+    run('c', BLK, [[XTB(1), -0.1025, -0.047], [XTB(1), -0.07, -0.058], [-0.004, -0.07, -0.058], [-0.004, 0.13, -0.058], [-0.035, 0.13, -0.055], [-0.035, fBot, -0.055]], { mark: true });
+    // jumpers under the rail: fuse -> thermostat & selector ON, thermostat -> selector AUTO, selector -> fan + / lamp, lamp -> 0 V
+    const loop = (c, x0, z0, x1, z1, y) => run('c', c, [[x0, fBot, z0], [x0, y, z0], [x1, y, z1], [x1, fBot, z1]], { bend: 0.005 });
+    loop(RED, -0.205, -0.025, -0.178, -0.025, 0.136);
+    loop(RED, -0.205, -0.036, -0.115, -0.036, 0.126);
+    loop(RED, -0.162, -0.03, -0.127, -0.03, 0.134);
+    loop(RED, -0.103, -0.036, -0.065, -0.036, 0.128);
+    loop(RED, -0.103, -0.024, -0.084, -0.024, 0.138);
+    loop(BLK, -0.076, -0.055, -0.045, -0.055, 0.136);
+    // fan leads: two per bridged terminal, up into the top duct, out of its ends to each fan's lead exit
+    const fanLead = [[0.05, -0.262, -0.268], [0.057, -0.262, -0.268], [0.064, -0.262, -0.268]];
+    CAB.fanYs.forEach((fy, k) => {
+      const zk = -fanLead[k][0], ye = fy + 0.05;
+      const [xr, tzr] = [[-0.065, -0.045], [-0.065, -0.056], [-0.055, -0.045]][k];
+      const [xb, tzb] = [[-0.045, -0.045], [-0.045, -0.056], [-0.035, -0.045]][k];
+      run('c', RED, [[xr, fTop, tzr], [xr, 0.25, tzr], [xr - 0.012, 0.25, zk], [fanLead[k][1], 0.25, zk], [fanLead[k][1], ye, zk], [fanLead[k][1], ye, -0.0398]], { b: 'n' });
+      run('c', BLK, [[xb, fTop, tzb], [xb, 0.26, tzb], [xb - 0.012, 0.26, zk], [fanLead[k][2], 0.26, zk], [fanLead[k][2], ye, zk], [fanLead[k][2], ye, -0.0398]], { b: 'n' });
+      for (const x of [fanLead[k][1], fanLead[k][2]]) nut(x, ye, -0.0405, 0.0034, 0.003, 'z', dark);   // lead grommets
+    });
+    tie(-0.265, 0.2, -0.0605, 0.0075); tie(-0.265, 0.11, -0.0605, 0.0075); tie(-0.265, -0.02, -0.064, 0.006);
+    run('c', RED, [[-0.055, fTop, -0.056], [-0.055, 0.25, -0.056], [-0.043, 0.256, -0.068], [0.25, 0.256, -0.068], [0.259, 0.256, -0.068], [0.259, CAB.inY + 0.0605, -0.068]], { b: 'n', bend: 0.005 });
+    run('c', BLK, [[-0.035, fTop, -0.056], [-0.035, 0.25, -0.056], [-0.023, 0.263, -0.068], [0.25, 0.263, -0.068], [0.267, 0.263, -0.068], [0.267, CAB.inY + 0.0605, -0.068]], { b: 'n', bend: 0.005 });
+
+    // ---- door bond: short braided strap from a door stud to a wall stud right at the hinge ----
+    nut(cW / 2 - 0.0055, -0.22, cD / 2 - 0.012, 0.004, 0.004, 'x');
+    const braid = new THREE.MeshStandardMaterial({ color: 0xb7bdc3, metalness: 0.7, roughness: 0.45 });
+    const strap = routed([P(-0.03, -0.22, -0.006), P(-0.018, -0.236, -0.016), P(-0.007, -0.22, -0.012)], 0.0028, 0.01, braid, 6, 5);
+    const dstud = new THREE.Mesh(nutGeo, steel); dstud.scale.set(0.004, 0.005, 0.004); dstud.rotation.x = Math.PI / 2; dstud.position.set(-0.03, -0.22, -0.004);
+    for (const m of [strap, dstud]) { m.castShadow = true; m.userData.part = 'cabinet'; cabDoor.add(m); }
   }
 
   function drawScreen(state) {

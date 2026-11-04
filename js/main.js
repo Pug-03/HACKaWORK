@@ -1,11 +1,5 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { CONFIG } from './config.js';
 import { buildStation } from './binStation.js';
@@ -231,10 +225,13 @@ function pick(ev) {
   const isShown = (o) => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
   const targets = [station.group, composter.group, shop.group, truck.group];
   if (riserOn) targets.push(riser.group);
-  const hit = raycaster.intersectObjects(targets, true).find((h) => {
+  const partOf = (o) => { for (; o; o = o.parent) if (o.userData.part) return o.userData.part; return null; };
+  const hits = raycaster.intersectObjects(targets, true).filter((h) => {
     const m = Array.isArray(h.object.material) ? h.object.material[h.face?.materialIndex ?? 0] : h.object.material;
     return isShown(h.object) && m && m.visible;
   });
+  // the call button sits in a hole in the cabinet door: a ray grazing the hole edge must still press it
+  const hit = hits.find((h) => hits[0] && h.distance - hits[0].distance < 0.04 && partOf(h.object) === 'callButton') || hits[0];
   if (!hit) return {};
   let o = hit.object, bin = null, bayId = null, part = null;
   while (o) {
@@ -531,23 +528,6 @@ setInterval(publish, 5000);
 if (innerWidth < 640) { $('smart').open = false; $('controls').open = false; }   // phones: start with panels folded
 applySmart();
 
-/* ---------- post: ambient occlusion for contact shadows in corners/gaps ---------- */
-const composer = new EffectComposer(renderer);
-composer.setPixelRatio(DPR);
-composer.setSize(viewport.clientWidth, viewport.clientHeight);
-composer.addPass(new RenderPass(scene, camera));
-const ao = new GTAOPass(scene, camera, viewport.clientWidth, viewport.clientHeight);
-ao.updateGtaoMaterial({ radius: 0.25, distanceExponent: 1.5, thickness: 1, scale: 1.2, samples: 12 });
-ao.blendIntensity = 0.85;
-composer.addPass(ao);
-// soft glow only on things brighter than white (LEDs, beacon, screens, heater) — threshold in HDR
-const bloom = new UnrealBloomPass(new THREE.Vector2(viewport.clientWidth / 2, viewport.clientHeight / 2), 0.2, 0.3, 1.4);
-composer.addPass(bloom);
-composer.addPass(new OutputPass());
-// the post-processing target has no MSAA, so anti-alias the final high-quality frame with SMAA
-const smaa = new SMAAPass(viewport.clientWidth * DPR, viewport.clientHeight * DPR);
-composer.addPass(smaa);
-
 /* ---------- loop: render on demand ----------
    One render path only (MSAA + soft shadow maps), so the picture looks the same while moving,
    after stopping and at any zoom. Idle: nothing is drawn. */
@@ -557,12 +537,7 @@ function invalidate(sceneChanged = false) {
 }
 controls.addEventListener('change', () => invalidate());
 
-// GTAO treats see-through meshes as solid (dark halos on the faded composter front, the
-// see-through sensors and the scale figure), so skip AO while any of them is showing
-function hqRender() {
-  const seeThrough = cutaway || hardware.isInsideView() || human.visible;
-  if (seeThrough) renderer.render(scene, camera); else composer.render();
-}
+function hqRender() { renderer.render(scene, camera); }
 
 const clock = new THREE.Clock();
 function animate() {
@@ -620,12 +595,7 @@ function animate() {
     dirty = false;
     needHQ = true;
     lastMotion = now;
-  } else if (needHQ && now - lastMotion > 150) {
-    hqRender();
-    labelRenderer.render(scene, camera);
-    needHQ = false;
-    lightDirty = false;
-  } else if (lightDirty && !needHQ) {
+  } else if (lightDirty) {
     hqRender();
     lightDirty = false;
   }
@@ -637,8 +607,6 @@ new ResizeObserver(() => {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
-  composer.setSize(w, h);
-  bloom.setSize(w / 2, h / 2);
   labelRenderer.setSize(w, h);
   invalidate();
 }).observe(viewport);
