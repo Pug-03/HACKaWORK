@@ -228,7 +228,7 @@ function pick(ev) {
   const partOf = (o) => { for (; o; o = o.parent) if (o.userData.part) return o.userData.part; return null; };
   const hits = raycaster.intersectObjects(targets, true).filter((h) => {
     const m = Array.isArray(h.object.material) ? h.object.material[h.face?.materialIndex ?? 0] : h.object.material;
-    return isShown(h.object) && m && m.visible;
+    return !h.object.isLine && !h.object.isPoints && isShown(h.object) && m && m.visible;   // lines (airflow streaks) have a 1 m ray threshold: never let them eat clicks
   });
   // the call button sits in a hole in the cabinet door: a ray grazing the hole edge must still press it
   const hit = hits.find((h) => hits[0] && h.distance - hits[0].distance < 0.04 && partOf(h.object) === 'callButton') || hits[0];
