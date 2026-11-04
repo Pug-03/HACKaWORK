@@ -11,7 +11,7 @@ export const RISER = {
   margin: 0.04,      // deck overhang around the station footprint
   leg: 0.06,
   beam: 0.07,
-  stepHeight: 0.16,
+  stepHeight: 0.22,
   stepDepth: 0.26,
   tray: { w: 0.62, d: 0.42, h: 0.08, travel: 0.26, clearance: 0.08 },   // 8 cm off the ground; stops short of the step
 };
@@ -127,19 +127,12 @@ export function buildRiser(renderer, stationLength, stationDepth) {
   // two lockable service trays hanging under the deck
   const T = R.tray;
   // trays hang low: entry holes ~11 cm up so rodents reach them, 8 cm clear of the ground for sweeping/hosing
-  const beamBottom = H - R.deck - R.beam;
   const trayY = T.clearance + T.h / 2;
-  const trayTop = trayY + T.h / 2 + 0.004;           // top of the guide rails
   const trayBodyMat = new THREE.MeshStandardMaterial({ color: 0x4f5a52, metalness: 0.35, roughness: 0.55 });
   const trayLabel = label([['ถาดบริการ · ควบคุมสัตว์พาหะ', 0.3, 600], ['เฉพาะเจ้าหน้าที่ · ล็อกกุญแจ', 0.24, 400]], T.w - 0.06, 0.045, '#e9e4d4', '#2b2b2b');
   const trays = [];
   for (const cx of [-W / 4, W / 4]) {
-    // guide rails at tray level, hung from the deck beams on flat-bar hangers (open sides keep the holes visible)
-    for (const sx of [-1, 1]) {
-      const rx = cx + sx * (T.w / 2 + 0.012);
-      group.add(rbox(0.02, 0.03, T.d + 0.04, dark, rx, trayTop - 0.015, 0, 0.003));
-      for (const sz of [-1, 1]) group.add(rbox(0.02, beamBottom - trayTop, 0.006, dark, rx, (beamBottom + trayTop) / 2, sz * (T.d / 2 + 0.012), 0.002));
-    }
+    hangerFrame(cx);
 
     const drawer = new THREE.Group();
     drawer.position.set(cx, trayY, 0);
@@ -150,20 +143,13 @@ export function buildRiser(renderer, stationLength, stationDepth) {
     drawer.add(rbox(T.w + 0.01, th, T.d + 0.01, trayBodyMat, 0, T.h / 2 - th / 2, 0, 0.002));    // lid
     const meshH = T.h - 2 * th;
     const sideMesh = meshPanel(T.d - 2 * th, meshH);
-    const endMesh = meshPanel(T.w - 2 * th, meshH);
-    const frontMesh = meshPanel(T.w - 2 * th, meshH - headerH + th);
+    const endMesh = meshPanel(T.w - 2 * th, meshH - headerH + th);
     for (const sx of [-1, 1]) {
       const m = new THREE.Mesh(sideMesh, meshMat);
       m.rotation.y = Math.PI / 2;
       m.position.set(sx * (T.w / 2 - th / 2) - 0.0015, 0, 0);
       drawer.add(m);
     }
-    const back = new THREE.Mesh(endMesh, meshMat);
-    back.position.set(0, 0, -T.d / 2 + th / 2 - 0.0015);
-    drawer.add(back);
-    const frontM = new THREE.Mesh(frontMesh, meshMat);
-    frontM.position.set(0, -headerH / 2 + th / 2, T.d / 2 - th / 2 - 0.0015);
-    drawer.add(frontM);
     // corner posts holding the mesh panels
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) drawer.add(rbox(0.01, T.h, 0.01, trayBodyMat, sx * (T.w / 2 - 0.005), 0, sz * (T.d / 2 - 0.005), 0.002));
     // front header (solid) with handle, lock and label
