@@ -178,7 +178,7 @@ export function buildShop() {
     if (bagCache.has(key)) return bagCache.get(key);
     const faceH = h - 0.035;
     const faceTex = brand === 'bma' ? bmaBagTex(kg, w, faceH) : otherBagTex(kg, w, faceH);
-    const face = new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.55 });
+    const face = new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });   // print always wins over the film body
     const edge = brand === 'bma' ? filmMat : kraftEdge;
     // flat empty bag: 0.8 mm laminated film body with the print on the front, sealed header strip with euro slot
     const body = new THREE.BoxGeometry(w, faceH, 0.0008);
@@ -225,13 +225,15 @@ export function buildShop() {
       const bz = z0 + 0.02 + i * 0.0022;
       const bag = new THREE.Group();
       bag.position.set(x, y + (bz - z0) * 0.05, bz);
-      bag.rotation.z = (rnd() - 0.5) * 0.03;
-      bag.rotation.x = 0.012 + rnd() * 0.01;          // hangs a touch off vertical away from the board
+      bag.rotation.z = (rnd() - 0.5) * 0.014;          // small sway: the two 380 mm bottom-row stacks are only 10 mm apart, so corners never overlap
+      // hangs a touch off vertical; the tilt only ever decreases outward (stack fans open at the bottom), so neighbouring
+      // 0.8 mm bags (2.2 mm pitch) never cut through each other and shimmer
+      bag.rotation.x = 0.022 - i * 0.0007 - rnd() * 0.0003;
       const hd = new THREE.Mesh(k.headerGeo, k.edge);
       const bd = new THREE.Mesh(k.body, k.edge);
       bd.position.y = -0.0175 - k.faceH / 2;
       const fc = new THREE.Mesh(k.facePlane, k.face);   // printed front (a plane keeps it mergeable)
-      fc.position.set(0, bd.position.y, 0.00045);
+      fc.position.set(0, bd.position.y, 0.0009);      // 0.5 mm off the 0.8 mm body's front face (+ polygonOffset)
       bag.add(hd, bd, fc);
       group.add(bag);
     }

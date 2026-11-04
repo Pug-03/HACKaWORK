@@ -93,7 +93,7 @@ export function buildRiser(renderer, stationLength, stationDepth) {
   const legXs = [-W / 2 + R.leg / 2, 0, W / 2 - R.leg / 2];
   for (const x of legXs) {
     for (const z of [Dp / 2 - R.leg / 2, -Dp / 2 + R.leg / 2]) {
-      group.add(rbox(R.leg, legH, R.leg, galv, x, legH / 2, z, 0.005));
+      group.add(rbox(R.leg - 0.002, legH, R.leg - 0.002, galv, x, legH / 2, z, 0.005));   // 1 mm inside the beam faces (no coplanar faces)
       group.add(rbox(0.14, 0.008, 0.14, galv, x, 0.004, z, 0.002));
       for (const [bx, bz] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
         const b = new THREE.Mesh(boltGeo, dark);
@@ -248,7 +248,7 @@ export function buildRiser(renderer, stationLength, stationDepth) {
     }
   }
   // longitudinal stringer under the deck plate between the joists
-  group.add(rbox(W - 0.08, 0.04, 0.04, galv, 0, H - R.deck - 0.02, -0.06, 0.003));
+  group.add(rbox(W - 0.08, 0.039, 0.04, galv, 0, H - R.deck - 0.0195, -0.06, 0.003));   // underside 1 mm above the joist undersides
 
   const baitMat = new THREE.MeshStandardMaterial({ color: 0x2f86c4, roughness: 0.85 });
   const chrome = new THREE.MeshStandardMaterial({ color: 0xd8dde2, metalness: 1, roughness: 0.18 });
@@ -298,7 +298,7 @@ export function buildRiser(renderer, stationLength, stationDepth) {
       drawer.add(m);
     }
     // corner posts holding the mesh panels
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) drawer.add(rbox(0.01, T.h, 0.01, trayBodyMat, sx * (T.w / 2 - 0.005), 0, sz * (T.d / 2 - 0.005), 0.002));
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) drawer.add(rbox(0.01, T.h - 0.002, 0.01, trayBodyMat, sx * (T.w / 2 - 0.005), 0, sz * (T.d / 2 - 0.005), 0.002));
     // both ends are identical service faces (header + label + handle + lock), so the tray
     // can be pulled out from the front (step side) or from the back
     const headerY = T.h / 2 - headerH / 2;

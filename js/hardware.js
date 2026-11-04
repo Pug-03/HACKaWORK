@@ -235,7 +235,7 @@ export function buildHardware(station) {
   const X0 = -L / 2 - 0.004;                       // outer face of the left end panel
   // one outer cabinet holds both boxes side by side (local X of the cabinet = world +Z)
   // gap: the cabinet stands 50 mm off the panel on brackets; its 3 exhaust fans blow into that gap
-  const CAB = { w: 0.56, h: 0.58, d: 0.17, gap: 0.05, y: 0.56, z: 0.07, battX: -0.13, unitX: 0.13, fanYs: [0.19, 0.03, -0.13], fanZ: 0.02, scrY: 0.165, inY: 0.19, inZ: -0.025 };
+  const CAB = { w: 0.56, h: 0.58, d: 0.17, gap: 0.05, y: 0.56, z: 0.07, battX: -0.13, unitX: 0.13, fanYs: [0.19, 0.03, -0.13], fanZ: 0.02, scrY: 0.165, inY: 0.19, inZ: -0.02 };   // inZ: intake fan frame stays 1 mm clear of the back wall (was flush with its outer face)
   const cabX = X0 - CAB.gap - CAB.d / 2;
   const poleX = X0 - 0.05, poleZ = -D / 2 + 0.04, poleTop = 1.78;
   const conduitMat = new THREE.MeshStandardMaterial({ color: 0x9aa1a8, roughness: 0.4, metalness: 0.8 });   // hot-dip galvanised rigid steel conduit
@@ -359,7 +359,7 @@ export function buildHardware(station) {
   const pack = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.1, packD), [packBlue, packBlue, packBlue, packBlue, new THREE.MeshStandardMaterial({ map: pkT, roughness: 0.5 }), packBlue]);
   pack.position.set(0, packTop - 0.05, packZ);
   bIn.add(pack);
-  bIn.add(rbox(0.18, 0.006, packD + 0.01, steel, 0, packTop - 0.103, packZ, 0.002));          // shelf
+  bIn.add(rbox(0.18, 0.006, packD + 0.009, steel, 0, packTop - 0.103, packZ + 0.0005, 0.002)); // shelf (back edge off the mounting plate's back face)
   for (const x of [-0.068, 0.068]) bIn.add(rbox(0.01, 0.102, packD + 0.004, dark, x, packTop - 0.05, packZ, 0.002));   // hold-down straps (clear of the label)
   // terminal posts under booted covers, right below the battery breaker / BAT- terminal they feed
   const termRed = wmat(0xd42a1e), termBlk = wmat(0x111111);
@@ -433,7 +433,7 @@ export function buildHardware(station) {
     }
     const lbl = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.02), new THREE.MeshStandardMaterial({ map: slTex, roughness: 0.6 }));
     lbl.rotation.x = Math.PI / 2;
-    lbl.position.set(0, -0.0325, -0.025);
+    lbl.position.set(0, -0.033, -0.025);   // 1 mm under the body
     s.add(lbl);
     const led = new THREE.Mesh(new THREE.SphereGeometry(0.004, 10, 6), ledMat);
     led.position.set(0.045, -0.033, -0.025);
@@ -730,7 +730,7 @@ export function buildHardware(station) {
     for (const zc of [iz0, iz1 - 0.003]) {
       const cheek = new THREE.Shape(); cheek.moveTo(0, 0); cheek.lineTo(0.045, 0); cheek.lineTo(0, -0.145); cheek.closePath();
       const cm = new THREE.Mesh(new THREE.ExtrudeGeometry(cheek, { depth: 0.003, bevelEnabled: false }), cabMat);
-      cm.position.set(ix, iy + 0.072, iz + s2 * 0.077 - (s2 > 0 ? 0.003 : 0));
+      cm.position.set(ix, iy + 0.072, zc);
       cab.add(cm);
     }
   }
@@ -754,7 +754,7 @@ export function buildHardware(station) {
   // window, so it never moves with the door
   {
     const hz = cD / 2 - 0.022;
-    screen.position.set(CAB.unitX, CAB.scrY, hz + 0.0045);
+    screen.position.set(CAB.unitX, CAB.scrY, hz + 0.005);   // 1 mm in front of the bezel face
     screen.userData.noMerge = true;
     cab.add(screen, rbox(0.2, 0.14, 0.008, dark, CAB.unitX, CAB.scrY, hz, 0.003));
     for (const sx of [-1, 1]) {
@@ -848,11 +848,11 @@ export function buildHardware(station) {
       cabDoor.add(rbox(w, h, 0.01, epdm, x, y, 0.004, 0.002));
     // button bezel: yellow ring around the hole + caption plate
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.031, 0.046, 40), new THREE.MeshStandardMaterial({ color: 0xf2c200, roughness: 0.5 }));
-    ring.position.set(wx, btnY, 0.0085);
+    ring.position.set(wx, btnY, 0.009);           // 1 mm proud of the door face
     cabDoor.add(ring);
     btnParts.push(ring);
     const cp = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.033), new THREE.MeshStandardMaterial({ map: capTex, roughness: 0.7 }));
-    cp.position.set(wx, btnY - 0.068, 0.0085);
+    cp.position.set(wx, btnY - 0.068, 0.009);
     cabDoor.add(cp);
     btnParts.push(cp);
     // battery-side panel: warning label
@@ -867,7 +867,7 @@ export function buildHardware(station) {
     w2.font = `400 22px ${FONT}`; w2.fillText('แบตเตอรี่ LiFePO4 + ชุดควบคุมภายใน', 200, 236);
     const wlT = new THREE.CanvasTexture(wl); wlT.colorSpace = THREE.SRGBColorSpace;
     const wlm = new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.11), new THREE.MeshStandardMaterial({ map: wlT, roughness: 0.6 }));
-    wlm.position.set(-cW + CAB.battX + cW / 2 - 0.0, 0.04, 0.0085);
+    wlm.position.set(-cW + CAB.battX + cW / 2 - 0.0, 0.04, 0.009);
     cabDoor.add(wlm);
     // status screen on a bracket just behind the window, call button through the bezel hole
 
@@ -886,7 +886,7 @@ export function buildHardware(station) {
     const lever = rbox(0.016, 0.085, 0.012, steel, handleX, 0.03, 0.017, 0.005);
     cabDoor.add(lever);
     cabDoor.add(new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.004, 16).rotateX(Math.PI / 2), brassMat()).translateX(handleX).translateY(0.08).translateZ(0.014));
-    for (const sy of [1, -1]) cabDoor.add(rbox(0.008, cH * 0.42, 0.006, steel, handleX - 0.01, sy * cH * 0.25, -0.006, 0.001));   // lock rods (inside)
+    for (const sy of [1, -1]) cabDoor.add(rbox(0.008, cH * 0.42, 0.006, steel, handleX - 0.0085, sy * cH * 0.25, -0.006, 0.001));   // lock rods (inside; side face kept off the exhaust fans' inner face)
     cabDoor.add(rbox(0.04, 0.024, 0.006, steel, -cW + 0.012, -0.1, 0.011, 0.002));
     const lockBody = rbox(0.04, 0.032, 0.016, new THREE.MeshStandardMaterial({ color: 0xc9a227, metalness: 0.8, roughness: 0.3 }), -cW - 0.004, -0.13, 0.022, 0.004);
     const shackle = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.0028, 8, 20, Math.PI), steel);
@@ -975,7 +975,7 @@ export function buildHardware(station) {
     t2.font = `700 40px ${FONT}`; t2.fillText('อันตราย · สายไฟฟ้า', 256, 48);
     const tlT = new THREE.CanvasTexture(tl); tlT.colorSpace = THREE.SRGBColorSpace;
     const tlm = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.03), new THREE.MeshStandardMaterial({ map: tlT, roughness: 0.6 }));
-    tlm.rotation.y = -Math.PI / 2; tlm.position.set(tx1 - 0.002, (ty0 + ty1) / 2, (tz0 + tz1) / 2);
+    tlm.rotation.y = -Math.PI / 2; tlm.position.set(tx1 - 0.0025, (ty0 + ty1) / 2, (tz0 + tz1) / 2);   // 1 mm off the lid face
     trunkLid.add(tlm);
     group.add(tag(trunkLid, 'trunking'));
   }
@@ -1311,7 +1311,7 @@ export function buildHardware(station) {
           fanMats.blade.opacity = bo;
           updateAir(dt, fanRpm);
           lightFlip = true;
-        }
+        } else airLines.visible = false;
       }
       for (const d of doors) {
         const u = d.userData;

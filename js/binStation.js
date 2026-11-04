@@ -116,7 +116,7 @@ export function buildStation(renderer) {
   }
 
   // base plate
-  group.add(box(L - 0.01, 0.008, D - 0.01, grayInner, 0, F.footHeight + 0.004, 0));
+  group.add(box(L - 0.01, 0.0075, D - 0.01, grayInner, 0, F.footHeight + 0.00425, 0));   // underside 0.5 mm above the rail / panel undersides
 
   // back panel (full)
   group.add(box(L, H - F.footHeight - 0.002, S, gray, 0, F.footHeight + (H - F.footHeight - 0.002) / 2, zb + 0.001));
