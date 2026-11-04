@@ -255,16 +255,53 @@ export function buildComposter(renderer) {
   hatch.userData = { open: 0, target: 0 };
   group.add(hatch);
 
-  // front: control panel (top), branding panel (middle, see-through in cutaway), drawer (bottom)
-  const ctrlY0 = H - 0.25, ctrlY1 = H - rc, brandY0 = 0.32, brandY1 = ctrlY0, drawerY0 = y0 + t, drawerY1 = 0.32;
-  const frontW = W - 2 * rc - 0.002;         // front panels fit between the rounded corner columns
-  const ctrl = rbox(frontW, ctrlY1 - ctrlY0, t, ss, 0, (ctrlY0 + ctrlY1) / 2, Dd / 2 - t / 2, 0.004);
-  group.add(ctrl);
-  const screen = canvasTex(480, 200, () => {});
-  const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.15), new THREE.MeshBasicMaterial({ map: screen.tex, toneMapped: false }));
-  screenMesh.position.set(-0.3, (ctrlY0 + ctrlY1) / 2, Dd / 2 + 0.002);   // in front of the bezel
-  group.add(screenMesh);
-  group.add(rbox(0.38, 0.17, 0.006, black, -0.3, (ctrlY0 + ctrlY1) / 2, Dd / 2 - 0.002, 0.004));   // bezel
+  /* ---------- front: compost drawer / service door / sloped control console ---------- */
+  const frontW = W - 2 * rc - 0.002;
+  const drawerY0 = y0 + t, drawerY1 = 0.32, doorY0 = 0.33, doorY1 = 0.93, ctrlY0 = 0.93, ctrlY1 = H - rc;
+  // door frame jamb + gasket, so the opening reads as a real door when it swings
+  group.add(rbox(frontW, 0.01, 0.012, ss, 0, doorY0 - 0.005, Dd / 2 - 0.006, 0.002));
+  // service door, hinged on the left, two quarter-turn locks; carries the branding vinyl
+  const door = new THREE.Group();
+  door.position.set(-frontW / 2, (doorY0 + doorY1) / 2, Dd / 2);
+  const dH = doorY1 - doorY0 - 0.004;
+  const brand = brandingTexture(frontW - 0.01, dH);
+  const brandFace = new THREE.MeshStandardMaterial({ map: brand.tex, roughness: 0.55, metalness: 0.1 });
+  const doorPanel = new THREE.Mesh(new THREE.BoxGeometry(frontW - 0.004, dH, 0.018), [ss, ss, ss, ss, brandFace, ss]);
+  doorPanel.position.set(frontW / 2, 0, -0.009);
+  door.add(doorPanel);
+  for (const [w, h, x, y] of [[frontW - 0.04, 0.008, frontW / 2, dH / 2 - 0.012], [frontW - 0.04, 0.008, frontW / 2, -dH / 2 + 0.012], [0.008, dH - 0.03, 0.014, 0], [0.008, dH - 0.03, frontW - 0.018, 0]])
+    door.add(rbox(w, h, 0.006, rubber, x, y, -0.021, 0.002));                 // door gasket
+  for (const y of [dH * 0.36, -dH * 0.36]) {
+    const k = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.07, 14), steel);
+    k.position.set(-0.002, y, -0.004);
+    door.add(k);
+  }
+  for (const y of [dH * 0.3, -dH * 0.3]) {
+    const lk = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.008, 24).rotateX(Math.PI / 2), steel);
+    lk.position.set(frontW - 0.03, y, 0.004);
+    const sl = rbox(0.003, 0.012, 0.002, black, frontW - 0.03, y, 0.009, 0.0005);
+    door.add(lk, sl);
+  }
+  tag(door, 'serviceDoor');
+  door.userData = { open: 0, target: 0 };
+  group.add(door);
+  // sloped console (18°) carrying the HMI and the operator buttons; hinges up on its top edge
+  const consoleOuter = new THREE.Group();
+  const tilt = 0.31, cHgt = ctrlY1 - ctrlY0;
+  consoleOuter.position.set(0, ctrlY1, Dd / 2 - cHgt * Math.sin(tilt));
+  const consoleTilt = new THREE.Group();
+  consoleTilt.rotation.x = -tilt;
+  consoleOuter.add(consoleTilt);
+  const cPanel = rbox(frontW, cHgt, t, ss, 0, -cHgt / 2, -t / 2, 0.004);
+  consoleTilt.add(cPanel);
+  // 7" HMI (bezel 192 x 138 mm)
+  const screen = canvasTex(800, 480, () => {});
+  const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.155, 0.093), new THREE.MeshBasicMaterial({ map: screen.tex, toneMapped: false }));
+  scr.position.set(-0.3, -cHgt / 2, 0.0052);
+  scr.userData.noMerge = true;
+  scr.castShadow = false;
+  consoleTilt.add(scr, rbox(0.192, 0.138, 0.006, black, -0.3, -cHgt / 2, 0.0005, 0.003));
+  // 22 mm pilot lights with legend plates
   const ledRun = new THREE.MeshStandardMaterial({ color: 0x1b5e20, emissive: 0x22c55e, emissiveIntensity: 0 });
   const ledHeat = new THREE.MeshStandardMaterial({ color: 0x7a3b00, emissive: 0xff7a00, emissiveIntensity: 0 });
   const ledFault = new THREE.MeshStandardMaterial({ color: 0x5a0d0d, emissive: 0xff2a2a, emissiveIntensity: 0 });
