@@ -792,7 +792,9 @@ export function buildHardware(station) {
   dinM(-0.17, 0.035, 0xe5e7eb);                    // thermostat
   cab.add(new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.008, 20).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.4 })).translateX(-0.17).translateY(fanRailY + 0.012).translateZ(-cD / 2 + 0.079));
   dinM(-0.115, 0.045, 0x374151);                   // selector switch body
+  const selBody = cab.children[cab.children.length - 1];
   dinM(-0.08, 0.016, 0x374151);                    // pilot lamp module
+  const lampBody = cab.children[cab.children.length - 1];
   for (const [i, c] of [0xd9dde1, 0xd9dde1, 0x3b82f6, 0x3b82f6].entries()) {   // fan supply terminals
     const x = -0.065 + i * 0.01;
     cab.add(rbox(0.0085, 0.06, 0.05, new THREE.MeshStandardMaterial({ color: c, roughness: 0.5 }), x, fanRailY, -cD / 2 + 0.04, 0.001));
@@ -806,7 +808,8 @@ export function buildHardware(station) {
   fanKnob.traverse((m) => { if (m.isMesh) m.userData.part = 'fanSwitch'; });
   cab.add(fanKnob);
   fanLampMat = new THREE.MeshStandardMaterial({ color: 0x14532d, emissive: 0x22c55e, emissiveIntensity: 1.6 });
-  cab.add(new THREE.Mesh(new THREE.SphereGeometry(0.0065, 16, 8), fanLampMat).translateX(-0.08).translateY(fanRailY + 0.02).translateZ(-cD / 2 + 0.077));
+  const fanLamp = new THREE.Mesh(new THREE.SphereGeometry(0.0065, 16, 8), fanLampMat);
+  cab.add(fanLamp.translateX(-0.08).translateY(fanRailY + 0.02).translateZ(-cD / 2 + 0.077));
   {
     const c = document.createElement('canvas'); c.width = 256; c.height = 64;
     const x2 = c.getContext('2d'); x2.fillStyle = '#e9ecef'; x2.fillRect(0, 0, 256, 64); x2.fillStyle = '#111'; x2.textAlign = 'center'; x2.textBaseline = 'middle';
@@ -819,6 +822,7 @@ export function buildHardware(station) {
   // galvanised backplate that every component bolts to
   cab.add(rbox(cW - 0.02, cH - 0.2, 0.003, new THREE.MeshStandardMaterial({ color: 0xb9bec3, metalness: 0.6, roughness: 0.45 }), 0, -0.04, -cD / 2 + 0.006, 0.001));
   cab.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = 'cabinet'; } });
+  for (const o of [fanKnob, selBody, lampBody, fanLamp]) o.traverse((m) => { if (m.isMesh) m.userData.part = 'fanSwitch'; });   // cabinet traverse above would swallow them
 
   // outer door: hinge on the front-side edge (+X local = toward the sidewalk), opens away from the pole
   const cabDoor = new THREE.Group();
