@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { rbox, roundedBoxGeometry, mergeStatic } from './geom.js';
+import { axialFan } from './mech.js';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
 // Smart hardware mounted on the bin station:
@@ -584,7 +585,19 @@ export function buildHardware(station) {
   button.userData.part = 'callButton';
   group.add(unit);
 
-  // conduits that need the control unit: battery load -> unit, unit -> pole (beacon)
+
+  /* ---------- combined outer cabinet: battery box + control unit side by side behind one lockable door ----------
+     SUS304 2 mm wall-mount cabinet (560 W x 460 H x 170 D), built for years on a Bangkok sidewalk:
+     - rain: IP55 door gasket, double-skin sun-shield roof with drip edges, every cable entry from the BOTTOM
+     - heat: thermostat-switched 120 mm filter fan exhausting high under a rain cowl, filtered intake in the floor
+     - vandals: concealed hinges, 3-point swing-handle lock + padlock, 6 mm polycarbonate window, raised steel
+       shroud round the call button, tamper-proof wall bolts, dome antenna, cables in steel conduit + trunking
+     The public only reaches the button; the two inner boxes stay separate (own doors, own glands). */
+  const cab = new THREE.Group();
+  cab.position.set(cabX, CAB.y, CAB.z);
+  cab.rotation.y = -Math.PI / 2;                       // local +Z faces world -X, local +X = world +Z
+  const cabMat = new THREE.MeshStandardMaterial({ color: 0xc9ced3, metalness: 0.75, roughness: 0.35, roughnessMap: null });
+  const cW = CAB.w, cH = CAB.h, cD = CAB.d;
   {
     const uPow = tipOf(unit, unitGlandPower), uBea = tipOf(unit, unitGlandBeacon);
     conduit([bBot, P(bBot.x, 0.25, bBot.z), P(uPow.x, 0.25, uPow.z), uPow], 'cableBatt');
