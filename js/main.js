@@ -178,8 +178,10 @@ const PART_TIPS = {
   unit: 'กล่องควบคุม · รับข้อมูลเซ็นเซอร์ + ส่งเข้าแดชบอร์ดเขต — คลิกเพื่อซูมดูวงจร',
   unitInside: 'ภายในกล่องควบคุม: MCU · โมดูล 4G · LoRa gateway · DC-DC · รีเลย์ไฟ · ขั้วต่อสาย',
   batteryInside: 'ภายในตู้แบต: แพ็ก LiFePO4 + BMS · ตัวคุมชาร์จ MPPT · เบรกเกอร์ DC · บัสบาร์',
-  tray: 'ถาดบริการใต้ฐาน (ล็อกกุญแจ) — คลิกเพื่อเปิด/ปิด',
-  riser: `ฐานยกกันหนู สูง ${RISER.height * 100} ซม. · ใต้ฐานโล่ง ทำความสะอาดง่าย`,
+  trayLid: 'ฝาถาด · สลักบานพับทั้งสองขอบ ยกได้ทั้งตอนดึงออกด้านหน้าหรือด้านหลัง + กุญแจ — คลิกเพื่อเปิด/ปิดฝา',
+  stepHatch: 'แผ่นบันไดถอดได้หน้าถาด · ยกออกวางบนทางเท้า ถาดจึงดึงออกด้านหน้าได้สุด — คลิกเพื่อดึง/ดันถาดด้านหน้า',
+  tray: 'ถาดบริการใต้ฐาน 62×42×8 ซม. (ล็อกกุญแจ) · ดึงออกสุด 62 ซม. ได้ทั้งด้านหน้า (ลอดใต้บันได) และด้านหลัง แล้วยกฝาเติมเหยื่อ — คลิกเพื่อเปิดทางฝั่งที่มองอยู่/ปิด',
+  riser: `ฐานยกกันหนู สูง ${RISER.height * 100} ซม. · ใต้ฐานโล่ง ทำความสะอาดง่าย · ถาดแขวนบนโครงเหล็กกล่อง + รางเหล็กฉาก`,
   ratGuard: 'แผ่นกันหนูปีน (rat guard) Ø 26 ซม. · หนูปีนเสาขึ้นมาแล้วติดใต้กรวย อ้อมขึ้นไปไม่ได้',
   composter: `เครื่องหมักปุ๋ยจากเศษอาหาร ${COMPOSTER.capacityL} ลิตร`,
   hatch: 'ช่องเติมเศษอาหาร — คลิกเพื่อเปิด/ปิด',
@@ -264,7 +266,13 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   const { bin, part, owner } = pick(e);
   if (part === 'flap' && owner) pushFlap(owner);
   else if (part === 'callButton') requestPickup();
-  else if (part === 'tray') { riser.setTraysOpen(!riser.trays[0].userData.target); syncAll(); }
+  else if (part === 'stepHatch') { riser.setTraysOpen(riser.traysState() === 1 ? 0 : 1); syncAll(); }
+  else if (part === 'trayLid' && riser.traysState()) { riser.setLidOpen(!riser.isLidOpen()); syncAll(); }
+  else if (part === 'tray' || part === 'trayLid') {
+    // open toward whichever side the viewer is on (front = step side, back = road side); click again to close
+    const side = camera.position.z >= riser.group.getWorldPosition(new THREE.Vector3()).z ? 1 : -1;
+    riser.setTraysOpen(riser.traysState() ? 0 : side); syncAll();
+  }
   else if (part === 'hatch') { composter.toggleHatch(); syncAll(); }
   else if (part === 'serviceDoor') { composter.toggleDoor(); invalidate(true); }
   else if (part === 'rearDoor') { composter.toggleRear(); syncAll(); }
@@ -320,7 +328,10 @@ syncers.push(bindToggle('t-hw-open', () => hardware.isInsideView(), (v) => {
   if (v) document.querySelector('[data-view=smart]').click();
 }));
 syncers.push(bindToggle('t-riser', () => riserOn, (v) => { riserOn = v; placeStation(); }));
-syncers.push(bindToggle('t-trays', () => !!riser.trays[0].userData.target, (v) => { if (!riserOn && v) { riserOn = true; placeStation(); } riser.setTraysOpen(v); }));
+const setTrays = (v) => { if (!riserOn && v) { riserOn = true; placeStation(); } riser.setTraysOpen(v); };
+syncers.push(bindToggle('t-trays', () => riser.traysState() === 1, (v) => setTrays(v ? 1 : 0)));
+syncers.push(bindToggle('t-trays-back', () => riser.traysState() === -1, (v) => setTrays(v ? -1 : 0)));
+syncers.push(bindToggle('t-tray-lid', () => riser.isLidOpen(), (v) => { if (!riserOn && v) { riserOn = true; placeStation(); } riser.setLidOpen(v); }));
 syncers.push(bindToggle('t-comp-run', () => composter.isRunning(), (v) => composter.setRunning(v)));
 syncers.push(bindToggle('t-comp-cut', () => cutaway, (v) => { cutaway = v; composter.setCutaway(v); }));
 syncers.push(bindToggle('t-comp-hatch', () => hatchOpen(), () => composter.toggleHatch()));

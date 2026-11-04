@@ -13,7 +13,9 @@ export const RISER = {
   beam: 0.07,
   stepHeight: 0.22,
   stepDepth: 0.26,
-  tray: { w: 0.62, d: 0.42, h: 0.08, travel: 0.26, clearance: 0.08 },   // 8 cm off the ground; stops short of the step
+  // 8 cm off the ground. 2-stage full-extension slides take the tray right out past the deck edge (62 cm)
+  // either way: out the back, or out the front under the raised step once its lift-out panel is off
+  tray: { w: 0.62, d: 0.42, h: 0.08, travel: 0.62, travelBack: 0.62, clearance: 0.08, lidOpen: 1.48 },
 };
 
 function label(lines, w, h, bg, fg) {
@@ -109,19 +111,53 @@ export function buildRiser(renderer, stationLength, stationDepth) {
     }
   }
 
-  // front step (separate treads on short legs, yellow safety nosing)
+  // front step (separate treads on short legs, yellow safety nosing), free-standing 12 cm clear of the
+  // deck so it doesn't form a ramp around the leg guards. The tread sits at 22 cm so a tray (top at 16 cm)
+  // slides out underneath it; the section in front of each tray is a lift-out panel (finger holes, sits on
+  // ledge angles) that staff lift off and set down on the pavement in front, clearing the space the tray
+  // lid swings through, so a tray can come all the way out the FRONT and be re-baited from the sidewalk.
   const stepTex = stripes();
-  stepTex.repeat.set(W / 0.25, 1);
-  const stepTop = new THREE.MeshStandardMaterial({ map: stepTex, roughness: 0.85, metalness: 0.3 });
-  // free-standing step, 12 cm clear of the deck so it doesn't form a ramp around the leg guards
-  const stepZ = Dp / 2 + R.stepDepth / 2 + 0.12;
-  const step = new THREE.Mesh(new THREE.BoxGeometry(W, 0.03, R.stepDepth), [galv, galv, stepTop, galv, galv, galv]);
-  step.position.set(0, R.stepHeight - 0.015, stepZ);
-  step.castShadow = step.receiveShadow = true;
-  group.add(step);
-  for (const x of [-W / 2 + 0.04, 0, W / 2 - 0.04]) {
-    group.add(rbox(0.04, R.stepHeight - 0.03, 0.04, galv, x, (R.stepHeight - 0.03) / 2, stepZ + R.stepDepth / 2 - 0.04, 0.004));
-    group.add(rbox(0.04, R.stepHeight - 0.03, 0.04, galv, x, (R.stepHeight - 0.03) / 2, stepZ - R.stepDepth / 2 + 0.04, 0.004));
+  const stepZ = Dp / 2 + R.stepDepth / 2 + 0.12, stepBack = stepZ - R.stepDepth / 2;
+  const sTop = R.stepHeight;
+  const tread = (x0, x1) => {
+    const t = stepTex.clone();
+    t.needsUpdate = true;
+    t.repeat.set((x1 - x0) / 0.25, 1);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.03, R.stepDepth), [galv, galv, new THREE.MeshStandardMaterial({ map: t, roughness: 0.85, metalness: 0.3 }), galv, galv, galv]);
+    m.castShadow = m.receiveShadow = true;
+    return m;
+  };
+  const flipHalf = R.tray.w / 2 + 0.03;              // hatch is 6 cm wider than the tray
+  const cuts = [-W / 4, W / 4].map((c) => [c - flipHalf, c + flipHalf]);
+  const fixedSpans = [[-W / 2, cuts[0][0]], [cuts[0][1], cuts[1][0]], [cuts[1][1], W / 2]];
+  for (const [x0, x1] of fixedSpans) {
+    const m = tread(x0, x1);
+    m.position.set((x0 + x1) / 2, sTop - 0.015, stepZ);
+    group.add(m);
+  }
+  const stepLegH = sTop - 0.03;
+  for (const x of [-W / 2 + 0.04, 0, W / 2 - 0.04, ...cuts.flat()]) {
+    for (const z of [stepZ + R.stepDepth / 2 - 0.04, stepBack + 0.04]) group.add(rbox(0.04, stepLegH, 0.04, galv, x, stepLegH / 2, z, 0.004));
+  }
+  // front and back stringers only under the fixed treads, so nothing crosses the tray paths
+  for (const [x0, x1] of fixedSpans) for (const z of [stepZ + R.stepDepth / 2 - 0.02, stepBack + 0.02]) group.add(rbox(x1 - x0, 0.02, 0.03, galv, (x0 + x1) / 2, sTop - 0.04, z, 0.003));
+  // ledge angles on the cut legs that the lift-out panels rest on
+  for (const x of cuts.flat()) group.add(rbox(0.05, 0.004, R.stepDepth - 0.02, galv, x, sTop - 0.032, stepZ, 0.001));
+  const stepHatches = [];
+  for (const [x0, x1] of cuts) {
+    const panel = new THREE.Group();
+    panel.position.set((x0 + x1) / 2, sTop - 0.015, stepZ);
+    panel.add(tread(x0 + 0.004, x1 - 0.004));
+    for (const sx of [-1, 1]) {                       // finger holes (dark slots) near each end
+      const slot = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.025), dark);
+      slot.rotation.x = -Math.PI / 2;
+      slot.position.set(sx * ((x1 - x0) / 2 - 0.07), 0.0155, 0);
+      panel.add(slot);
+    }
+    panel.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.userData.part = 'stepHatch'; } });
+    panel.userData = { open: 0, y0: panel.position.y, z0: stepZ };
+    group.add(panel);
+    stepHatches.push(panel);
   }
 
   // two lockable service trays hanging under the deck
@@ -177,20 +213,47 @@ export function buildRiser(renderer, stationLength, stationDepth) {
 
   group.traverse((o) => { if (o.isMesh) { o.receiveShadow = true; o.userData.part ??= 'riser'; } });
 
-  mergeStatic(group, (n) => trays.includes(n));
+  mergeStatic(group, (n) => trays.includes(n) || stepHatches.includes(n) || trays.some((t) => t.userData.mids.includes(n)));
 
   return {
     group,
     topHeight: H,
     trays,
-    setTraysOpen(v) { trays.forEach((t) => (t.userData.target = v ? 1 : 0)); },
+    // v: 1 / true = pull out the front (step side), -1 = pull out the back, 0 / false = close
+    setTraysOpen(v) {
+      const t = v === -1 ? -1 : v ? 1 : 0;
+      trays.forEach((d) => { d.userData.target = t; if (t !== d.userData.lidDir) d.userData.lidTarget = 0; });
+    },
+    traysState: () => trays[0].userData.target,
+    // lid opens on whichever side the tray is out (front by default); opening it pulls the tray out first
+    setLidOpen(v) {
+      const dir = trays[0].userData.target || 1;
+      trays.forEach((d) => { if (v) { d.userData.target = dir; d.userData.lidDir = dir; } d.userData.lidTarget = v ? 1 : 0; });
+    },
+    isLidOpen: () => !!trays[0].userData.lidTarget,
     // returns true while something is still moving
     update(dt) {
       let moving = false;
+      // step panels: off while any tray is (or is about to be) out the front; back on once all are home
+      const frontBusy = trays.some((t) => t.userData.target === 1 || t.userData.open > 0.003);
+      for (const p of stepHatches) {
+        const u = p.userData, goal = frontBusy ? 1 : 0;
+        if (Math.abs(goal - u.open) > 1e-4) {
+          u.open += Math.sign(goal - u.open) * Math.min(Math.abs(goal - u.open), dt * 1.4);
+          const q = u.open, a = Math.min(1, q / 0.2), b = Math.min(1, Math.max(0, (q - 0.2) / 0.5)), c = Math.min(1, Math.max(0, (q - 0.7) / 0.3));
+          // lift 4 cm, carry 50 cm forward, set down flat on the pavement
+          p.position.y = u.y0 + 0.04 * a - (u.y0 + 0.04 - 0.015) * c;
+          p.position.z = u.z0 + 0.5 * b;
+          moving = true;
+        }
+      }
+      const stepClear = stepHatches.every((p) => p.userData.open > 0.999);
       for (const t of trays) {
         const u = t.userData;
-        if (Math.abs(u.target - u.open) > 1e-4) {
-          u.open += (u.target - u.open) * Math.min(1, dt * 6);
+        const lidHold = u.lidOpen > 0.02 && u.target !== u.lidDir;            // close the lid before moving
+        const stepHold = u.target === 1 && u.open < 1 && !stepClear;           // wait for the panel to come off
+        if (Math.abs(u.target - u.open) > 1e-4 && !lidHold && !stepHold) {
+          u.open += (u.target - u.open) * Math.min(1, dt * 4);
           if (Math.abs(u.target - u.open) <= 1e-4) u.open = u.target;
           t.position.z = u.baseZ + u.open * R.tray.travel;
           moving = true;
