@@ -225,7 +225,10 @@ export function buildHardware(station) {
      Lid sensors are wireless (battery + LoRa) because bins are wheeled away at every pickup. */
   const X0 = -L / 2 - 0.004;                       // outer face of the left end panel
   const poleX = X0 - 0.05, poleZ = -D / 2 + 0.04, poleTop = 1.78;
-  const conduitMat = new THREE.MeshStandardMaterial({ color: 0x3c4146, roughness: 0.6, metalness: 0.2 });
+  const conduitMat = new THREE.MeshStandardMaterial({ color: 0x9aa1a8, roughness: 0.4, metalness: 0.8 });   // hot-dip galvanised rigid steel conduit
+  let trunkLid = null, fanKnob = null, fanLampMat = null, fanMode = 'auto';
+  const _cabW = new THREE.Vector3();
+  const brassMat = () => new THREE.MeshStandardMaterial({ color: 0xc9a227, metalness: 0.85, roughness: 0.3 });
   const tag = (o, part) => { o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = part; } }); return o; };
 
   // pole (doubles as the cable duct) + clamps to the frame
@@ -706,9 +709,18 @@ export function buildHardware(station) {
       sensorBody.opacity = v ? 0.25 : 1;
       sensorBody.depthWrite = !v;
     },
-    isInsideView: () => insideMode,   // the "look inside" mode itself; single doors can still be opened by clicking
+    isInsideView: () => insideMode,
+    // cabinet fans: 'auto' (35 °C thermostat), 'on', 'off'; the selector knob and pilot lamp follow
+    setFanMode(m) {
+      fanMode = m;
+      fanKnob.rotation.z = m === 'auto' ? 0.8 : m === 'on' ? -0.8 : 0;
+      fanLampMat.emissiveIntensity = m === 'off' ? 0 : 1.6;
+      fanLampMat.emissive.setHex(m === 'auto' ? 0xf59e0b : 0x22c55e);
+    },
+    getFanMode: () => fanMode,
+    cycleFanMode() { this.setFanMode(fanMode === 'auto' ? 'on' : fanMode === 'on' ? 'off' : 'auto'); },   // the "look inside" mode itself; single doors can still be opened by clicking
     // returns 2 = doors moved (shadows), 1 = repaint (button travel / labels), 3 = beacon flip only, 0 = idle
-    update(dt) {
+    update(dt, camPos) {
       let moving = false, lightFlip = false;
       if (flowing) {
         for (const d of dots) {
@@ -718,6 +730,18 @@ export function buildHardware(station) {
         moving = true;
       }
       let res = 0;
+      // fans: ON always runs; AUTO runs on the thermostat (shown running while the cabinet is open / looked into)
+      // closed cabinet: fans idle slowly (stepped at ~10 fps, full-quality repaint, so the scene still gets AO);
+      // open / inside view: full speed
+      if (fanMode !== 'off') {
+        const open = cabDoor.userData.open > 0.05 || insideMode;
+        if (open) { fanRotors.forEach((r) => (r.rotation.z += dt * 20)); moving = true; }
+        else {
+          // slow idle spin, every frame (smooth) — cheap now that there is a single render path
+          fanRotors.forEach((r) => (r.rotation.z += dt * (fanMode === 'on' ? 6 : 3)));
+          lightFlip = true;
+        }
+      }
       for (const d of doors) {
         const u = d.userData;
         if (Math.abs(u.target - u.open) > 1e-4) {

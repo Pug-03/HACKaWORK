@@ -175,6 +175,9 @@ const tooltip = document.getElementById('tooltip');
 const bayNames = Object.fromEntries(CONFIG.bays.map((b) => [b.id, `${b.th} · ${b.en}`]));
 const PART_TIPS = {
   callButton: 'ปุ่มเรียกรถเก็บนอกรอบ · ค่าบริการ 500 บาท — คลิกเพื่อกด',
+  fanSwitch: 'สวิตช์พัดลม อัตโนมัติ / ปิด / เปิด (อัตโนมัติ = เทอร์โมสตัท 35°C) — คลิกเพื่อสลับโหมด',
+  cabinet: 'ตู้ครอบรวม SUS304 หนา 2 มม. (56×46×17 ซม.) กันน้ำ IP55 · หลังคากันแดดสองชั้น · พัดลม 120 มม. คุมด้วยเทอร์โมสตัท · สายเข้าทางด้านล่างเท่านั้น · บานพับซ่อน + มือจับล็อก 3 จุด + กุญแจคล้อง — คลิกเพื่อเปิด/ปิดตู้',
+  trunking: 'รางครอบสายเหล็กชุบกัลวาไนซ์ · ท่อเหล็กข้างใน · ฝายึดสกรูกันงัด ตัดสายไม่ได้',
   unit: 'กล่องควบคุม · รับข้อมูลเซ็นเซอร์ + ส่งเข้าแดชบอร์ดเขต — คลิกเพื่อซูมดูวงจร',
   unitInside: 'ภายในกล่องควบคุม: MCU · โมดูล 4G · LoRa gateway · DC-DC · รีเลย์ไฟ · ขั้วต่อสาย',
   batteryInside: 'ภายในตู้แบต: แพ็ก LiFePO4 + BMS · ตัวคุมชาร์จ MPPT · เบรกเกอร์ DC · บัสบาร์',
@@ -209,7 +212,7 @@ const PART_TIPS = {
   drive: 'ฝาครอบโซ่ (ถอดออกในโหมดมองภายใน)',
   compostBag: 'แผงถุงปุ๋ยติดข้างเครื่อง (สแตนเลสเจาะรูแบบเดียวกับตัวเครื่อง) · ถุงเปล่า 1 / 5 กก. · ใบปลิวบอกทางไปร้านฝั่งตรงข้าม',
 };
-const CLICKABLE = new Set(['callButton', 'tray', 'hatch', 'composterStart', 'flap', 'drawer', 'unit', 'unitInside', 'battery', 'batteryInside',
+const CLICKABLE = new Set(['callButton', 'fanSwitch', 'cabinet', 'serviceDoor', 'rearDoor', 'tray', 'trayLid', 'stepHatch', 'hatch', 'composterStart', 'flap', 'drawer', 'unit', 'unitInside', 'battery', 'batteryInside',
   'solar', 'beacon', 'sensor', 'cableSolar', 'cableBatt', 'cableBeacon']);
 // hardware part -> circuit focus key
 const PART_FOCUS = { unit: 'unit', unitInside: 'unit', battery: 'battery', batteryInside: 'battery', solar: 'solar', beacon: 'beacon',
@@ -277,6 +280,8 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   else if (part === 'serviceDoor') { composter.toggleDoor(); invalidate(true); }
   else if (part === 'rearDoor') { composter.toggleRear(); syncAll(); }
   else if (part === 'drawer') { composter.toggleDrawer(); syncAll(); }
+  else if (part === 'fanSwitch') { hardware.cycleFanMode(); syncFanSeg(); invalidate(true); }
+  else if (part === 'cabinet') { hardware.toggleCabinet(); invalidate(true); }
   else if (PART_FOCUS[part]) focusCircuit(PART_FOCUS[part]);
   else if (part === 'composterStart') { composter.setRunning(!composter.isRunning()); syncAll(); }
   else if (bin) bin.userData.target = bin.userData.target ? 0 : 1;
@@ -333,7 +338,26 @@ syncers.push(bindToggle('t-trays', () => riser.traysState() === 1, (v) => setTra
 syncers.push(bindToggle('t-trays-back', () => riser.traysState() === -1, (v) => setTrays(v ? -1 : 0)));
 syncers.push(bindToggle('t-tray-lid', () => riser.isLidOpen(), (v) => { if (!riserOn && v) { riserOn = true; placeStation(); } riser.setLidOpen(v); }));
 syncers.push(bindToggle('t-comp-run', () => composter.isRunning(), (v) => composter.setRunning(v)));
-syncers.push(bindToggle('t-comp-cut', () => cutaway, (v) => { cutaway = v; composter.setCutaway(v); }));
+// cabinet fan mode (AUTO / ON / OFF), mirrored by the selector knob inside the cabinet
+const fanBtns = document.querySelectorAll('#fan-seg [data-fan]');
+function syncFanSeg() { fanBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.fan === hardware.getFanMode()))); }
+fanBtns.forEach((b) => b.addEventListener('click', () => { hardware.setFanMode(b.dataset.fan); syncFanSeg(); invalidate(true); }));
+hardware.setFanMode('auto');
+syncFanSeg();
+const legendEl = $('comp-legend');
+$('comp-legend-list').innerHTML = composter.parts.map((p) => `<li><span class="n">${p.n}</span><div><b>${p.name}</b><small>${p.spec}</small></div></li>`).join('');
+function setComposterCut(v) { cutaway = v; composter.setCutaway(v); legendEl.hidden = !v; $('smart').hidden = v; }
+syncers.push(bindToggle('t-comp-cut', () => cutaway, (v) => setComposterCut(v)));
+// inspection cameras: fly to a part of the composter with the cutaway on (outside views keep it closed)
+document.querySelectorAll('[data-cview]').forEach((btn) => btn.addEventListener('click', () => {
+  const key = btn.dataset.cview, [p, tg] = composter.views[key], o = composter.group.position;
+  setComposterCut(!['back', 'bags'].includes(key));
+  if (key === 'back') composter.setRearOpen(true);
+  syncAll();
+  flight = { from: camera.position.clone(), to: new THREE.Vector3(p[0] + o.x, p[1] + o.y, p[2] + o.z), t: 0,
+             tFrom: controls.target.clone(), tTo: new THREE.Vector3(tg[0] + o.x, tg[1] + o.y, tg[2] + o.z) };
+  invalidate(true);
+}));
 syncers.push(bindToggle('t-comp-hatch', () => hatchOpen(), () => composter.toggleHatch()));
 syncers.push(bindToggle('t-comp-rear', () => composter.isRearOpen(), (v) => composter.setRearOpen(v)));
 syncers.push(bindToggle('t-comp-drawer', () => composter.isDrawerOpen(), () => composter.toggleDrawer()));
