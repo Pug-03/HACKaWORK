@@ -140,6 +140,8 @@
     background-image: radial-gradient(circle at 21px 9px, #fff 6px, transparent 6.5px); }
   .toggle:focus-visible, .views button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
   .views { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .views[hidden] { display: none; }
+  #move-tools { grid-template-columns: 1fr 1fr; }
   .views button { font: inherit; font-size: 13px; padding: 6px 0; border-radius: 7px; border: 1px solid var(--line);
     background: #fff; color: var(--ink); cursor: pointer; }
   .views button:hover { border-color: var(--accent); color: var(--accent); }
@@ -214,6 +216,8 @@
     <div class="views" style="margin-top:4px;padding-top:0;border-top:0"><button id="btn-flaps" style="grid-column: 1 / -1">ดันบานผลักช่องทิ้ง</button></div>
     <button class="toggle" id="t-dims" aria-pressed="false">แสดงขนาด</button>
     <button class="toggle" id="t-human" aria-pressed="false">คนเทียบสเกล</button>
+    <button class="toggle" id="t-move" aria-pressed="false">จัดวางตำแหน่งเอง</button>
+    <div class="views" id="move-tools" style="margin-top:4px;padding-top:0;border-top:0" hidden><button id="btn-rot-l">↺ หมุน 15°</button><button id="btn-rot-r">↻ หมุน 15°</button><button id="btn-layout-reset" style="grid-column: 1 / -1">คืนตำแหน่งเดิม</button></div>
     <button class="toggle" id="t-hw-open" aria-pressed="false">เปิดดูฮาร์ดแวร์ภายใน</button>
     <div class="fan-ctl"><span>พัดลมตู้ควบคุม</span><div class="seg" id="fan-seg" role="group" aria-label="โหมดพัดลมตู้ควบคุม"><button data-fan="auto" aria-pressed="true">อัตโนมัติ</button><button data-fan="on" aria-pressed="false">เปิด</button><button data-fan="off" aria-pressed="false">ปิด</button></div><label class="fan-spd"><span>รอบพัดลม</span><input type="range" id="fan-speed" min="0" max="100" step="1" value="40" aria-label="ความเร็วพัดลม"><output id="fan-rpm">0 rpm</output></label></div>
     <div class="views" style="margin-top:4px;padding-top:0;border-top:0"><button id="btn-circuit" style="grid-column: 1 / -1">ดูวงจรไฟฟ้า + ซูมอุปกรณ์</button></div>

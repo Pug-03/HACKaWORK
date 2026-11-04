@@ -225,6 +225,94 @@ function pushFlap(bin) {
   invalidate();
 }
 
+/* ---------- layout mode: drag the station, composter and shop around the sidewalk ---------- */
+const MOVABLES = [
+  { key: 'station', name: 'ชุดถังขยะ', groups: () => [station.group, riser.group, dims], hit: () => [station.group, riser.group] },
+  { key: 'composter', name: 'เครื่องหมักปุ๋ย', groups: () => [composter.group], hit: () => [composter.group] },
+  { key: 'shop', name: 'ร้านขายปุ๋ย', groups: () => [shop.group], hit: () => [shop.group] },
+];
+const LAYOUT_KEY = 'hackawork-layout-v1';
+const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const DEFAULT_LAYOUT = {};
+let moveMode = false, drag = null, selected = null;
+function setPointer(ev) {
+  const r = renderer.domElement.getBoundingClientRect();
+  pointer.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+}
+function movableAt(ev) {
+  setPointer(ev);
+  let best = null;
+  for (const m of MOVABLES) {
+    const h = raycaster.intersectObjects(m.hit(), true).find((x) => !x.object.isLine && !x.object.isPoints && x.object.visible);
+    if (h && (!best || h.distance < best.d)) best = { m, d: h.distance };
+  }
+  return best?.m || null;
+}
+function groundAt(ev) {
+  setPointer(ev);
+  return raycaster.ray.intersectPlane(ground, new THREE.Vector3());
+}
+function placeMovable(m, x, z, rot) {
+  // keep it on the sidewalk (in front of the curb) and inside the shadow-map area
+  x = THREE.MathUtils.clamp(x, -9, 9);
+  z = THREE.MathUtils.clamp(z, STREET.curbZ + 0.6, 8);
+  for (const g of m.groups()) { g.position.x = x; g.position.z = z; if (rot !== undefined) g.rotation.y = rot; }
+}
+function startDrag(e) {
+  const m = movableAt(e), p = m && groundAt(e);
+  if (!p) return;
+  const g = m.groups()[0];
+  drag = { m, id: e.pointerId, dx: g.position.x - p.x, dz: g.position.z - p.z };
+  selected = m;
+  controls.enabled = false;
+  try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
+}
+function dragTo(e) {
+  const p = groundAt(e);
+  if (!p) return;
+  placeMovable(drag.m, p.x + drag.dx, p.z + drag.dz);
+  tooltip.hidden = true;
+  invalidate(true);
+}
+function endDrag() {
+  if (!drag) return;
+  drag = null;
+  controls.enabled = true;
+  saveLayout();
+}
+function rotateSelected(deg) {
+  if (!selected) { toast('คลิกหรือลากชิ้นที่ต้องการหมุนก่อน'); return; }
+  const g = selected.groups()[0];
+  placeMovable(selected, g.position.x, g.position.z, g.rotation.y + THREE.MathUtils.degToRad(deg));
+  saveLayout();
+  invalidate(true);
+}
+function saveLayout() {
+  const data = {};
+  for (const m of MOVABLES) { const g = m.groups()[0]; data[m.key] = [g.position.x, g.position.z, g.rotation.y]; }
+  try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(data)); } catch {}
+}
+function loadLayout() {
+  for (const m of MOVABLES) { const g = m.groups()[0]; DEFAULT_LAYOUT[m.key] = [g.position.x, g.position.z, g.rotation.y]; }
+  let data = null;
+  try { data = JSON.parse(localStorage.getItem(LAYOUT_KEY)); } catch {}
+  if (!data) return;
+  for (const m of MOVABLES) if (Array.isArray(data[m.key])) placeMovable(m, ...data[m.key]);
+}
+function resetLayout() {
+  for (const m of MOVABLES) placeMovable(m, ...DEFAULT_LAYOUT[m.key]);
+  try { localStorage.removeItem(LAYOUT_KEY); } catch {}
+  selected = null;
+  invalidate(true);
+}
+function setMoveMode(v) {
+  moveMode = v;
+  if (!v) { endDrag(); selected = null; }
+  else toast('โหมดจัดวาง: ลากชุดถังขยะ เครื่องหมัก หรือร้านปุ๋ยไปวางได้เลย · Q/E หรือปุ่มหมุน เพื่อหมุนทีละ 15°');
+  $('move-tools').hidden = !v;
+}
+
 function pick(ev) {
   const r = renderer.domElement.getBoundingClientRect();
   pointer.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
@@ -256,17 +344,19 @@ const activePointers = new Set();
 let gestured = false;
 renderer.domElement.addEventListener('pointerdown', (e) => {
   activePointers.add(e.pointerId);
-  if (activePointers.size > 1) gestured = true;
+  if (activePointers.size > 1) { gestured = true; endDrag(); }
   downAt = activePointers.size === 1 ? [e.clientX, e.clientY, e.pointerId] : null;
+  if (moveMode && activePointers.size === 1) startDrag(e);
 });
 const endPointer = (e) => {
   activePointers.delete(e.pointerId);
   if (activePointers.size === 0) setTimeout(() => (gestured = false), 0);
 };
-renderer.domElement.addEventListener('pointercancel', (e) => { endPointer(e); downAt = null; });
+renderer.domElement.addEventListener('pointercancel', (e) => { endPointer(e); downAt = null; endDrag(); });
 renderer.domElement.addEventListener('pointerup', (e) => {
   const wasGesture = gestured;
   endPointer(e);
+  if (moveMode) { endDrag(); downAt = null; return; }   // layout mode: clicks only move things
   const start = downAt;
   downAt = null;
   if (wasGesture || !start || start[2] !== e.pointerId || Math.hypot(e.clientX - start[0], e.clientY - start[1]) > 5) return;
@@ -298,12 +388,24 @@ renderer.domElement.addEventListener('pointerup', (e) => {
 });
 let hoverEvent = null;
 renderer.domElement.addEventListener('pointermove', (e) => {
+  if (drag && e.pointerId === drag.id) { dragTo(e); return; }
   if (e.buttons) { tooltip.hidden = true; hoverEvent = null; return; }
   hoverEvent = e;                       // processed once per frame in the loop
 });
 function processHover() {
   const e = hoverEvent;
   hoverEvent = null;
+  if (moveMode) {
+    const m = movableAt(e);
+    renderer.domElement.style.cursor = m ? 'move' : 'grab';
+    tooltip.hidden = !m;
+    if (m) {
+      tooltip.textContent = `${m.name} · ลากเพื่อย้าย · Q/E หมุน`;
+      tooltip.style.left = `${e.clientX + 14}px`;
+      tooltip.style.top = `${e.clientY + 14}px`;
+    }
+    return;
+  }
   const { bin, bayId, part } = pick(e);
   const partText = PART_TIPS[part];
   const clickable = bin || CLICKABLE.has(part);
@@ -332,6 +434,17 @@ function bindToggle(id, get, set) {
 bindToggle('t-rotate', () => controls.autoRotate, (v) => (controls.autoRotate = v));
 bindToggle('t-dims', () => dims.visible, (v) => (dims.visible = v));
 bindToggle('t-human', () => human.visible, (v) => (human.visible = v));
+bindToggle('t-move', () => moveMode, (v) => setMoveMode(v));
+$('btn-rot-l').addEventListener('click', () => rotateSelected(15));
+$('btn-rot-r').addEventListener('click', () => rotateSelected(-15));
+$('btn-layout-reset').addEventListener('click', () => { resetLayout(); toast('คืนตำแหน่งเดิมแล้ว'); });
+addEventListener('keydown', (e) => {
+  if (!moveMode || e.target.closest?.('input, textarea')) return;
+  const k = e.key.toLowerCase();
+  if (k === 'q') rotateSelected(15);
+  else if (k === 'e') rotateSelected(-15);
+});
+loadLayout();
 bindToggle('t-bags', () => station.bagPile.visible, (v) => (station.bagPile.visible = v));
 const anyOpen = () => station.bins.some((b) => b.userData.target);
 const syncers = [];
@@ -363,12 +476,13 @@ function setComposterCut(v) { cutaway = v; composter.setCutaway(v); legendEl.hid
 syncers.push(bindToggle('t-comp-cut', () => cutaway, (v) => setComposterCut(v)));
 // inspection cameras: fly to a part of the composter with the cutaway on (outside views keep it closed)
 document.querySelectorAll('[data-cview]').forEach((btn) => btn.addEventListener('click', () => {
-  const key = btn.dataset.cview, [p, tg] = composter.views[key], o = composter.group.position;
+  const key = btn.dataset.cview, [p, tg] = composter.views[key], g = composter.group;
+  g.updateMatrixWorld();
   setComposterCut(!['back', 'bags'].includes(key));
   if (key === 'back') composter.setRearOpen(true);
   syncAll();
-  flight = { from: camera.position.clone(), to: new THREE.Vector3(p[0] + o.x, p[1] + o.y, p[2] + o.z), t: 0,
-             tFrom: controls.target.clone(), tTo: new THREE.Vector3(tg[0] + o.x, tg[1] + o.y, tg[2] + o.z) };
+  flight = { from: camera.position.clone(), to: g.localToWorld(new THREE.Vector3(...p)), t: 0,
+             tFrom: controls.target.clone(), tTo: g.localToWorld(new THREE.Vector3(...tg)) };
   invalidate(true);
 }));
 syncers.push(bindToggle('t-comp-hatch', () => hatchOpen(), () => composter.toggleHatch()));
@@ -436,21 +550,28 @@ const VIEWS = {
   top: [[0, 6.2, 0.01], [0, 0.6, 0]],
   iso: [[3.6, 2.1, 4.2], [0.4, 0.7, 0]],
   back: [[-2.8, 2.0, -4.2], [0, 0.75, 0]],
-  composter: [[COMPOSTER_X + 1.6, 1.9, 2.8], [COMPOSTER_X, 0.65, 0.1]],
-  shop: [[SHOP_X - 1.6, 1.8, SHOP_Z + 4.2], [SHOP_X, 1.1, SHOP_Z]],
   truck: [[-5.6, 3.2, -8.2], [0, 0.8, -1.8]],
   tray: [[-L / 2 - 0.5, 0.11, 0.3], [-L / 4, 0.12, 0.05]],          // from the side, under the deck, past the step
   smart: [[-L / 2 - 1.25, 1.35, 0.55], [-L / 2, 0.95, -0.03]],
 };
 document.querySelectorAll('[data-view]').forEach((btn) =>
   btn.addEventListener('click', () => {
-    const [pos, tgt] = VIEWS[btn.dataset.view];
+    const [pos, tgt] = VIEWS[btn.dataset.view] || groupView(btn.dataset.view);
     if (btn.dataset.view === 'tray') { if (!riserOn) { riserOn = true; placeStation(); } riser.setTraysOpen(true); syncAll(); }
     flight = { from: camera.position.clone(), to: new THREE.Vector3(...pos), t: 0,
                tFrom: controls.target.clone(), tTo: new THREE.Vector3(...tgt) };
     invalidate();
   })
 );
+
+// composter / shop cameras follow the objects wherever the user has moved / turned them
+const GROUP_VIEWS = { composter: () => [composter.group, [1.6, 1.9, 2.7], [0, 0.65, 0]],
+                      shop: () => [shop.group, [-1.6, 1.8, 4.2], [0, 1.1, 0]] };
+function groupView(key) {
+  const [g, p, t] = GROUP_VIEWS[key]();
+  g.updateMatrixWorld();
+  return [g.localToWorld(new THREE.Vector3(...p)).toArray(), g.localToWorld(new THREE.Vector3(...t)).toArray()];
+}
 
 // spec sheet
 $('spec').innerHTML = `
