@@ -8,8 +8,7 @@ import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 // Food scraps go in through the top hatch; finished compost comes out of the bottom drawer.
 export const COMPOSTER = {
   width: 1.2, depth: 0.8, height: 1.2,
-  drum: { radius: 0.27, length: 0.9, y: 0.62 },   // pi * 0.27^2 * 0.9 ≈ 206 L gross, 200 L working
-  capacityL: 200,
+  capacityL: 200,                                  // U-trough r 290 mm x 800 mm ≈ 199 L gross
   dailyKg: 50,                                     // ~50 kg food waste per day on a 24 h cycle
   phone: '02-XXX-XXXX',                            // placeholder — put the real BMA order line here
 };
@@ -76,6 +75,10 @@ export function buildComposter(renderer) {
   const ss = new THREE.MeshStandardMaterial({ color: 0xc3c8cd, metalness: 0.85, roughness: 0.32, roughnessMap: brushed });
   const ssIn = new THREE.MeshStandardMaterial({ color: 0xbfc5ca, metalness: 0.8, roughness: 0.38, side: THREE.DoubleSide });
   const ssDark = new THREE.MeshStandardMaterial({ color: 0x8e959b, metalness: 0.8, roughness: 0.4 });
+  const clad = new THREE.MeshStandardMaterial({ color: 0xd3d7db, metalness: 0.7, roughness: 0.35 });
+  const wool = new THREE.MeshStandardMaterial({ color: 0xb9a466, roughness: 1 });
+  const heatMat = new THREE.MeshStandardMaterial({ color: 0xb5401f, emissive: 0xff5a00, emissiveIntensity: 0, roughness: 0.7 });
+  const compostMat = new THREE.MeshStandardMaterial({ color: 0x4a3423, roughness: 1 });
   const black = new THREE.MeshStandardMaterial({ color: 0x1c1f22, roughness: 0.6 });
   const frontMat = new THREE.MeshStandardMaterial({ color: 0xc3c8cd, metalness: 0.85, roughness: 0.32, roughnessMap: brushed, transparent: true, opacity: 1 });
 
@@ -129,6 +132,19 @@ export function buildComposter(renderer) {
       group.add(q, slot);
     }
   }
+  // pressed louvres: exhaust (right, high, behind the fan) and blower intake (left, low)
+  function louvre(sx, yc, zc, rows, len) {
+    for (let i = 0; i < rows; i++) {
+      const y = yc + (i - (rows - 1) / 2) * 0.016;
+      const hood = rbox(0.007, 0.003, len, ss, sx * (W / 2 + 0.003), y + 0.002, zc, 0.001);
+      hood.rotation.z = -sx * 0.7;
+      const slot = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.007), black);
+      slot.rotation.y = sx * Math.PI / 2; slot.position.set(sx * (W / 2 + 0.0006), y - 0.002, zc);
+      group.add(hood, slot);
+    }
+  }
+  louvre(1, 1.06, -0.2, 7, 0.13);
+  louvre(-1, 0.45, -0.12, 6, 0.2);
 
   /* ---------- top: feed hatch over the hopper ---------- */
   const hatchW = 0.6, hatchD = 0.32, hatchZ = dz;
