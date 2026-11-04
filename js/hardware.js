@@ -398,8 +398,8 @@ export function buildHardware(station) {
     group.add(m);
   }
   // glands on the pole wall (pole is the duct up to the solar panel and the beacon)
-  const poleGlandSolar = gland(P(poleX, 0.76, poleZ + 0.03), P(0, 0, 1));
-  const poleGlandBeacon = gland(P(poleX, 0.18, poleZ + 0.03), P(0, 0, 1));
+  const poleGlandSolar = gland(P(poleX, 0.21, poleZ + 0.03), P(0, 0, 1));
+  const poleGlandBeacon = gland(P(poleX, 0.15, poleZ + 0.03), P(0, 0, 1));
   group.add(poleGlandSolar, poleGlandBeacon);
   const pS = P(poleX, 0.21, poleZ + 0.056), pB = P(poleX, 0.15, poleZ + 0.056);
   const bTop = tipOf(batt, battGlandTop), bBot = tipOf(batt, battGlandBot);
@@ -673,9 +673,14 @@ export function buildHardware(station) {
     group,
     // world-space anchors for the camera when focusing a device
     focusTargets: { unit, battery: batt, solar, beacon, sensor: () => sensors[0] },
-    setUnitOpen(v) { unitDoor.userData.target = v ? 1 : 0; },
-    setBatteryOpen(v) { battDoor.userData.target = v ? 1 : 0; },
-    setFlow(v) { flowing = v; dots.forEach((d) => (d.visible = v)); },
+    setUnitOpen(v) { unitDoor.userData.target = v ? 1 : 0; syncCab(); },
+    setBatteryOpen(v) { battDoor.userData.target = v ? 1 : 0; syncCab(); },
+    toggleCabinet() {
+      const open = !cabDoor.userData.target;
+      cabDoor.userData.target = open ? 1 : 0;
+      if (!open) { unitDoor.userData.target = 0; battDoor.userData.target = 0; }
+    },
+    setFlow(v) { flowing = v; dots.forEach((d) => (d.visible = v)); trunkLid.visible = !(v || insideMode); },
     button,
     apply,
     press() { pressT = 0.25; },
@@ -684,6 +689,7 @@ export function buildHardware(station) {
     setInsideView(v) {
       insideMode = v;
       doors.forEach((d) => (d.userData.target = v ? 1 : 0));
+      trunkLid.visible = !(v || flowing);
       sensorBody.opacity = v ? 0.25 : 1;
       sensorBody.depthWrite = !v;
     },
