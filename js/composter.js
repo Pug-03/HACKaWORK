@@ -183,11 +183,8 @@ export function buildComposter(renderer) {
     group.add(e);
   }
   const wallH = H - rc - y0;
-  group.add(rbox(W - 2 * rc, wallH, t, ss, 0, y0 + wallH / 2, -Dd / 2 + t / 2, 0.003));     // back
-  const sideL = rbox(t, wallH, Dd - 2 * rc, ss, -W / 2 + t / 2, y0 + wallH / 2, 0, 0.003);
-  const sideR = rbox(t, wallH, Dd - 2 * rc, ss, W / 2 - t / 2, y0 + wallH / 2, 0, 0.003);
-  group.add(sideL, sideR);
-  // upper back / side fillers between the top-edge rounds and the walls
+  const rearY0 = 0.4;
+  group.add(rbox(W - 2 * rc, rearY0 - y0, t, ss, 0, (y0 + rearY0) / 2, -Dd / 2 + t / 2, 0.003));     // lower back strip (drain, power)
   group.add(rbox(W - 2 * rc, rc, t, ss, 0, H - rc / 2 - 0.001, -Dd / 2 + t / 2, 0.002));
   for (const sx of [-1, 1]) group.add(rbox(t, wallH, Dd - 2 * rc, ss, sx * (W / 2 - t / 2), y0 + wallH / 2, 0, 0.003));   // sides
   // removable side service panels: seam lines + 4 quarter-turn fasteners each
@@ -766,9 +763,135 @@ export function buildComposter(renderer) {
   inside.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   group.add(inside);
 
-  // labels for the cutaway view
-  const cutLabels = [];
-  const cutLabel = (text, x, y, z) => {
+  /* ---------- back: power inlet, drain valve, exhaust-free back wall, rating plate ---------- */
+  const back = new THREE.Group();
+  const bz = -Dd / 2 - 0.001;
+  const glandB = hexBolt(0.025, black); glandB.rotation.x = Math.PI / 2; glandB.position.set(-0.4, 0.2, bz - 0.006);
+  back.add(glandB);
+  back.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(-0.4, 0.2, bz - 0.01), new THREE.Vector3(-0.4, 0.18, bz - 0.06), new THREE.Vector3(-0.4, 0.02, bz - 0.08), new THREE.Vector3(-0.3, 0.008, bz - 0.2)]), 32, 0.008, 10, false), cableMat));
+  const valve = new THREE.Mesh(new THREE.SphereGeometry(0.02, 16, 12), brass);
+  valve.position.set(drX, shelfY + 0.025, bz - 0.03);
+  back.add(valve, rbox(0.07, 0.008, 0.012, plastic(0xc62828), drX + 0.03, shelfY + 0.05, bz - 0.03, 0.003));
+  back.add(new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 0.05, 16).rotateX(Math.PI / 2), pipeMat).translateX(drX).translateY(shelfY + 0.025).translateZ(bz - 0.005));
+  const rp = canvasTex(600, 400, (ctx, w, h) => {
+    ctx.fillStyle = '#e8ebee'; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#4b5563'; ctx.lineWidth = 6; ctx.strokeRect(6, 6, w - 12, h - 12);
+    ctx.fillStyle = '#111827'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const rows = [['เครื่องหมักปุ๋ยจากเศษอาหาร', 700, 34], [`ความจุห้องหมัก ${C.capacityL} L · ${C.dailyKg} กก./วัน`, 500, 26], ['ไฟฟ้า 230 V ~ 50 Hz · 16 A · 2.7 kW', 500, 26], ['ใบกวน 0.4 kW · เครื่องย่อย 0.75 kW', 400, 24], ['ฮีตเตอร์ 1.5 kW · พัดลม/ปั๊มลม 70 W', 400, 24], ['น้ำหนักเครื่อง ~320 กก. · IP54', 400, 24]];
+    rows.forEach(([txt, wt, sz], i) => { ctx.font = `${wt} ${sz}px ${FONT}`; ctx.fillText(txt, 30, 50 + i * 58); });
+  });
+  const rpm = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.1), new THREE.MeshStandardMaterial({ map: rp.tex, roughness: 0.5, metalness: 0.3 }));
+  rpm.rotation.y = Math.PI;                         // goes on the rear door below
+  const earth = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.02, 10).rotateX(Math.PI / 2), brass);
+  earth.position.set(-0.3, 0.2, bz - 0.01);
+  back.add(earth);
+  tag(back, 'composter');
+  group.add(back);
+
+  /* ---------- rear service door: hinged on the right (seen from the back), 2 quarter-turn locks, gasket ---------- */
+  const rear = new THREE.Group();
+  const rW = W - 2 * rc - 0.002, rH = H - rc - rearY0 - 0.004;
+  rear.position.set(rW / 2, rearY0 + 0.002 + rH / 2, -Dd / 2);
+  rear.add(rbox(rW, rH, 0.016, ss, -rW / 2, 0, 0.008 - 0.016, 0.003));
+  for (const [w, h, xx, yy] of [[rW - 0.04, 0.008, -rW / 2, rH / 2 - 0.012], [rW - 0.04, 0.008, -rW / 2, -rH / 2 + 0.012], [0.008, rH - 0.03, -0.014, 0], [0.008, rH - 0.03, -rW + 0.014, 0]])
+    rear.add(rbox(w, h, 0.006, rubber, xx, yy, 0.003, 0.002));
+  for (const yy of [rH * 0.36, -rH * 0.36]) {
+    const k = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.07, 14), steel);
+    k.position.set(0.002, yy, -0.012);
+    rear.add(k);
+  }
+  for (const yy of [rH * 0.3, -rH * 0.3]) {
+    const lk = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.008, 24).rotateX(Math.PI / 2), steel);
+    lk.position.set(-rW + 0.03, yy, -0.02);
+    rear.add(lk, rbox(0.003, 0.012, 0.002, black, -rW + 0.03, yy, -0.025, 0.0005));
+  }
+  const rearPull = new THREE.Mesh(new THREE.CapsuleGeometry(0.009, 0.12, 4, 12), ssDark);
+  rearPull.position.set(-rW + 0.06, 0, -0.035);
+  rear.add(rearPull, rbox(0.014, 0.014, 0.024, ssDark, -rW + 0.06, 0.06, -0.024, 0.003), rbox(0.014, 0.014, 0.024, ssDark, -rW + 0.06, -0.06, -0.024, 0.003));
+  rpm.position.set(0.3 - rW / 2, 0.9 - rear.position.y, -0.0165);
+  rear.add(rpm);
+  tag(rear, 'rearDoor');
+  rear.userData = { open: 0, target: 0 };
+  group.add(rear);
+
+  /* ---------- right side: built-in bag display, same SUS finish as the machine ---------- */
+  const disp = new THREE.Group();
+  const dW = 0.72, dHt = 0.6, dY0 = 0.3, dx = W / 2 + 0.022;
+  const perf = canvasTex(1024, Math.round(1024 * dHt / dW), (ctx, w, h) => {
+    ctx.fillStyle = '#c8cdd2'; ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 2000; i++) { ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.06})`; ctx.fillRect(0, Math.random() * h, w, 1); }
+    const pxm = w / dW, p = 0.025 * pxm;
+    ctx.fillStyle = '#2b2f33';
+    for (let y = p / 2; y < h; y += p) for (let xx = p / 2; xx < w; xx += p) { ctx.beginPath(); ctx.arc(xx, y, 0.0025 * pxm, 0, Math.PI * 2); ctx.fill(); }
+  });
+  perf.tex.anisotropy = 16;
+  const pp = new THREE.Mesh(new THREE.BoxGeometry(0.003, dHt, dW), [new THREE.MeshStandardMaterial({ map: perf.tex, metalness: 0.75, roughness: 0.35 }), ss, ss, ss, ss, ss]);
+  pp.position.set(dx, dY0 + dHt / 2, 0);
+  disp.add(pp);
+  for (const [w, h, y, z] of [[dW + 0.012, 0.015, dY0 - 0.004, 0], [dW + 0.012, 0.015, dY0 + dHt + 0.004, 0]]) disp.add(rbox(0.025, h, w, ss, dx - 0.01, y, z, 0.003));   // folded top/bottom returns
+  for (const s of [-1, 1]) disp.add(rbox(0.025, dHt + 0.02, 0.012, ss, dx - 0.01, dY0 + dHt / 2, s * (dW / 2 + 0.002), 0.003));
+  const header = canvasTex(1024, 128, (ctx, w, h) => {
+    ctx.fillStyle = '#1f7a3a'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#f3c200'; ctx.fillRect(0, h * 0.86, w, h * 0.08);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    fitText(ctx, 'ถุงปุ๋ยหมัก กทม. · ร้านอยู่ฝั่งตรงข้าม', w / 2, h * 0.44, w * 0.92, h * 0.56, 600);
+  });
+  const hd = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.09, dW + 0.02), [new THREE.MeshStandardMaterial({ map: header.tex, roughness: 0.5 }), ss, ss, ss, ss, ss]);
+  hd.position.set(dx + 0.002, dY0 + dHt + 0.06, 0);
+  disp.add(hd);
+  // peg hooks with stacks of flat empty BMA bags (1 kg and 5 kg), and an A5 leaflet box
+  const hookGeo = new THREE.CylinderGeometry(0.003, 0.003, 0.2, 8).rotateZ(Math.PI / 2);
+  let seed2 = 5;
+  const rnd2 = () => ((seed2 = (seed2 * 16807) % 2147483647) / 2147483647);
+  for (const [kg, w, h, z, n] of [[1, 0.2, 0.3, -0.22, 12], [5, 0.3, 0.45, 0.1, 10]]) {
+    const hy = dY0 + dHt - 0.05;
+    const arm = new THREE.Mesh(hookGeo, steel);
+    arm.position.set(dx + 0.1, hy, z); arm.rotation.z = 0.05;
+    disp.add(arm, new THREE.Mesh(new THREE.SphereGeometry(0.0045, 10, 8), steel).translateX(dx + 0.2).translateY(hy + 0.01).translateZ(z));
+    const faceH = h - 0.035;
+    const face = new THREE.MeshStandardMaterial({ map: bmaBagTex(kg, w, faceH), roughness: 0.55 });
+    const film = new THREE.MeshStandardMaterial({ color: 0xf2efe6, roughness: 0.55 });
+    const bodyG = new THREE.BoxGeometry(0.0008, faceH, w), faceG = new THREE.PlaneGeometry(w, faceH).rotateY(Math.PI / 2);
+    const hdr = new THREE.Shape(); hdr.moveTo(-w / 2, -0.0175); hdr.lineTo(w / 2, -0.0175); hdr.lineTo(w / 2, 0.0175); hdr.lineTo(-w / 2, 0.0175); hdr.closePath();
+    const slot = new THREE.Path(); slot.absellipse(0, 0, 0.013, 0.0055, 0, Math.PI * 2, true); hdr.holes.push(slot);
+    const hdrG = new THREE.ExtrudeGeometry(hdr, { depth: 0.0012, bevelEnabled: false }).rotateY(Math.PI / 2);
+    for (let i = 0; i < n; i++) {
+      const bx = dx + 0.025 + i * 0.0022, bag = new THREE.Group();
+      bag.position.set(bx, hy + (bx - dx) * 0.05, z);
+      bag.rotation.x = (rnd2() - 0.5) * 0.03; bag.rotation.z = -0.012 - rnd2() * 0.01;
+      const b = new THREE.Mesh(bodyG, film); b.position.y = -0.0175 - faceH / 2;
+      const f = new THREE.Mesh(faceG, face); f.position.set(0.001, b.position.y, 0);
+      bag.add(new THREE.Mesh(hdrG, film), b, f);
+      disp.add(bag);
+    }
+  }
+  const lf = canvasTex(300, 420, (ctx, w, h) => {
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#1f7a3a'; ctx.fillRect(0, 0, w, h * 0.22);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    fitText(ctx, 'กทม.', w / 2, h * 0.11, w * 0.8, h * 0.14, 700);
+    ctx.fillStyle = '#1d2228';
+    fitText(ctx, 'ปุ๋ยหมักจากเศษอาหาร', w / 2, h * 0.32, w * 0.9, h * 0.07, 600);
+    ['ถุง 1 / 5 / 10 กก.', 'ซื้อได้ที่ร้านฝั่งตรงข้าม', 'เขียนชื่อร้าน · บ้านเลขที่', 'บนถุงก่อนรับปุ๋ย'].forEach((s, i) => fitText(ctx, s, w / 2, h * (0.46 + i * 0.1), w * 0.86, h * 0.05, 400));
+    ctx.fillStyle = '#f3c200'; ctx.fillRect(0, h * 0.9, w, h * 0.1);
+  });
+  const boxZ = 0.31, boxY = dY0 + dHt - 0.2;
+  const acrylic = new THREE.MeshStandardMaterial({ color: 0xe6f0f5, roughness: 0.05, transparent: true, opacity: 0.18, depthWrite: false });
+  const leaflet = new THREE.Mesh(new THREE.PlaneGeometry(0.105, 0.148), new THREE.MeshStandardMaterial({ map: lf.tex, roughness: 0.6 }));
+  leaflet.rotation.y = Math.PI / 2; leaflet.position.set(dx + 0.012, boxY, boxZ - 0.03);
+  const front = new THREE.Mesh(new THREE.PlaneGeometry(0.115, 0.1), acrylic);
+  front.rotation.y = Math.PI / 2; front.position.set(dx + 0.03, boxY - 0.03, boxZ - 0.03);
+  front.userData.noMerge = true;
+  disp.add(leaflet, front);
+  for (const s of [-1, 1]) disp.add(rbox(0.03, 0.1, 0.003, acrylic, dx + 0.016, boxY - 0.03, boxZ - 0.03 + s * 0.0575, 0.001));
+  tag(disp, 'compostBag');
+  group.add(disp);
+
+  /* ---------- numbered callouts for the cutaway (legend lists them with real specs) ---------- */
+  const PARTS = [];
+  const callout = (name, spec, x, y, z) => {
+    const n = PARTS.length + 1;
+    PARTS.push({ n, name, spec });
     const el = document.createElement('div');
     el.className = 'dim hw callout';
     el.textContent = String(n);
@@ -799,9 +922,15 @@ export function buildComposter(renderer) {
   for (const o of [hatch]) tag(o, 'hatch');
   tag(drawer, 'drawer');
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.part ??= 'composter'; } });
-
-  mergeStatic(inside, (n) => [rotor, sprocketA, sprocketB, fan, gate, drumFront].includes(n));
-  mergeStatic(group, (n) => [hatch, drawer, consolePivot, brandPanel, inside].includes(n));
+  startBtn.userData.part = stopBtn.userData.part = 'composterStart';
+  estop.userData.part = 'estop';
+  const animated = [rotor, drive, gate, fanParts.group, ep, ...shredders];
+  const keepInside = (n) => animated.includes(n) || cutHide.includes(n);
+  mergeStatic(inside, keepInside);
+  for (const s of shredders) mergeStatic(s);
+  mergeStatic(rotor);
+  mergeStatic(group, (n) => [hatch, drawer, door, rear, consoleOuter, inside, disp].includes(n));
+  mergeStatic(disp);
 
   /* ---------- state ---------- */
   let running = false, cutaway = false, clock = 0, chainS = 0, dirT = 0, dir = 1;
@@ -854,25 +983,21 @@ export function buildComposter(renderer) {
     toggleHatch() { hatch.userData.target = hatch.userData.target ? 0 : 1; },
     isDrawerOpen: () => !!drawer.userData.target,
     toggleDrawer() { drawer.userData.target = drawer.userData.target ? 0 : 1; },
+    toggleDoor() { door.userData.target = door.userData.target ? 0 : 1; },
+    toggleRear() { rear.userData.target = rear.userData.target ? 0 : 1; },
+    isRearOpen: () => !!rear.userData.target,
+    setRearOpen(v) { rear.userData.target = v ? 1 : 0; },
     // returns 2 = geometry moved (shadows need update), 1 = repaint only, 0 = idle
     update(dt) {
       let res = 0;
-      const u = hatch.userData;
-      if (Math.abs(u.target - u.open) > 1e-4) {
-        u.open += (u.target - u.open) * Math.min(1, dt * 6);
-        if (Math.abs(u.target - u.open) <= 1e-4) u.open = u.target;
-        hatch.rotation.x = -u.open * 1.7;
-        res = 2;
-      }
-      const d = drawer.userData;
-      if (Math.abs(d.target - d.open) > 1e-4) {
-        d.open += (d.target - d.open) * Math.min(1, dt * 5);
-        if (Math.abs(d.target - d.open) <= 1e-4) d.open = d.target;
-        drawer.position.z = drawerZ + d.open * DRAWER_TRAVEL;
-        res = 2;
-      }
-      const gz = dz + d.open * 0.16;                 // discharge gate slides open with the drawer
-      if (gate.position.z !== gz) { gate.position.z = gz; res = Math.max(res, 2); }
+      if (ease(hatch.userData, dt, 6)) { hatch.rotation.x = -hatch.userData.open * 1.75; res = 2; }
+      if (ease(drawer.userData, dt, 5)) { drawer.position.z = drawerZ + drawer.userData.open * DRAWER_TRAVEL; res = 2; }
+      if (ease(door.userData, dt, 4)) { door.rotation.y = -door.userData.open * 1.75; res = 2; }
+      if (ease(rear.userData, dt, 4)) { rear.rotation.y = -rear.userData.open * 1.75; res = 2; }
+      if (ease(consoleOuter.userData, dt, 4)) { consoleOuter.rotation.x = -consoleOuter.userData.open * 1.85; res = 2; }
+      if (ease(epDoor.userData, dt, 4)) { epDoor.rotation.y = -epDoor.userData.open * 1.7; res = 2; }
+      const gz = dz + drawer.userData.open * 0.13;    // knife gate rides the actuator open with the drawer
+      if (gate.position.z !== gz) { gate.position.z = gz; actRod.position.z = dz + 0.1 + drawer.userData.open * 0.13; res = Math.max(res, 2); }
       const heat = running ? 0.9 : 0;
       if (heatMat.emissiveIntensity !== heat) { heatMat.emissiveIntensity = heat; ledHeat.emissiveIntensity = heat * 1.5; res = Math.max(res, 1); }
       // the shredder only runs with the hatch shut (interlock)

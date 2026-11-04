@@ -251,6 +251,8 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   else if (part === 'callButton') requestPickup();
   else if (part === 'tray') { riser.setTraysOpen(!riser.trays[0].userData.target); syncAll(); }
   else if (part === 'hatch') { composter.toggleHatch(); syncAll(); }
+  else if (part === 'serviceDoor') { composter.toggleDoor(); invalidate(true); }
+  else if (part === 'rearDoor') { composter.toggleRear(); syncAll(); }
   else if (part === 'drawer') { composter.toggleDrawer(); syncAll(); }
   else if (PART_FOCUS[part]) focusCircuit(PART_FOCUS[part]);
   else if (part === 'composterStart') { composter.setRunning(!composter.isRunning()); syncAll(); }
@@ -307,6 +309,7 @@ syncers.push(bindToggle('t-trays', () => !!riser.trays[0].userData.target, (v) =
 syncers.push(bindToggle('t-comp-run', () => composter.isRunning(), (v) => composter.setRunning(v)));
 syncers.push(bindToggle('t-comp-cut', () => cutaway, (v) => { cutaway = v; composter.setCutaway(v); }));
 syncers.push(bindToggle('t-comp-hatch', () => hatchOpen(), () => composter.toggleHatch()));
+syncers.push(bindToggle('t-comp-rear', () => composter.isRearOpen(), (v) => composter.setRearOpen(v)));
 syncers.push(bindToggle('t-comp-drawer', () => composter.isDrawerOpen(), () => composter.toggleDrawer()));
 function syncAll() { syncers.forEach((f) => f()); }
 
