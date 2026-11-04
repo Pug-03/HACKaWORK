@@ -166,6 +166,50 @@ export function buildRiser(renderer, stationLength, stationDepth) {
   const trayY = T.clearance + T.h / 2;
   const trayBodyMat = new THREE.MeshStandardMaterial({ color: 0x4f5a52, metalness: 0.35, roughness: 0.55 });
   const trayLabel = label([['ถาดบริการ · ควบคุมสัตว์พาหะ', 0.3, 600], ['เฉพาะเจ้าหน้าที่ · ล็อกกุญแจ', 0.24, 400]], T.w - 0.06, 0.045, '#e9e4d4', '#2b2b2b');
+  const angleMat = new THREE.MeshStandardMaterial({ color: 0x8f969c, metalness: 0.75, roughness: 0.45, roughnessMap: brushed });
+  const wearMat = new THREE.MeshStandardMaterial({ color: 0xeeeeea, roughness: 0.8 });
+  const hexGeo = new THREE.CylinderGeometry(0.0065, 0.0065, 0.006, 6);
+  const railLen = T.d + 0.06;
+  const joistBottom = H - R.deck - 0.04;
+  // Hanger frame for one tray: two 40x40 SHS deck joists, four 25x25 SHS drop posts with gussets,
+  // and a 30x30x3 equal angle on each side (with a UHMW wear strip) that the tray floor slides on.
+  function hangerFrame(cx) {
+    const railY = T.clearance - 0.003;               // horizontal leg sits just under the tray floor
+    for (const sx of [-1, 1]) {
+      const rx = cx + sx * (T.w / 2 + 0.018);
+      group.add(rbox(0.04, 0.04, Dp - 0.08, galv, rx, H - R.deck - 0.02, 0, 0.003));          // joist, beam to beam
+      for (const sz of [-1, 1]) {
+        const pz = sz * (T.d / 2 + 0.005);
+        group.add(rbox(0.025, joistBottom - railY, 0.025, galv, rx, (joistBottom + railY) / 2, pz, 0.002));
+        const g = new THREE.Shape();
+        g.moveTo(0, 0); g.lineTo(-sz * 0.05, 0); g.lineTo(0, -0.05); g.closePath();
+        const gm = new THREE.Mesh(new THREE.ExtrudeGeometry(g, { depth: 0.004, bevelEnabled: false }), galv);
+        gm.rotation.y = -Math.PI / 2;                // shape X -> world Z, extrusion -> world -X
+        gm.position.set(rx + 0.002, joistBottom, pz - sz * 0.0125);
+        group.add(gm);
+        const b = new THREE.Mesh(hexGeo, dark);      // M8 bolt through the angle into the post
+        b.rotation.z = Math.PI / 2;
+        b.position.set(rx + sx * 0.0175, railY + 0.016, pz);
+        group.add(b);
+      }
+      group.add(rbox(0.003, 0.03, railLen, angleMat, rx + sx * 0.014, railY + 0.015, 0, 0.0012));     // vertical leg
+      group.add(rbox(0.035, 0.003, railLen, angleMat, rx - sx * 0.008, railY - 0.0015, 0, 0.0012));   // horizontal leg
+      group.add(rbox(0.014, 0.003, railLen - 0.02, wearMat, rx - sx * 0.016, railY + 0.0015, 0, 0.001)); // wear strip
+    }
+    // tie bars front and back: top one above the tray lid, bottom one under the rails,
+    // so both ends stay open and the tray slides out either way
+    for (const ez of [-1, 1]) {
+      group.add(rbox(T.w + 0.06, 0.025, 0.025, galv, cx, joistBottom - 0.0125, ez * (T.d / 2 + 0.022), 0.002));
+      group.add(rbox(T.w + 0.06, 0.02, 0.025, galv, cx, railY - 0.013, ez * (T.d / 2 + 0.022), 0.002));
+    }
+  }
+  // longitudinal stringer under the deck plate between the joists
+  group.add(rbox(W - 0.08, 0.04, 0.04, galv, 0, H - R.deck - 0.02, -0.06, 0.003));
+
+  const baitMat = new THREE.MeshStandardMaterial({ color: 0x2f86c4, roughness: 0.85 });
+  const chrome = new THREE.MeshStandardMaterial({ color: 0xd8dde2, metalness: 1, roughness: 0.18 });
+  const brassMat = new THREE.MeshStandardMaterial({ color: 0xc9a227, metalness: 0.85, roughness: 0.3 });
+  const glueMat = new THREE.MeshStandardMaterial({ color: 0xe9d66b, roughness: 0.6 });
   const trays = [];
   for (const cx of [-W / 4, W / 4]) {
     hangerFrame(cx);
@@ -176,7 +220,30 @@ export function buildRiser(renderer, stationLength, stationDepth) {
     // so rodents can reach in from every side; a narrow solid header on the front carries label/handle/lock
     const th = 0.006, headerH = 0.03;
     drawer.add(rbox(T.w, th, T.d, trayBodyMat, 0, -T.h / 2 + th / 2, 0, 0.002));                 // floor
-    drawer.add(rbox(T.w + 0.01, th, T.d + 0.01, trayBodyMat, 0, T.h / 2 - th / 2, 0, 0.002));    // lid
+    // lid: hinge pins along BOTH short edges (pull-pin hinges). Whichever end comes out first, the pins
+    // at the inner edge stay in and the lid lifts about them; keyed cam lock on each header, stay at ~85°
+    const lid = new THREE.Group();
+    const lidPlate = new THREE.Group();
+    lidPlate.add(rbox(T.w + 0.01, th, T.d + 0.01, trayBodyMat, 0, -th / 2, 0, 0.002));
+    for (const ez of [-1, 1]) {
+      for (const hx of [-0.2, 0, 0.2]) {
+        const kn = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.0045, 0.05, 12).rotateZ(Math.PI / 2), galv);
+        kn.position.set(hx, -0.002, ez * (T.d / 2 + 0.006));
+        lidPlate.add(kn);
+      }
+      lidPlate.add(rbox(0.06, 0.004, 0.02, galv, -0.16, 0.0005, ez * (T.d / 2 - 0.01), 0.0015));   // lift tab
+      const staple = new THREE.Mesh(new THREE.TorusGeometry(0.006, 0.0016, 8, 16, Math.PI), chrome);   // padlock staple
+      staple.rotation.y = Math.PI / 2;
+      staple.position.set(-T.w / 2 + 0.05, 0.001, ez * (T.d / 2 + 0.014));
+      lidPlate.add(staple);
+    }
+    lid.add(lidPlate);
+    lid.position.set(0, T.h / 2, T.d / 2 + 0.005);
+    lidPlate.position.z = -(T.d / 2 + 0.005);
+    lid.traverse((o) => { if (o.isMesh) o.userData.part = 'trayLid'; });
+    drawer.add(lid);
+    // slide members on both tray sides (drawer member of a 2-stage full-extension slide)
+    for (const sx of [-1, 1]) drawer.add(rbox(0.004, 0.018, T.d - 0.01, galv, sx * (T.w / 2 + 0.006), -T.h / 2 + 0.012, 0, 0.001));
     const meshH = T.h - 2 * th;
     const sideMesh = meshPanel(T.d - 2 * th, meshH);
     const endMesh = meshPanel(T.w - 2 * th, meshH - headerH + th);
@@ -188,25 +255,71 @@ export function buildRiser(renderer, stationLength, stationDepth) {
     }
     // corner posts holding the mesh panels
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) drawer.add(rbox(0.01, T.h, 0.01, trayBodyMat, sx * (T.w / 2 - 0.005), 0, sz * (T.d / 2 - 0.005), 0.002));
-    // front header (solid) with handle, lock and label
+    // both ends are identical service faces (header + label + handle + lock), so the tray
+    // can be pulled out from the front (step side) or from the back
     const headerY = T.h / 2 - headerH / 2;
-    const front = rbox(T.w + 0.002, headerH, 0.012, trayBodyMat, 0, headerY, T.d / 2 + 0.006, 0.003);
-    front.userData.part = 'tray';
-    drawer.add(front);
-    const lbl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.022), new THREE.MeshStandardMaterial({ map: trayLabel, roughness: 0.7 }));
-    lbl.position.set(-0.08, headerY, T.d / 2 + 0.0125);
-    drawer.add(lbl);
-    const handle = new THREE.Mesh(new THREE.CapsuleGeometry(0.007, 0.1, 4, 10), galv);
-    handle.rotation.z = Math.PI / 2;
-    handle.position.set(0.16, headerY, T.d / 2 + 0.03);
-    drawer.add(handle);
-    for (const sx of [-1, 1]) drawer.add(rbox(0.01, 0.01, 0.022, galv, 0.16 + sx * 0.05, headerY, T.d / 2 + 0.02, 0.002));
-    const lock = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.01, 20), galv);
-    lock.rotation.x = Math.PI / 2;
-    lock.position.set(T.w / 2 - 0.035, headerY, T.d / 2 + 0.017);
-    drawer.add(lock);
+    const labelMat = new THREE.MeshStandardMaterial({ map: trayLabel, roughness: 0.7 });
+    const padlocks = {};
+    for (const sz of [1, -1]) {
+      const end = new THREE.Group();
+      end.rotation.y = sz > 0 ? 0 : Math.PI;       // local +Z points out of this end
+      const em = new THREE.Mesh(endMesh, meshMat);
+      em.position.set(0, -headerH / 2 + th / 2, T.d / 2 - th / 2 - 0.0015);
+      end.add(em);
+      const header = rbox(T.w + 0.002, headerH, 0.012, trayBodyMat, 0, headerY, T.d / 2 + 0.006, 0.003);
+      end.add(header);
+      const lbl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.022), labelMat);
+      lbl.position.set(-0.08, headerY, T.d / 2 + 0.0125);
+      end.add(lbl);
+      const handle = new THREE.Mesh(new THREE.CapsuleGeometry(0.007, 0.1, 4, 10), galv);
+      handle.rotation.z = Math.PI / 2;
+      handle.position.set(0.16, headerY, T.d / 2 + 0.03);
+      end.add(handle);
+      for (const hx of [-1, 1]) end.add(rbox(0.01, 0.01, 0.022, galv, 0.16 + hx * 0.05, headerY, T.d / 2 + 0.02, 0.002));
+      // keyed cam lock (Ø19 mm chrome bezel, keyway slot) that latches the tray to the frame
+      const lockX = T.w / 2 - 0.035;
+      const bezel = new THREE.Mesh(new THREE.CylinderGeometry(0.0115, 0.0115, 0.004, 24).rotateX(Math.PI / 2), chrome);
+      bezel.position.set(lockX, headerY, T.d / 2 + 0.0135);
+      const plug = new THREE.Mesh(new THREE.CylinderGeometry(0.0075, 0.0075, 0.002, 20).rotateX(Math.PI / 2), brassMat);
+      plug.position.set(lockX, headerY, T.d / 2 + 0.0158);
+      const keyway = rbox(0.0016, 0.009, 0.001, dark, lockX, headerY, T.d / 2 + 0.0168, 0.0003);
+      end.add(bezel, plug, keyway);
+      // padlock hasp: hinged staple plate on the header, padlock through the lid's staple (second lock on the lid)
+      const haspX = -T.w / 2 + 0.05;
+      end.add(rbox(0.022, 0.026, 0.003, chrome, haspX, headerY, T.d / 2 + 0.0135, 0.001));
+      const padlock = new THREE.Group();
+      padlock.add(rbox(0.026, 0.022, 0.011, brassMat, 0, -0.012, 0, 0.003));
+      const shk = new THREE.Mesh(new THREE.TorusGeometry(0.0075, 0.0018, 8, 16, Math.PI), chrome);
+      shk.position.y = -0.001;
+      padlock.add(shk);
+      padlock.add(rbox(0.0014, 0.006, 0.0008, dark, 0, -0.016, 0.0058, 0.0003));   // key slot
+      padlock.position.set(haspX, headerY + 0.008, T.d / 2 + 0.022);
+      end.add(padlock);
+      padlocks[sz] = padlock;
+      drawer.add(end);
+    }
+    // contents: two stainless bait rods with 20 g wax blocks (locked in, can't be dragged out),
+    // a glue board in the middle and a low baffle so bait sits away from the entry mesh
+    const inH = T.h - 2 * th, floorTop = -T.h / 2 + th;
+    for (const bx of [-0.2, 0.2]) {
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, inH, 8), galv);
+      rod.position.set(bx, 0, -0.1);
+      drawer.add(rod);
+      for (let k = 0; k < 2; k++) drawer.add(rbox(0.032, 0.022, 0.032, baitMat, bx, floorTop + 0.013 + k * 0.024, -0.1, 0.006));
+      drawer.add(rbox(0.006, inH * 0.6, 0.16, trayBodyMat, bx + (bx < 0 ? 0.06 : -0.06), floorTop + inH * 0.3, -0.06, 0.002));  // baffle
+    }
+    drawer.add(rbox(0.22, 0.003, 0.13, glueMat, 0, floorTop + 0.0015, 0.05, 0.001));
+    drawer.add(rbox(0.06, 0.0015, 0.035, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 }), 0.15, floorTop + 0.001, 0.14, 0.0005)); // service card
     drawer.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.userData.part ??= 'tray'; } });
-    drawer.userData = { open: 0, target: 0, baseZ: 0 };
+    // intermediate slide members ride between the fixed angle and the tray, moving half as far
+    const mids = [];
+    for (const sx of [-1, 1]) {
+      const m = rbox(0.006, 0.022, T.d, angleMat, cx + sx * (T.w / 2 + 0.016), trayY - T.h / 2 + 0.012, 0, 0.0012);
+      m.userData.part = 'tray';
+      group.add(m);
+      mids.push(m);
+    }
+    drawer.userData = { open: 0, target: 0, baseZ: 0, lid, lidPlate, lidOpen: 0, lidTarget: 0, lidDir: -1, mids, padlocks };
     group.add(drawer);
     trays.push(drawer);
   }
@@ -255,7 +368,25 @@ export function buildRiser(renderer, stationLength, stationDepth) {
         if (Math.abs(u.target - u.open) > 1e-4 && !lidHold && !stepHold) {
           u.open += (u.target - u.open) * Math.min(1, dt * 4);
           if (Math.abs(u.target - u.open) <= 1e-4) u.open = u.target;
-          t.position.z = u.baseZ + u.open * R.tray.travel;
+          t.position.z = u.baseZ + u.open * (u.open < 0 ? R.tray.travelBack : R.tray.travel);
+          u.mids.forEach((m) => (m.position.z = t.position.z / 2));
+          moving = true;
+        }
+        // lid lifts only once the tray is fully out on its side, about the inner-edge pins
+        const lidGoal = u.lidTarget && u.open * u.lidDir > 0.97 ? 1 : 0;
+        if (u.lidOpen === 0 && lidGoal) {
+          u.lid.position.z = -u.lidDir * (T.d / 2 + 0.005);
+          u.lidPlate.position.z = u.lidDir * (T.d / 2 + 0.005);
+        }
+        // the padlock on the outer header comes off before the lid lifts and goes back once it is shut
+        for (const k of [1, -1]) {
+          const show = !(k === u.lidDir && (u.lidTarget || u.lidOpen > 0));
+          if (u.padlocks[k].visible !== show) { u.padlocks[k].visible = show; moving = true; }
+        }
+        if (Math.abs(lidGoal - u.lidOpen) > 1e-4) {
+          u.lidOpen += (lidGoal - u.lidOpen) * Math.min(1, dt * 5);
+          if (Math.abs(lidGoal - u.lidOpen) <= 1e-4) u.lidOpen = lidGoal;
+          u.lid.rotation.x = -u.lidDir * u.lidOpen * R.tray.lidOpen;
           moving = true;
         }
       }
