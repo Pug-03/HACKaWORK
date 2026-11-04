@@ -52,8 +52,8 @@ export function buildEnvironment(scene, renderer, stationLength, stationDepth) {
   const sun = new THREE.DirectionalLight(0xfff1de, 2.6);
   sun.position.set(4.5, 8, 5.5);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 25 });
+  sun.shadow.mapSize.set(4096, 4096);
+  Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 35 });   // wide enough to reach the shop hut
   sun.shadow.bias = -0.0003;
   sun.shadow.normalBias = 0.006;
   scene.add(sun);

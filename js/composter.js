@@ -1042,7 +1042,7 @@ export function buildComposter(renderer) {
     ctx.fillStyle = '#1f7a3a'; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = '#f3c200'; ctx.fillRect(0, h * 0.86, w, h * 0.08);
     ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    fitText(ctx, 'ถุงปุ๋ยหมัก กทม. · ร้านอยู่ฝั่งตรงข้าม', w / 2, h * 0.44, w * 0.92, h * 0.56, 600);
+    fitText(ctx, 'ถุงปุ๋ยหมัก กทม. · ร้านขายปุ๋ยอยู่ข้างเครื่อง →', w / 2, h * 0.44, w * 0.92, h * 0.56, 600);
   });
   const hd = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.09, dW + 0.02), [new THREE.MeshStandardMaterial({ map: header.tex, roughness: 0.5 }), ss, ss, ss, ss, ss]);
   hd.position.set(dx + 0.002, dY0 + dHt + 0.06, 0);

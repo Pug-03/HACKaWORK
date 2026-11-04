@@ -84,11 +84,12 @@ const COMPOSTER_X = L / 2 + 0.5 + COMPOSTER.width / 2;   // 0.5 m walkway beside
 composter.group.position.set(COMPOSTER_X, 0, 0.1);
 scene.add(composter.group);
 
-// fertilizer shop stand across the sidewalk, facing the composter (opposite side of the walkway)
+// fertilizer shop hut beside the composter, on its bag-panel side (+X), backed up to the curb line;
+// 1.2 m clear walkway between the composter's bag pockets and the hut's side wall
 const shop = buildShop();
-const SHOP_X = COMPOSTER_X, SHOP_Z = 0.1 + COMPOSTER.depth / 2 + 4.0 + SHOP.depth / 2;   // 4 m back, across the walkway
+const SHOP_X = COMPOSTER_X + COMPOSTER.width / 2 + 0.08 + 1.2 + SHOP.width / 2;
+const SHOP_Z = 0.05;                                   // back wall 0.3 m in from the curb line
 shop.group.position.set(SHOP_X, 0, SHOP_Z);
-shop.group.rotation.y = Math.PI;
 scene.add(shop.group);
 
 // electric mini garbage truck: drives along the road behind the station on out-of-round calls
@@ -204,7 +205,7 @@ const PART_TIPS = {
   lattice: 'ตะแกรงเจาะรูช่องถุงดำ · ระบายอากาศและมองเห็นว่าในช่องมีถุงอยู่',
   bags: 'ถุงขยะมัดปาก (ถุงดำ) · ระดับในช่องตามแถบ "ถุงดำ" ในแผงจำลอง',
   estop: 'ปุ่มหยุดฉุกเฉินเครื่องหมัก · ตัดมอเตอร์และฮีตเตอร์ทันที',
-  shop: 'ร้านขายปุ๋ย กทม. · ชั้นแขวนแผ่นเพ็กบอร์ด 1.2 ม. · ถุงเปล่า 1 / 5 / 10 กก. แขวนตะขอ 10 ซม. · ช่องท้ายเป็นแบรนด์อื่น (ชื่อสมมติ)',
+  shop: 'ร้านขายปุ๋ย กทม. · กระท่อมไม้ 2.2 × 2.2 ม. หลังคามุงจาก · ปุ๋ยหมักเต็มถุง 1 / 5 / 10 กก. วางบนพาเลทและชั้นไม้ · เคาน์เตอร์พร้อมตาชั่ง · ชั้นล่างเป็นแบรนด์อื่น (ชื่อสมมติ)',
   rearDoor: 'ประตูหลัง (บานพับขวา · ล็อกหมุน 2 จุด · ซีลยาง) เข้าถึงฟิลเตอร์ รางสาย และท่อด้านหลัง — คลิกเพื่อเปิด/ปิด',
   serviceDoor: 'ประตูบริการหน้าเครื่อง (บานพับซ้าย · ล็อกหมุน 2 จุด · ซีลยาง) — คลิกเพื่อเปิด/ปิด',
   console: 'แผงควบคุมเอียง 18° · จอ HMI 7" · ไฟแสดงสถานะ 22 มม. · สวิตช์ อัตโนมัติ/ปิด/มือ · เริ่ม/หยุด · หยุดฉุกเฉิน',
@@ -436,7 +437,7 @@ const VIEWS = {
   iso: [[3.6, 2.1, 4.2], [0.4, 0.7, 0]],
   back: [[-2.8, 2.0, -4.2], [0, 0.75, 0]],
   composter: [[COMPOSTER_X + 1.6, 1.9, 2.8], [COMPOSTER_X, 0.65, 0.1]],
-  shop: [[SHOP_X - 0.5, 1.45, SHOP_Z - 2.1], [SHOP_X, 1.0, SHOP_Z]],
+  shop: [[SHOP_X - 1.6, 1.8, SHOP_Z + 4.2], [SHOP_X, 1.1, SHOP_Z]],
   truck: [[-5.6, 3.2, -8.2], [0, 0.8, -1.8]],
   tray: [[-L / 2 - 0.5, 0.11, 0.3], [-L / 4, 0.12, 0.05]],          // from the side, under the deck, past the step
   smart: [[-L / 2 - 1.25, 1.35, 0.55], [-L / 2, 0.95, -0.03]],
