@@ -10,7 +10,7 @@ ES modules need a local server (opening `index.html` directly via `file://` will
 An internet connection is required for three.js (jsDelivr CDN) and the Kanit font.
 
     cd HACKaWORK
-    python3 -m http.server 8766
+    npm run dev                    # same as: python3 -m http.server 8766
     # 3D model:  http://localhost:8766
     # dashboard: http://localhost:8766/dashboard.html
 
@@ -53,9 +53,11 @@ The site is then served at `https://<user>.github.io/HACKaWORK/`.
 | `js/config.js` | Station, bay and bin dimensions / colours |
 | `js/binStation.js` | Frame, panels, lattice, bag pile |
 | `js/wheelieBin.js` | TAB120HW bin: rounded body, collar, hood lid, push flap, wheels |
-| `js/riser.js` | Anti-rodent raised base, rat guards, service trays, step |
+| `js/riser.js` | Anti-rodent raised base, rat guards, lockable service trays (front or back pull-out, lifting lid), step with lift-out panels |
 | `js/hardware.js` | Solar, battery, conduits, control unit, beacon, sensors, look-inside |
-| `js/composter.js` | 200 L composter cabinet |
+| `js/composter.js` | 200 L composter: heated U-trough, paddle mixer, chain drive, twin-shaft shredder, electrics, side bag display |
+| `js/mech.js` | Standard parts from real dimensions: sprockets / #50 roller chain, involute gears, UCP bearings, TEFC motors, cutters, bolts |
+| `js/shop.js` | Fertilizer shop pegboard stand across the walkway (BMA bags + one placeholder brand) |
 | `js/truck.js` | EV mini garbage truck |
 | `js/environment.js` | Sidewalk, curb, road, pad, lights |
 | `js/textures.js` | Canvas textures (signs + laser-cut masks, paving, noise) |

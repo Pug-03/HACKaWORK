@@ -1,0 +1,9 @@
+{
+  "name": "hackawork",
+  "private": true,
+  "description": "BKK Bin Station 3D: static three.js site, no build step",
+  "scripts": {
+    "dev": "python3 -m http.server 8766",
+    "start": "python3 -m http.server 8766"
+  }
+}
