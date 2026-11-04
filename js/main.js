@@ -259,9 +259,17 @@ function placeMovable(m, x, z, rot) {
   z = THREE.MathUtils.clamp(z, STREET.curbZ + 0.6, 8);
   for (const g of m.groups()) { g.position.x = x; g.position.z = z; if (rot !== undefined) g.rotation.y = rot; }
 }
+// double-press to drag: the first press only selects (and still orbits the camera as usual),
+// a second press on the same object within 400 ms / 12 px picks it up; hold and drag to move it
+let lastPress = null;
 function startDrag(e) {
   const m = movableAt(e), p = m && groundAt(e);
+  const prev = lastPress;
+  lastPress = m ? { m, t: performance.now(), x: e.clientX, y: e.clientY } : null;
   if (!p) return;
+  selected = m;
+  if (!prev || prev.m !== m || lastPress.t - prev.t > 400 || Math.hypot(e.clientX - prev.x, e.clientY - prev.y) > 12) return;
+  lastPress = null;
   const g = m.groups()[0];
   drag = { m, id: e.pointerId, dx: g.position.x - p.x, dz: g.position.z - p.z };
   selected = m;
@@ -309,7 +317,7 @@ function resetLayout() {
 function setMoveMode(v) {
   moveMode = v;
   if (!v) { endDrag(); selected = null; }
-  else toast('โหมดจัดวาง: ลากชุดถังขยะ เครื่องหมัก หรือร้านปุ๋ยไปวางได้เลย · Q/E หรือปุ่มหมุน เพื่อหมุนทีละ 15°');
+  else toast('โหมดจัดวาง: ดับเบิ้ลคลิกค้างที่ชุดถังขยะ เครื่องหมัก หรือร้านปุ๋ย แล้วลากไปวาง · Q/E หรือปุ่มหมุน เพื่อหมุนทีละ 15°');
   $('move-tools').hidden = !v;
 }
 
@@ -400,7 +408,7 @@ function processHover() {
     renderer.domElement.style.cursor = m ? 'move' : 'grab';
     tooltip.hidden = !m;
     if (m) {
-      tooltip.textContent = `${m.name} · ลากเพื่อย้าย · Q/E หมุน`;
+      tooltip.textContent = `${m.name} · ดับเบิ้ลคลิกค้างแล้วลากเพื่อย้าย · Q/E หมุน`;
       tooltip.style.left = `${e.clientX + 14}px`;
       tooltip.style.top = `${e.clientY + 14}px`;
     }
