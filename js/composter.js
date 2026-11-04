@@ -50,18 +50,21 @@ function brandingTexture(wM, hM) {
     // right: description + order box
     const rx = lw + 60, rw = w - lw - 120, cx = lw + (w - lw) / 2;
     ctx.fillStyle = '#1d2228';
-    fitText(ctx, 'เครื่องหมักปุ๋ยจากเศษอาหาร', cx, h * 0.17, rw, h * 0.1, 600);
-    ctx.fillStyle = '#5b646e';
-    fitText(ctx, `FOOD WASTE COMPOSTER · ${COMPOSTER.capacityL} L`, cx, h * 0.26, rw, h * 0.05, 500);
-    ctx.strokeStyle = '#cfd5da'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(rx, h * 0.32); ctx.lineTo(rx + rw, h * 0.32); ctx.stroke();
-    ctx.fillStyle = '#2f3a44';
-    fitText(ctx, 'รับเฉพาะเศษอาหาร · ไม่รับพลาสติก แก้ว โลหะ', cx, h * 0.42, rw, h * 0.058, 500);
-    fitText(ctx, 'เปิดฝาด้านบน เทเศษอาหาร แล้วปิดฝา', cx, h * 0.5, rw, h * 0.05, 400);
-    ctx.fillStyle = '#f3c200'; ctx.fillRect(rx, h * 0.58, rw, h * 0.34);
+    // top of the right column is left for the payment panel (coin + PromptPay), screwed on over a recessed outline
+    ctx.strokeStyle = '#c4cbd1'; ctx.lineWidth = 6;
+    ctx.strokeRect(rx + rw * 0.06, h * 0.035, rw * 0.88, h * 0.41);
     ctx.fillStyle = '#1d2228';
-    fitText(ctx, 'ติดต่อซื้อ-ขายปุ๋ยกับ กทม.', cx, h * 0.69, rw * 0.9, h * 0.07, 600);
-    fitText(ctx, `โทร. ${COMPOSTER.phone}`, cx, h * 0.85, rw * 0.9, h * 0.13, 700);
+    fitText(ctx, 'เครื่องหมักปุ๋ยจากเศษอาหาร', cx, h * 0.53, rw, h * 0.075, 600);
+    ctx.fillStyle = '#5b646e';
+    fitText(ctx, `FOOD WASTE COMPOSTER · ${COMPOSTER.capacityL} L`, cx, h * 0.595, rw, h * 0.04, 500);
+    ctx.strokeStyle = '#cfd5da'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(rx, h * 0.635); ctx.lineTo(rx + rw, h * 0.635); ctx.stroke();
+    ctx.fillStyle = '#2f3a44';
+    fitText(ctx, 'รับเฉพาะเศษอาหาร · ไม่รับพลาสติก แก้ว โลหะ', cx, h * 0.69, rw, h * 0.048, 500);
+    fitText(ctx, 'เปิดฝาด้านบน เทเศษอาหาร แล้วปิดฝา', cx, h * 0.75, rw, h * 0.042, 400);
+    ctx.fillStyle = '#f3c200'; ctx.fillRect(rx, h * 0.8, rw, h * 0.15);
+    ctx.fillStyle = '#1d2228';
+    fitText(ctx, `ซื้อ-ขายปุ๋ยจำนวนมาก โทร. ${COMPOSTER.phone}`, cx, h * 0.88, rw * 0.92, h * 0.07, 700);
   });
 }
 
@@ -287,6 +290,165 @@ export function buildComposter(renderer) {
   tag(door, 'serviceDoor');
   door.userData = { open: 0, target: 0 };
   group.add(door);
+  /* ---------- payment panel on the service door: coins + PromptPay QR unlock one drawer of finished compost ----------
+     Screwed over the recessed outline at the top of the branding's right column (slot ~0.8 m off the floor, in
+     reach from a wheelchair). Coin validator behind a vertical slit, coin-return button + cup, credit LCD, lock /
+     unlock pilot lights and a PromptPay QR screen. Coins fall into a separately keyed cash box on the door's back,
+     so opening the service door for maintenance never exposes the cash. */
+  const PRICE = 20, COIN = 10;
+  const pay = new THREE.Group();
+  const payW = 0.52, payH = 0.22, payT = 0.016;
+  pay.position.set(0.68 * (frontW - 0.004) + 0.002, dH * 0.26, 0);
+  door.add(pay);
+  const payBody = new THREE.MeshStandardMaterial({ color: 0x2b3036, metalness: 0.5, roughness: 0.45 });
+  const chrome = new THREE.MeshStandardMaterial({ color: 0xd9dde1, metalness: 0.95, roughness: 0.18 });
+  pay.add(rbox(payW, payH, payT, payBody, 0, 0, payT / 2, 0.006));
+  for (const [x, y] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {        // tamper-proof screws at the corners
+    const sc = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.002, 12).rotateX(Math.PI / 2), steel);
+    sc.position.set(x * (payW / 2 - 0.012), y * (payH / 2 - 0.012), payT + 0.001);
+    pay.add(sc);
+  }
+  const zF = payT + 0.001;                                           // decals sit 1 mm proud of the plate
+  const decal = (tex, w, h, x, y, z = zF, basic = false) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), basic
+      ? new THREE.MeshBasicMaterial({ map: tex, toneMapped: false })
+      : new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
+    m.position.set(x, y, z); m.castShadow = false; m.userData.noMerge = true;
+    pay.add(m); return m;
+  };
+  decal(canvasTex(1200, 76, (ctx, w, h) => {
+    ctx.fillStyle = '#1f7a3a'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    fitText(ctx, `ซื้อปุ๋ยพร้อมใช้ ${PRICE} บาท / ลิ้นชัก · หยอดเหรียญ หรือ สแกนพร้อมเพย์`, w / 2, h / 2 + 2, w * 0.94, h * 0.62, 600);
+  }).tex, 0.48, 0.03, 0, 0.088);
+  const lgPay = (txt, w, x, y) => decal(canvasTex(Math.round(w * 2400), 40, (ctx, cw, ch) => {
+    ctx.fillStyle = '#2b3036'; ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = '#e5e7eb'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    fitText(ctx, txt, cw / 2, ch / 2 + 1, cw * 0.96, ch * 0.7, 500);
+  }).tex, w, 0.0165, x, y);
+
+  // PromptPay QR screen (left)
+  pay.add(rbox(0.135, 0.15, 0.006, black, -0.17, -0.018, payT + 0.003, 0.004));
+  const qr = canvasTex(260, 290, () => {});
+  const qrScr = decal(qr.tex, 0.115, 0.128, -0.17, -0.018, payT + 0.0065, true);
+  const qrBits = (() => {                                            // fixed pseudo-random 25 x 25 matrix + finders
+    const N = 25, b = []; let sd = 11;
+    for (let i = 0; i < N * N; i++) b.push(((sd = (sd * 16807) % 2147483647) & 4) !== 0);
+    const finder = (ox, oy) => { for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) {
+      const e = Math.max(Math.abs(x - 3), Math.abs(y - 3)); b[(oy + y) * N + ox + x] = e !== 2 && e !== 4; } };
+    finder(0, 0); finder(N - 7, 0); finder(0, N - 7);
+    return b;
+  })();
+  function drawQR(state) {
+    const ctx = qr.canvas.getContext('2d'), w = 260, h = 290;
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#113566'; ctx.fillRect(0, 0, w, 44);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `700 24px ${FONT}`;
+    ctx.fillText('THAI QR · พร้อมเพย์', w / 2, 23);
+    if (state === 'paid') {
+      ctx.fillStyle = '#16a34a'; ctx.beginPath(); ctx.arc(w / 2, 150, 62, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 14; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(w / 2 - 30, 152); ctx.lineTo(w / 2 - 6, 176); ctx.lineTo(w / 2 + 32, 126); ctx.stroke();
+      ctx.fillStyle = '#14532d'; ctx.font = `700 26px ${FONT}`; ctx.fillText('ชำระสำเร็จ', w / 2, 255);
+    } else {
+      const N = 25, cell = 7, ox = (w - N * cell) / 2, oy = 56;
+      ctx.fillStyle = '#000';
+      qrBits.forEach((on, i) => { if (on) ctx.fillRect(ox + (i % N) * cell, oy + Math.floor(i / N) * cell, cell, cell); });
+      ctx.fillStyle = '#113566'; ctx.font = `600 24px ${FONT}`;
+      ctx.fillText(state === 'need' ? `สแกนจ่ายอีก ${PRICE - credit} ฿` : `สแกนจ่าย ${PRICE} ฿`, w / 2, 262);
+    }
+    qr.tex.needsUpdate = true; payDirty = true;
+  }
+  lgPay('สแกนด้วยแอปธนาคาร', 0.12, -0.17, -0.1);
+
+  // credit LCD (centre) + lock / unlock pilot lights
+  pay.add(rbox(0.15, 0.058, 0.006, black, 0, 0.032, payT + 0.003, 0.003));
+  const lcd = canvasTex(540, 160, () => {});
+  decal(lcd.tex, 0.136, 0.042, 0, 0.032, payT + 0.0065, true);
+  let lcdMsg = null, lcdT = 0;
+  function drawLCD() {
+    const ctx = lcd.canvas.getContext('2d'), w = 540, h = 160;
+    const paid = credit >= PRICE;
+    ctx.fillStyle = paid ? '#052e16' : '#06141f'; ctx.fillRect(0, 0, w, h);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const [a, b, col] = lcdMsg ?? (drawerPaidOpen ? ['ลิ้นชักเปิดอยู่', 'ตักปุ๋ยแล้วดันลิ้นชักกลับ', '#4ade80']
+      : paid ? ['ชำระแล้ว ✓', 'ดึงลิ้นชักปุ๋ยด้านล่างได้เลย', '#4ade80']
+      : credit > 0 ? [`ยอด ${credit} / ${PRICE} ฿`, `หยอดอีก ${PRICE - credit} ฿ หรือกดคืนเหรียญ`, '#7dd3fc']
+      : [`ยอด 0 / ${PRICE} ฿`, 'หยอดเหรียญ หรือ สแกน QR', '#7dd3fc']);
+    ctx.fillStyle = col; fitText(ctx, a, w / 2, 58, w * 0.92, 64, 700);
+    ctx.fillStyle = '#cbd5e1'; fitText(ctx, b, w / 2, 124, w * 0.92, 34, 500);
+    lcd.tex.needsUpdate = true; payDirty = true;
+  }
+  const ledLock = new THREE.MeshStandardMaterial({ color: 0x5a0d0d, emissive: 0xff2a2a, emissiveIntensity: 1.4 });
+  const ledOpen = new THREE.MeshStandardMaterial({ color: 0x14532d, emissive: 0x22c55e, emissiveIntensity: 0 });
+  for (const [m, x, txt] of [[ledLock, -0.035, 'ล็อก'], [ledOpen, 0.035, 'ปลดล็อก']]) {
+    const bz = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.005, 20).rotateX(Math.PI / 2), chrome);
+    bz.position.set(x, -0.022, payT + 0.0025);
+    const ln = new THREE.Mesh(new THREE.SphereGeometry(0.0065, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI / 2), m);
+    ln.position.set(x, -0.022, payT + 0.005);
+    pay.add(bz, ln);
+    lgPay(txt, 0.045, x, -0.043);
+  }
+  lgPay('เหรียญ 1 · 2 · 5 · 10 บาท · ไม่ทอนเงิน', 0.16, 0, -0.08);
+
+  // coin slot (right): chrome bezel with a vertical slit, entry funnel moulded into the bezel
+  const slotX = 0.17, slotY = 0.03;
+  const slotParts = [rbox(0.05, 0.075, 0.01, chrome, slotX, slotY, payT + 0.005, 0.004),
+    rbox(0.03, 0.05, 0.004, payBody, slotX, slotY, payT + 0.0105, 0.003),
+    rbox(0.0035, 0.032, 0.004, black, slotX, slotY, payT + 0.0115, 0.0008)];
+  pay.add(...slotParts);
+  lgPay('หยอดเหรียญ', 0.06, slotX, -0.016);
+  // coin-return button and cup
+  const retRing = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.004, 24).rotateX(Math.PI / 2), chrome);
+  retRing.position.set(slotX - 0.035, -0.045, payT + 0.002);
+  const retBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.0085, 0.0085, 0.006, 24).rotateX(Math.PI / 2), plastic(0x9ca3af));
+  retBtn.position.set(slotX - 0.035, -0.045, payT + 0.005);
+  retBtn.userData.noMerge = true;
+  pay.add(retRing, retBtn);
+  lgPay('คืนเหรียญ', 0.045, slotX - 0.035, -0.064);
+  const cupX = slotX + 0.025, cupY = -0.06;
+  pay.add(rbox(0.06, 0.07, 0.004, chrome, cupX, cupY, payT + 0.002, 0.004),      // cup flange
+    rbox(0.046, 0.054, 0.003, black, cupX, cupY, payT + 0.0045, 0.002));          // dark mouth
+  pay.add(rbox(0.05, 0.006, 0.02, chrome, cupX, cupY - 0.026, payT + 0.012, 0.002));   // lip that stops coins
+  // coins: 10 baht (Ø26 mm bimetal), one flying into the slot and up to two waiting in the return cup
+  const coinMat = new THREE.MeshStandardMaterial({ color: 0xd4a537, metalness: 0.9, roughness: 0.3 });
+  const coinG = new THREE.CylinderGeometry(0.013, 0.013, 0.0022, 28);
+  const flyCoin = new THREE.Mesh(coinG.clone().rotateZ(Math.PI / 2), coinMat);   // edge-on to the vertical slit
+  flyCoin.visible = false; flyCoin.userData.noMerge = true;
+  const cupCoins = [0, 1].map((i) => {
+    const c = new THREE.Mesh(coinG.clone().rotateX(Math.PI / 2 - 0.5), coinMat);  // leaning in the cup
+    c.position.set(cupX - 0.008 + i * 0.016, cupY - 0.014, payT + 0.012 + i * 0.002);
+    c.visible = false; c.userData.noMerge = true;
+    pay.add(c); return c;
+  });
+  pay.add(flyCoin);
+  // keyed cash box on the inside of the door, right behind the validator
+  const cashBox = new THREE.Group();
+  cashBox.position.set(pay.position.x + slotX, pay.position.y - 0.04, -0.018);
+  cashBox.add(rbox(0.1, 0.17, 0.05, new THREE.MeshStandardMaterial({ color: 0x6b7280, metalness: 0.7, roughness: 0.4 }), 0, 0, -0.025, 0.004));
+  const cbLock = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.006, 20).rotateX(Math.PI / 2), chrome);
+  cbLock.position.set(0, -0.04, -0.052);
+  cashBox.add(cbLock, rbox(0.002, 0.008, 0.002, black, 0, -0.04, -0.0555, 0.0005));
+  door.add(cashBox);
+
+  tag(pay, 'payPanel');
+  for (const m of slotParts) m.userData.part = 'coinSlot';
+  flyCoin.userData.part = 'coinSlot';
+  qrScr.userData.part = 'payQR';
+  retBtn.userData.part = retRing.userData.part = 'coinReturn';
+  cupCoins.forEach((c) => (c.userData.part = 'coinCup'));
+  tag(cashBox, 'cashBox');
+
+  let credit = 0, coinCredit = 0, coinT = -1, qrT = -1, retT = -1, cupT = 0, bumpT = -1, drawerPaidOpen = false, payDirty = false;
+  drawQR('idle'); drawLCD();
+  const flash = (a, b, col = '#fbbf24') => { lcdMsg = [a, b, col]; lcdT = 2.2; drawLCD(); };
+  function setCredit(v) {
+    credit = Math.min(PRICE, v);
+    const paid = credit >= PRICE;
+    ledLock.emissiveIntensity = paid ? 0 : 1.4; ledOpen.emissiveIntensity = paid ? 2 : 0;
+    drawQR(paid ? 'paid' : credit > 0 ? 'need' : 'idle');
+    lcdMsg = null; drawLCD();
+  }
   // sloped console (18°) carrying the HMI and the operator buttons; hinges up on its top edge
   const consoleOuter = new THREE.Group();
   const tilt = 0.31, cHgt = ctrlY1 - ctrlY0;
@@ -1053,7 +1215,39 @@ export function buildComposter(renderer) {
     isCutaway: () => cutaway,
     toggleHatch() { hatch.userData.target = hatch.userData.target ? 0 : 1; },
     isDrawerOpen: () => !!drawer.userData.target,
-    toggleDrawer() { drawer.userData.target = drawer.userData.target ? 0 : 1; },
+    // the drawer is latched until the payment panel shows PRICE paid; pushing it shut uses the credit up.
+    // Cutaway (service) mode bypasses the latch. Returns 'opened' | 'closed' | 'locked'.
+    toggleDrawer() {
+      if (drawer.userData.target) {
+        drawer.userData.target = 0;
+        if (drawerPaidOpen) { drawerPaidOpen = false; coinCredit = 0; setCredit(0); }
+        return 'closed';
+      }
+      if (credit >= PRICE || cutaway) { drawer.userData.target = 1; drawerPaidOpen = credit >= PRICE; drawLCD(); return 'opened'; }
+      bumpT = 0; flash(`กรุณาชำระ ${PRICE} ฿ ก่อน`, 'หยอดเหรียญ หรือ สแกน QR ด้านบน');
+      return 'locked';
+    },
+    price: PRICE,
+    getCredit: () => credit,
+    insertCoin() {
+      if (credit >= PRICE) { flash('ชำระครบแล้ว', 'ดึงลิ้นชักได้เลย · ไม่รับเหรียญเพิ่ม', '#4ade80'); return false; }
+      if (coinT >= 0 || qrT >= 0) return false;
+      coinT = 0; flyCoin.visible = true; return true;
+    },
+    payQR() {
+      if (credit >= PRICE || qrT >= 0) return false;
+      qrT = 0; flash('กำลังตรวจสอบยอด…', 'ธนาคารยืนยันการโอน', '#7dd3fc'); return true;
+    },
+    returnCoins() {
+      retT = 0;
+      if (credit >= PRICE) { flash('ชำระครบแล้ว', 'ไม่คืนเงิน · ดึงลิ้นชักได้เลย', '#4ade80'); return 0; }
+      if (!coinCredit) { flash('ไม่มีเหรียญค้าง', 'หยอดเหรียญ หรือ สแกน QR', '#7dd3fc'); return 0; }
+      const back = coinCredit;
+      cupCoins.forEach((c, i) => (c.visible = i < back / COIN)); cupT = 6;
+      coinCredit = 0; setCredit(0); flash(`คืนเหรียญ ${back} ฿`, 'รับเหรียญที่ช่องคืนเหรียญ', '#7dd3fc');
+      return back;
+    },
+    takeCoins() { cupCoins.forEach((c) => (c.visible = false)); cupT = 0; },
     toggleDoor() { door.userData.target = door.userData.target ? 0 : 1; },
     toggleRear() { rear.userData.target = rear.userData.target ? 0 : 1; },
     isRearOpen: () => !!rear.userData.target,
@@ -1062,7 +1256,32 @@ export function buildComposter(renderer) {
     update(dt) {
       let res = 0;
       if (ease(hatch.userData, dt, 6)) { hatch.rotation.x = -hatch.userData.open * 1.75; res = 2; }
-      if (ease(drawer.userData, dt, 5)) { drawer.position.z = drawerZ + drawer.userData.open * DRAWER_TRAVEL; res = 2; }
+      const bumping = bumpT >= 0;
+      if (bumping) { bumpT += dt; if (bumpT > 0.32) bumpT = -1; }
+      if (ease(drawer.userData, dt, 5) || bumping) {
+        // a locked drawer gives a 6 mm tug against its latch and springs back
+        drawer.position.z = drawerZ + drawer.userData.open * DRAWER_TRAVEL + (bumpT >= 0 ? 0.006 * Math.sin(Math.PI * bumpT / 0.32) : 0);
+        res = 2;
+      }
+      // payment panel: coin drops into the slot, QR confirmation, return button press, LCD messages, cup timeout
+      if (coinT >= 0) {
+        coinT += dt;
+        const u = Math.min(1, coinT / 0.45), e = u * u * (3 - 2 * u);
+        flyCoin.position.set(slotX, slotY + 0.01 * (1 - e), payT + 0.07 * (1 - e) + 0.004);
+        if (coinT >= 0.45) { flyCoin.visible = false; coinT = -1; coinCredit += COIN; setCredit(credit + COIN); }
+        res = Math.max(res, 2);
+      }
+      if (qrT >= 0) { qrT += dt; if (qrT > 1.2) { qrT = -1; setCredit(PRICE); } }
+      if (retT >= 0) {
+        retT += dt;
+        retBtn.position.z = payT + 0.005 - 0.003 * Math.sin(Math.PI * Math.min(1, retT / 0.25));
+        if (retT > 0.25) { retT = -1; retBtn.position.z = payT + 0.005; }
+        res = Math.max(res, 2);
+      }
+      if (lcdT > 0) { lcdT -= dt; if (lcdT <= 0) { lcdMsg = null; drawLCD(); } }
+      if (cupT > 0) { cupT -= dt; if (cupT <= 0) { cupCoins.forEach((c) => (c.visible = false)); res = Math.max(res, 2); } }
+      if (payDirty) { payDirty = false; res = Math.max(res, 1); }
+      if (qrT >= 0 || lcdT > 0) res = Math.max(res, 1);
       if (ease(door.userData, dt, 4)) { door.rotation.y = -door.userData.open * 1.75; res = 2; }
       if (ease(rear.userData, dt, 4)) { rear.rotation.y = -rear.userData.open * 1.75; res = 2; }
       if (ease(consoleOuter.userData, dt, 4)) { consoleOuter.rotation.x = -consoleOuter.userData.open * 1.85; res = 2; }

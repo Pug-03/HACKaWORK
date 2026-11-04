@@ -182,7 +182,13 @@ const PART_TIPS = {
   ratGuard: 'แผ่นกันหนูปีน (rat guard) Ø 26 ซม. · หนูปีนเสาขึ้นมาแล้วติดใต้กรวย อ้อมขึ้นไปไม่ได้',
   composter: `เครื่องหมักปุ๋ยจากเศษอาหาร ${COMPOSTER.capacityL} ลิตร`,
   hatch: 'ช่องเติมเศษอาหาร — คลิกเพื่อเปิด/ปิด',
-  drawer: 'ลิ้นชักปุ๋ยพร้อมใช้ — คลิกเพื่อดึงออก/ดันกลับ',
+  drawer: 'ลิ้นชักปุ๋ยพร้อมใช้ (ล็อกไว้) — ชำระ 20 บาทที่แผงหยอดเหรียญ / สแกน QR ก่อน แล้วคลิกเพื่อดึงออก · ดันกลับแล้วล็อกใหม่',
+  payPanel: 'แผงชำระเงินซื้อปุ๋ย · หยอดเหรียญ 1·2·5·10 บาท หรือสแกนพร้อมเพย์ 20 บาท/ลิ้นชัก · เงินลงกล่องเหรียญล็อกแยกหลังประตู',
+  coinSlot: 'ช่องหยอดเหรียญ — คลิกเพื่อหยอดเหรียญ 10 บาท',
+  payQR: 'Thai QR พร้อมเพย์ — คลิกเพื่อจำลองสแกนจ่าย',
+  coinReturn: 'ปุ่มคืนเหรียญ — คลิกเพื่อคืนเหรียญที่หยอดค้างไว้',
+  coinCup: 'ช่องรับเหรียญคืน — คลิกเพื่อหยิบเหรียญ',
+  cashBox: 'กล่องเหรียญนิรภัย ล็อกกุญแจแยกจากประตูซ่อมบำรุง · เจ้าหน้าที่เขตเก็บเงิน',
   composterStart: 'ปุ่มเดินเครื่องหมัก — คลิกเพื่อเริ่ม/หยุด',
   flap: 'ช่องทิ้งแบบบานผลัก — คลิกเพื่อดันบานเข้าไป แล้วบานจะปิดกลับเอง',
   sensor: 'เซ็นเซอร์อัลตราโซนิกไร้สาย · แบตในตัว ~5 ปี · ส่ง LoRa ไปกล่องควบคุม (ไม่ต้องเดินสาย เพราะถังถูกเข็นออกทุกรอบ)',
@@ -206,7 +212,7 @@ const PART_TIPS = {
   drive: 'ฝาครอบโซ่ (ถอดออกในโหมดมองภายใน)',
   compostBag: 'แผงถุงปุ๋ยติดข้างเครื่อง (สแตนเลสเจาะรูแบบเดียวกับตัวเครื่อง) · ช่องดึงถุงเปล่า 1 / 5 กก. ดึงออกทีละใบแล้วเอาไปได้เลย · ใบปลิวบอกทางไปร้านฝั่งตรงข้าม',
 };
-const CLICKABLE = new Set(['callButton', 'fanSwitch', 'cabinet', 'serviceDoor', 'rearDoor', 'tray', 'trayLid', 'stepHatch', 'hatch', 'composterStart', 'flap', 'drawer', 'unit', 'unitInside', 'battery', 'batteryInside',
+const CLICKABLE = new Set(['callButton', 'fanSwitch', 'cabinet', 'serviceDoor', 'rearDoor', 'tray', 'trayLid', 'stepHatch', 'hatch', 'composterStart', 'flap', 'drawer', 'coinSlot', 'payQR', 'coinReturn', 'coinCup', 'unit', 'unitInside', 'battery', 'batteryInside',
   'solar', 'beacon', 'sensor', 'cableSolar', 'cableBatt', 'cableBeacon']);
 // hardware part -> circuit focus key
 const PART_FOCUS = { unit: 'unit', unitInside: 'unit', battery: 'battery', batteryInside: 'battery', solar: 'solar', beacon: 'beacon',
@@ -276,7 +282,11 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   else if (part === 'hatch') { composter.toggleHatch(); syncAll(); }
   else if (part === 'serviceDoor') { composter.toggleDoor(); invalidate(true); }
   else if (part === 'rearDoor') { composter.toggleRear(); syncAll(); }
-  else if (part === 'drawer') { composter.toggleDrawer(); syncAll(); }
+  else if (part === 'drawer') toggleCompostDrawer();
+  else if (part === 'coinSlot') composter.insertCoin();
+  else if (part === 'payQR') composter.payQR();
+  else if (part === 'coinReturn') composter.returnCoins();
+  else if (part === 'coinCup') composter.takeCoins();
   else if (part === 'fanSwitch') { hardware.cycleFanMode(); syncFanSeg(); invalidate(true); }
   else if (part === 'cabinet') { hardware.toggleCabinet(); invalidate(true); }
   else if (PART_FOCUS[part]) focusCircuit(PART_FOCUS[part]);
@@ -362,7 +372,11 @@ document.querySelectorAll('[data-cview]').forEach((btn) => btn.addEventListener(
 }));
 syncers.push(bindToggle('t-comp-hatch', () => hatchOpen(), () => composter.toggleHatch()));
 syncers.push(bindToggle('t-comp-rear', () => composter.isRearOpen(), (v) => composter.setRearOpen(v)));
-syncers.push(bindToggle('t-comp-drawer', () => composter.isDrawerOpen(), () => composter.toggleDrawer()));
+function toggleCompostDrawer() {
+  if (composter.toggleDrawer() === 'locked') toast(`ลิ้นชักปุ๋ยล็อกอยู่ · หยอดเหรียญหรือสแกน QR ${composter.price} บาทที่แผงบนประตูก่อน`);
+  syncAll();
+}
+syncers.push(bindToggle('t-comp-drawer', () => composter.isDrawerOpen(), () => toggleCompostDrawer()));
 function syncAll() { syncers.forEach((f) => f()); }
 
 // camera presets
