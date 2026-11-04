@@ -878,31 +878,52 @@ export function buildComposter(renderer) {
   const hd = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.09, dW + 0.02), [new THREE.MeshStandardMaterial({ map: header.tex, roughness: 0.5 }), ss, ss, ss, ss, ss]);
   hd.position.set(dx + 0.002, dY0 + dHt + 0.06, 0);
   disp.add(hd);
-  // peg hooks with stacks of flat empty BMA bags (1 kg and 5 kg), and an A5 leaflet box
-  const hookGeo = new THREE.CylinderGeometry(0.003, 0.003, 0.2, 8).rotateZ(Math.PI / 2);
+  // pull-out bag pockets (no hooks): a folded SUS pocket per size holds a stack of flat empty bags upright against
+  // the panel; the front plate has a window showing the print and a thumb notch at the top, so a customer pinches
+  // the front bag and pulls it straight up and out. A label strip says which size and "pull one".
   let seed2 = 5;
   const rnd2 = () => ((seed2 = (seed2 * 16807) % 2147483647) / 2147483647);
-  for (const [kg, w, h, z, n] of [[1, 0.2, 0.3, -0.22, 12], [5, 0.3, 0.45, 0.1, 10]]) {
-    const hy = dY0 + dHt - 0.05;
-    const arm = new THREE.Mesh(hookGeo, steel);
-    arm.position.set(dx + 0.1, hy, z); arm.rotation.z = 0.05;
-    disp.add(arm, new THREE.Mesh(new THREE.SphereGeometry(0.0045, 10, 8), steel).translateX(dx + 0.2).translateY(hy + 0.01).translateZ(z));
-    const faceH = h - 0.035;
-    const face = new THREE.MeshStandardMaterial({ map: bmaBagTex(kg, w, faceH), roughness: 0.55 });
+  for (const [kg, w, h, z, n] of [[1, 0.2, 0.3, -0.22, 14], [5, 0.3, 0.45, 0.1, 12]]) {
+    const yb = dY0 + 0.035, pd = 0.006 + n * 0.0022 + 0.006, pw = w + 0.02, ph = h * 0.7;   // pocket depth fits the stack
+    const fx = dx + pd;                                  // front plate (outer face at fx + 0.0015)
+    // stack: bags stand on the pocket floor, leaning back on the panel
     const film = new THREE.MeshStandardMaterial({ color: 0xf2efe6, roughness: 0.55 });
-    const bodyG = new THREE.BoxGeometry(0.0008, faceH, w), faceG = new THREE.PlaneGeometry(w, faceH).rotateY(Math.PI / 2);
-    const hdr = new THREE.Shape(); hdr.moveTo(-w / 2, -0.0175); hdr.lineTo(w / 2, -0.0175); hdr.lineTo(w / 2, 0.0175); hdr.lineTo(-w / 2, 0.0175); hdr.closePath();
-    const slot = new THREE.Path(); slot.absellipse(0, 0, 0.013, 0.0055, 0, Math.PI * 2, true); hdr.holes.push(slot);
-    const hdrG = new THREE.ExtrudeGeometry(hdr, { depth: 0.0012, bevelEnabled: false }).rotateY(Math.PI / 2);
+    const face = new THREE.MeshStandardMaterial({ map: bmaBagTex(kg, w, h), roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    const bodyG = new THREE.BoxGeometry(0.0008, h, w), faceG = new THREE.PlaneGeometry(w, h).rotateY(Math.PI / 2);
     for (let i = 0; i < n; i++) {
-      const bx = dx + 0.025 + i * 0.0022, bag = new THREE.Group();
-      bag.position.set(bx, hy + (bx - dx) * 0.05, z);
-      bag.rotation.x = (rnd2() - 0.5) * 0.03; bag.rotation.z = -0.012 - rnd2() * 0.01;
-      const b = new THREE.Mesh(bodyG, film); b.position.y = -0.0175 - faceH / 2;
-      const f = new THREE.Mesh(faceG, face); f.position.set(0.001, b.position.y, 0);
-      bag.add(new THREE.Mesh(hdrG, film), b, f);
+      const bag = new THREE.Group();
+      bag.position.set(dx + 0.006 + i * 0.0022, yb + 0.003 + h / 2, z + (rnd2() - 0.5) * 0.004);
+      bag.rotation.z = 0.004 + rnd2() * 0.004;
+      const f = new THREE.Mesh(faceG, face); f.position.x = 0.0009;   // 0.5 mm off the body + polygon offset: no z-fight
+      bag.add(new THREE.Mesh(bodyG, film), f);
       disp.add(bag);
     }
+    // pocket: floor, two cheeks, front plate with print window + thumb notch, folded top edge
+    disp.add(rbox(pd + 0.002, 0.003, pw, ss, dx + pd / 2, yb + 0.0015, z, 0.001));
+    for (const sz of [-1, 1]) disp.add(rbox(pd, ph, 0.003, ss, dx + pd / 2 + 0.0015, yb + ph / 2, z + sz * (pw / 2 - 0.0015), 0.001));
+    const fp = new THREE.Shape();
+    const nr = 0.022;                                    // thumb notch radius
+    fp.moveTo(-pw / 2, 0); fp.lineTo(pw / 2, 0); fp.lineTo(pw / 2, ph); fp.lineTo(nr, ph);
+    fp.absarc(0, ph, nr, 0, Math.PI, true);
+    fp.lineTo(-pw / 2, ph); fp.closePath();
+    const win = new THREE.Path(), wx = w / 2 - 0.02, wy0 = 0.05, wy1 = ph - 0.045, r = 0.012;
+    win.moveTo(-wx + r, wy0); win.lineTo(wx - r, wy0); win.absarc(wx - r, wy0 + r, r, -Math.PI / 2, 0, false);
+    win.lineTo(wx, wy1 - r); win.absarc(wx - r, wy1 - r, r, 0, Math.PI / 2, false);
+    win.lineTo(-wx + r, wy1); win.absarc(-wx + r, wy1 - r, r, Math.PI / 2, Math.PI, false);
+    win.lineTo(-wx, wy0 + r); win.absarc(-wx + r, wy0 + r, r, Math.PI, Math.PI * 1.5, false);
+    fp.holes.push(win);
+    const fpm = new THREE.Mesh(new THREE.ExtrudeGeometry(fp, { depth: 0.0015, bevelEnabled: false, curveSegments: 16 }).rotateY(Math.PI / 2), ss);
+    fpm.position.set(fx, yb, z);                         // shape x -> -z (symmetric), extrusion -> +x
+    disp.add(fpm);
+    // label strip on the front plate, below the window
+    const lb = canvasTex(400, 64, (ctx, cw, ch) => {
+      ctx.fillStyle = '#1f7a3a'; ctx.fillRect(0, 0, cw, ch);
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      fitText(ctx, `ถุง ${kg} กก. · ดึงออก 1 ใบ ↑`, cw / 2, ch / 2, cw * 0.92, ch * 0.62, 600);
+    });
+    const lbm = new THREE.Mesh(new THREE.PlaneGeometry(pw - 0.03, 0.03), new THREE.MeshStandardMaterial({ map: lb.tex, roughness: 0.5 }));
+    lbm.rotation.y = Math.PI / 2; lbm.position.set(fx + 0.0015 + 0.0015, yb + 0.025, z);
+    disp.add(lbm);
   }
   const lf = canvasTex(300, 420, (ctx, w, h) => {
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
