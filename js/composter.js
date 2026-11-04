@@ -1094,25 +1094,6 @@ export function buildComposter(renderer) {
     lbm.rotation.y = Math.PI / 2; lbm.position.set(fx + 0.0015 + 0.0015, yb + 0.025, z);
     disp.add(lbm);
   }
-  const lf = canvasTex(300, 420, (ctx, w, h) => {
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = '#1f7a3a'; ctx.fillRect(0, 0, w, h * 0.22);
-    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    fitText(ctx, 'กทม.', w / 2, h * 0.11, w * 0.8, h * 0.14, 700);
-    ctx.fillStyle = '#1d2228';
-    fitText(ctx, 'ปุ๋ยหมักจากเศษอาหาร', w / 2, h * 0.32, w * 0.9, h * 0.07, 600);
-    ['ถุง 1 / 5 / 10 กก.', 'ซื้อได้ที่ร้านฝั่งตรงข้าม', 'เขียนชื่อร้าน · บ้านเลขที่', 'บนถุงก่อนรับปุ๋ย'].forEach((s, i) => fitText(ctx, s, w / 2, h * (0.46 + i * 0.1), w * 0.86, h * 0.05, 400));
-    ctx.fillStyle = '#f3c200'; ctx.fillRect(0, h * 0.9, w, h * 0.1);
-  });
-  const boxZ = 0.31, boxY = dY0 + dHt - 0.2;
-  const acrylic = new THREE.MeshStandardMaterial({ color: 0xe6f0f5, roughness: 0.05, transparent: true, opacity: 0.18, depthWrite: false });
-  const leaflet = new THREE.Mesh(new THREE.PlaneGeometry(0.105, 0.148), new THREE.MeshStandardMaterial({ map: lf.tex, roughness: 0.6 }));
-  leaflet.rotation.y = Math.PI / 2; leaflet.position.set(dx + 0.012, boxY, boxZ - 0.03);
-  const front = new THREE.Mesh(new THREE.PlaneGeometry(0.115, 0.1), acrylic);
-  front.rotation.y = Math.PI / 2; front.position.set(dx + 0.03, boxY - 0.03, boxZ - 0.03);
-  front.userData.noMerge = true;
-  disp.add(leaflet, front);
-  for (const s of [-1, 1]) disp.add(rbox(0.03, 0.1, 0.003, acrylic, dx + 0.016, boxY - 0.03, boxZ - 0.03 + s * 0.0575, 0.001));
   tag(disp, 'compostBag');
   group.add(disp);
 

@@ -210,7 +210,7 @@ const PART_TIPS = {
   console: 'แผงควบคุมเอียง 18° · จอ HMI 7" · ไฟแสดงสถานะ 22 มม. · สวิตช์ อัตโนมัติ/ปิด/มือ · เริ่ม/หยุด · หยุดฉุกเฉิน',
   composterInside: 'ภายในเครื่องหมัก — เปิด "มองภายใน" เพื่อดูหมายเลขชิ้นส่วนและสเปก',
   drive: 'ฝาครอบโซ่ (ถอดออกในโหมดมองภายใน)',
-  compostBag: 'แผงถุงปุ๋ยติดข้างเครื่อง (สแตนเลสเจาะรูแบบเดียวกับตัวเครื่อง) · ช่องดึงถุงเปล่า 1 / 5 กก. ดึงออกทีละใบแล้วเอาไปได้เลย · ใบปลิวบอกทางไปร้านฝั่งตรงข้าม',
+  compostBag: 'แผงถุงปุ๋ยติดข้างเครื่อง (สแตนเลสเจาะรูแบบเดียวกับตัวเครื่อง) · ช่องดึงถุงเปล่า 1 / 5 กก. ดึงออกทีละใบแล้วเอาไปได้เลย',
 };
 const CLICKABLE = new Set(['callButton', 'fanSwitch', 'cabinet', 'serviceDoor', 'rearDoor', 'tray', 'trayLid', 'stepHatch', 'hatch', 'composterStart', 'flap', 'drawer', 'coinSlot', 'payQR', 'coinReturn', 'coinCup', 'unit', 'unitInside', 'battery', 'batteryInside',
   'solar', 'beacon', 'sensor', 'cableSolar', 'cableBatt', 'cableBeacon']);
