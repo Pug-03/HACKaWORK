@@ -15,6 +15,7 @@ import { buildCircuitPanel } from './circuit.js';
 import { buildRiser, RISER } from './riser.js';
 import { buildHardware } from './hardware.js';
 import { buildComposter, COMPOSTER } from './composter.js';
+import { buildShop, SHOP } from './shop.js';
 
 await Promise.all([
   document.fonts.load('600 80px Kanit'),
@@ -88,6 +89,13 @@ const composter = buildComposter(renderer);
 const COMPOSTER_X = L / 2 + 0.5 + COMPOSTER.width / 2;   // 0.5 m walkway beside the station
 composter.group.position.set(COMPOSTER_X, 0, 0.1);
 scene.add(composter.group);
+
+// fertilizer shop stand across the sidewalk, facing the composter (opposite side of the walkway)
+const shop = buildShop();
+const SHOP_X = COMPOSTER_X, SHOP_Z = 0.1 + COMPOSTER.depth / 2 + 2.4 + SHOP.depth / 2;   // 2.4 m clear walkway
+shop.group.position.set(SHOP_X, 0, SHOP_Z);
+shop.group.rotation.y = Math.PI;
+scene.add(shop.group);
 
 // electric mini garbage truck: drives along the road behind the station on out-of-round calls
 const truck = buildTruck();
@@ -191,6 +199,13 @@ const PART_TIPS = {
   lattice: 'ตะแกรงเจาะรูช่องถุงดำ · ระบายอากาศและมองเห็นว่าในช่องมีถุงอยู่',
   bags: 'ถุงขยะมัดปาก (ถุงดำ) · ระดับในช่องตามแถบ "ถุงดำ" ในแผงจำลอง',
   estop: 'ปุ่มหยุดฉุกเฉินเครื่องหมัก · ตัดมอเตอร์และฮีตเตอร์ทันที',
+  shop: 'ร้านขายปุ๋ย กทม. · ชั้นแขวนแผ่นเพ็กบอร์ด 1.2 ม. · ถุงเปล่า 1 / 5 / 10 กก. แขวนตะขอ 25 ซม. · ช่องท้ายเป็นแบรนด์อื่น (ชื่อสมมติ)',
+  rearDoor: 'ประตูหลัง (บานพับขวา · ล็อกหมุน 2 จุด · ซีลยาง) เข้าถึงฟิลเตอร์ รางสาย และท่อด้านหลัง — คลิกเพื่อเปิด/ปิด',
+  serviceDoor: 'ประตูบริการหน้าเครื่อง (บานพับซ้าย · ล็อกหมุน 2 จุด · ซีลยาง) — คลิกเพื่อเปิด/ปิด',
+  console: 'แผงควบคุมเอียง 18° · จอ HMI 7" · ไฟแสดงสถานะ 22 มม. · สวิตช์ อัตโนมัติ/ปิด/มือ · เริ่ม/หยุด · หยุดฉุกเฉิน',
+  composterInside: 'ภายในเครื่องหมัก — เปิด "มองภายใน" เพื่อดูหมายเลขชิ้นส่วนและสเปก',
+  drive: 'ฝาครอบโซ่ (ถอดออกในโหมดมองภายใน)',
+  compostBag: 'แผงถุงปุ๋ยติดข้างเครื่อง (สแตนเลสเจาะรูแบบเดียวกับตัวเครื่อง) · ถุงเปล่า 1 / 5 กก. · ใบปลิวบอกทางไปร้านฝั่งตรงข้าม',
 };
 const CLICKABLE = new Set(['callButton', 'tray', 'hatch', 'composterStart', 'flap', 'drawer', 'unit', 'unitInside', 'battery', 'batteryInside',
   'solar', 'beacon', 'sensor', 'cableSolar', 'cableBatt', 'cableBeacon']);
@@ -209,7 +224,7 @@ function pick(ev) {
   pointer.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(pointer, camera);
   const isShown = (o) => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
-  const targets = [station.group, composter.group, truck.group];
+  const targets = [station.group, composter.group, shop.group, truck.group];
   if (riserOn) targets.push(riser.group);
   const hit = raycaster.intersectObjects(targets, true).find((h) => {
     const m = Array.isArray(h.object.material) ? h.object.material[h.face?.materialIndex ?? 0] : h.object.material;
@@ -370,6 +385,7 @@ const VIEWS = {
   iso: [[3.6, 2.1, 4.2], [0.4, 0.7, 0]],
   back: [[-2.8, 2.0, -4.2], [0, 0.75, 0]],
   composter: [[COMPOSTER_X + 1.6, 1.9, 2.8], [COMPOSTER_X, 0.65, 0.1]],
+  shop: [[SHOP_X - 0.5, 1.45, SHOP_Z - 2.1], [SHOP_X, 1.0, SHOP_Z]],
   truck: [[-5.6, 3.2, -8.2], [0, 0.8, -1.8]],
   tray: [[-L / 2 - 0.5, 0.11, 0.3], [-L / 4, 0.12, 0.05]],          // from the side, under the deck, past the step
   smart: [[-L / 2 - 1.25, 1.35, 0.55], [-L / 2, 0.95, -0.03]],

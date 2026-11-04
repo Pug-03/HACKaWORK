@@ -231,7 +231,16 @@
     <button class="toggle" id="t-comp-drawer" aria-pressed="false">ดึงลิ้นชักปุ๋ย</button>
     <button class="toggle" id="t-comp-rear" aria-pressed="false">เปิดประตูหลัง</button>
     <button class="toggle" id="t-comp-cut" aria-pressed="false">มองภายใน</button>
-    <div class="views"><button data-view="composter" style="grid-column: 1 / -1">ไปที่เครื่องหมัก</button></div>
+    <div class="views" aria-label="ดูส่วนต่างๆ ของเครื่องหมัก">
+      <button data-cview="chamber">ห้องหมัก</button>
+      <button data-cview="drive">ชุดขับโซ่</button>
+      <button data-cview="shredder">เครื่องย่อย</button>
+      <button data-cview="electrical">ตู้ไฟฟ้า</button>
+      <button data-cview="air">ดูดกลิ่น</button>
+      <button data-cview="back">ด้านหลัง</button>
+      <button data-cview="bags" style="grid-column: 1 / -1">แผงถุงปุ๋ยข้างเครื่อง</button>
+    </div>
+    <div class="views"><button data-view="composter" style="grid-column: 1 / -1">ไปที่เครื่องหมัก</button><button data-view="shop" style="grid-column: 1 / -1">ไปที่ร้านขายปุ๋ย</button></div>
   </details>
 
   <details class="panel smart" id="smart" open>
