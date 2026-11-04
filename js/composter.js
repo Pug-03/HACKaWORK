@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { rbox, mergeStatic } from './geom.js';
 import { makeBrushedTexture } from './textures.js';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { axialFan, CHAIN, UCP, outsideRadius, sprocketMesh, chainPath, solveCentreDistance, rollerChain, spurGearShape, cutterShape, hexPath, hexBolt, pillowBlock, tefcMotor } from './mech.js';
+import { bmaBagTex } from './shop.js';
 
 // Stand-alone food-waste composter cabinet (separate unit beside the bin station).
 // 200 L heated U-trough with a paddle mixer, twin-shaft shredder on the feed, carbon-filtered exhaust.
@@ -1012,6 +1014,17 @@ export function buildComposter(renderer) {
   return {
     group,
     startButton: startBtn,
+    parts: PARTS,
+    // inspection cameras in composter-local coordinates [position, target]
+    views: {
+      chamber: [[0.0, 1.05, 1.05], [-0.05, 0.66, -0.05]],
+      drive: [[0.12, 0.8, 1.45], [0.48, 0.56, -0.02]],
+      shredder: [[0.05, 1.22, 1.0], [0.0, 0.98, -0.02]],
+      electrical: [[-0.3, 1.0, 0.95], [-0.46, 1.06, 0.0]],
+      air: [[0.2, 1.35, 0.95], [0.45, 1.02, -0.25]],
+      back: [[0.4, 0.9, -1.9], [0.0, 0.6, 0.0]],
+      bags: [[1.45, 0.85, 0.35], [0.62, 0.6, 0.0]],
+    },
     setRunning(v) { running = v; ledRun.emissiveIntensity = v ? 2 : 0; drawScreen(); },
     isRunning: () => running,
     isHatchOpen: () => !!hatch.userData.target,
