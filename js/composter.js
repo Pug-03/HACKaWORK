@@ -265,6 +265,13 @@ export function buildComposter(renderer) {
   const drawerY0 = y0 + t, drawerY1 = 0.32, doorY0 = 0.33, doorY1 = 0.93, ctrlY0 = 0.93, ctrlY1 = H - rc;
   // door frame jamb + gasket, so the opening reads as a real door when it swings
   group.add(rbox(frontW, 0.01, 0.012, ss, 0, doorY0 - 0.005, Dd / 2 - 0.006, 0.002));
+  // head rail between the door top and the console's lower edge (the 18° console ends ~12 mm above doorY1, which
+  // left a see-through slot into the machine): fixed to the body, flush with the door face
+  {
+    const consoleLow = ctrlY1 - (ctrlY1 - ctrlY0) * Math.cos(0.31);
+    const hy0 = doorY1 + 0.0005, hy1 = consoleLow - 0.0005;
+    group.add(rbox(frontW + 0.004, hy1 - hy0, 0.03, ss, 0, (hy0 + hy1) / 2, Dd / 2 - 0.015 - 0.0005, 0.001));
+  }
   // service door, hinged on the left, two quarter-turn locks; carries the branding vinyl
   const door = new THREE.Group();
   door.position.set(-frontW / 2, (doorY0 + doorY1) / 2, Dd / 2);
