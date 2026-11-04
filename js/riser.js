@@ -119,13 +119,35 @@ export function buildRiser(renderer, stationLength, stationDepth) {
   const stepTex = stripes();
   const stepZ = Dp / 2 + R.stepDepth / 2 + 0.12, stepBack = stepZ - R.stepDepth / 2;
   const sTop = R.stepHeight;
+  // tread: 4 mm anti-slip steel plate punched with staggered drain slots (rain falls straight through to the
+  // pavement, nothing ponds), on 30 mm skirts and end plates, with a solid yellow nosing along the walking edge
+  const treadMat = new THREE.MeshStandardMaterial({ color: 0x1f2630, metalness: 0.35, roughness: 0.8 });
+  const nosingMat = new THREE.MeshStandardMaterial({ color: 0xf2c200, roughness: 0.6 });
   const tread = (x0, x1) => {
-    const t = stepTex.clone();
-    t.needsUpdate = true;
-    t.repeat.set((x1 - x0) / 0.25, 1);
-    const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.03, R.stepDepth), [galv, galv, new THREE.MeshStandardMaterial({ map: t, roughness: 0.85, metalness: 0.3 }), galv, galv, galv]);
-    m.castShadow = m.receiveShadow = true;
-    return m;
+    const g = new THREE.Group(), w = x1 - x0, d = R.stepDepth;
+    const sh = new THREE.Shape();
+    sh.moveTo(-w / 2, -d / 2); sh.lineTo(w / 2, -d / 2); sh.lineTo(w / 2, d / 2); sh.lineTo(-w / 2, d / 2); sh.closePath();
+    const sl = 0.05, sw = 0.01, px = 0.07;
+    let row = 0;
+    for (let zc = -d / 2 + 0.03; zc <= d / 2 - 0.065; zc += 0.028, row++) {
+      for (let xc = -w / 2 + 0.035 + (row % 2) * px / 2; xc + sl / 2 <= w / 2 - 0.02; xc += px) {
+        const h = new THREE.Path();
+        h.moveTo(xc - sl / 2 + sw / 2, zc - sw / 2);
+        h.lineTo(xc + sl / 2 - sw / 2, zc - sw / 2); h.absarc(xc + sl / 2 - sw / 2, zc, sw / 2, -Math.PI / 2, Math.PI / 2, false);
+        h.lineTo(xc - sl / 2 + sw / 2, zc + sw / 2); h.absarc(xc - sl / 2 + sw / 2, zc, sw / 2, Math.PI / 2, Math.PI * 1.5, false);
+        sh.holes.push(h);
+      }
+    }
+    const plateGeo = new THREE.ExtrudeGeometry(sh, { depth: 0.004, bevelEnabled: false, curveSegments: 4 }).rotateX(-Math.PI / 2);
+    const plate = new THREE.Mesh(plateGeo, treadMat);   // shape y -> world -z
+    plate.position.y = 0.011;
+    g.add(plate);
+    for (const sz of [-1, 1]) g.add(rbox(w, 0.026, 0.004, galv, 0, -0.002, sz * (d / 2 - 0.002), 0.001));     // skirts (top = plate underside, not flush with its top/edge)
+    for (const sx of [-1, 1]) g.add(rbox(0.004, 0.026, d - 0.008, galv, sx * (w / 2 - 0.002), -0.002, 0, 0.001)); // end plates
+    for (let x = -w / 2 + 0.25; x < w / 2 - 0.1; x += 0.25) g.add(rbox(0.004, 0.022, d - 0.008, galv, x, -0.004, 0, 0.001));   // cross ribs
+    g.add(rbox(w, 0.004, 0.045, nosingMat, 0, 0.017, d / 2 - 0.0225, 0.001));                          // yellow nosing
+    g.traverse((m) => { if (m.isMesh) { m.castShadow = m.receiveShadow = true; } });
+    return g;
   };
   const flipHalf = R.tray.w / 2 + 0.03;              // hatch is 6 cm wider than the tray
   const cuts = [-W / 4, W / 4].map((c) => [c - flipHalf, c + flipHalf]);
