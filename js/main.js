@@ -495,8 +495,8 @@ const smaa = new SMAAPass(viewport.clientWidth * DPR, viewport.clientHeight * DP
 composer.addPass(smaa);
 
 /* ---------- loop: render on demand ----------
-   Idle: nothing is drawn. While the camera or a lid moves: fast render (no AO).
-   ~150 ms after motion stops: one high-quality frame with ambient occlusion. */
+   One render path only (MSAA + soft shadow maps), so the picture looks the same while moving,
+   after stopping and at any zoom. Idle: nothing is drawn. */
 function invalidate(sceneChanged = false) {
   dirty = true;
   if (sceneChanged) shadowsDirty = true;
@@ -546,7 +546,7 @@ function animate() {
   if (riser.update(dt)) invalidate(true);
   // light-only changes (blinking beacon / truck roof light) repaint at full quality directly,
   // so the image doesn't alternate between the fast no-AO frame and the AO frame
-  const hw = hardware.update(dt);
+  const hw = hardware.update(dt, camera.position);
   if (hw === 3) lightDirty = true; else if (hw) invalidate(hw === 2);
   const tr = truck.update(dt);
   if (smart.truck !== truck.state()) { smart.truck = truck.state(); publish(); }

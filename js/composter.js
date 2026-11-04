@@ -106,15 +106,65 @@ export function buildComposter(renderer) {
   const plastic = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.5 });
   const mechMats = { cast, steel, dark: blackOx, brass };
 
-  // recessed plinth (kick base) hides the leveling feet, like commercial units
-  const rc = 0.045;                                    // corner radius of the cabinet
-  group.add(rbox(W - 0.07, foot, Dd - 0.07, black, 0, foot / 2, 0, 0.01));
+  // parts that come off / swing open in the cutaway view, and their numbered callouts
+  const cutHide = [];                                // front halves + guards, hidden in cutaway
+  const callouts = [];
+  const tag = (o, part) => { o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; m.userData.part = part; } }); return o; };
 
-  // cabinet shell
-  const y0 = foot, bodyH = H - foot;
-  group.add(rbox(W - 2 * rc, t, Dd - 2 * rc, ss, 0, y0 + t / 2, 0, 0.004));       // floor
-  // rounded vertical corners (r = 45 mm) and rounded top edges; flat walls run between them
-  const colH = H - rc - y0;
+  /* ---------- section helpers: U-profile halves extruded along X ----------
+     2D coords (a, b) = (z - dz, y - y0). side -1 = back half (a <= 0), +1 = front half. Each half is a
+     closed solid, so with the front halves hidden the layers show real cut faces at a = 0. */
+  const dz = -0.02;
+  const T = { r: 0.29, hs: 0.2, y0: 0.7, xL: -0.45, xR: 0.35 };      // trough: inner radius, straight height, axis
+  const L_T = T.xR - T.xL;
+  const N_ARC = 28;
+  function halfU(r0, r1, top, side, a0 = -Math.PI / 2, span = Math.PI / 2, straight = true) {
+    const sh = new THREE.Shape(), pts = [];
+    for (let k = 0; k <= N_ARC; k++) { const a = a0 + side * span * (k / N_ARC); pts.push([Math.cos(a) * r0, Math.sin(a) * r0]); }
+    if (straight) pts.push([side * r0, top]);
+    const outer = [];
+    for (let k = 0; k <= N_ARC; k++) { const a = a0 + side * span * (k / N_ARC); outer.push([Math.cos(a) * r1, Math.sin(a) * r1]); }
+    if (straight) outer.push([side * r1, top]);
+    pts.forEach(([x, y], i) => (i ? sh.lineTo(x, y) : sh.moveTo(x, y)));
+    outer.reverse().forEach(([x, y]) => sh.lineTo(x, y));
+    sh.closePath();
+    return sh;
+  }
+  // solid half plate (end plates / end insulation): U region out to r1 with a half-hole of radius rh
+  function halfPlate(r1, top, rh, side) {
+    const sh = new THREE.Shape();
+    sh.moveTo(0, -r1);
+    for (let k = 1; k <= N_ARC; k++) { const a = -Math.PI / 2 + side * (Math.PI / 2) * (k / N_ARC); sh.lineTo(Math.cos(a) * r1, Math.sin(a) * r1); }
+    sh.lineTo(side * r1, top); sh.lineTo(0, top); sh.lineTo(0, rh);
+    for (let k = 1; k < 16; k++) { const a = Math.PI / 2 - side * (Math.PI) * (k / 16); sh.lineTo(Math.cos(a) * rh, Math.sin(a) * rh); }   // half-hole on this half's own side
+    sh.lineTo(0, -rh); sh.closePath();
+    return sh;
+  }
+  // extrude a profile along X from x0 to x1 (profile a -> world Z, b -> world Y)
+  function alongX(shape, x0, x1, mat, y0 = T.y0) {
+    const g = new THREE.ExtrudeGeometry(shape, { depth: x1 - x0, bevelEnabled: false, curveSegments: 8 });
+    const m = new THREE.Mesh(g, mat);
+    m.rotation.y = -Math.PI / 2;                     // local X -> world +Z, local Z -> world -X
+    m.position.set(x1, y0, dz);
+    m.castShadow = m.receiveShadow = true;
+    return m;
+  }
+  const inside = new THREE.Group();
+  const both = (fn) => { for (const side of [-1, 1]) { const m = fn(side); inside.add(m); if (side > 0) cutHide.push(m); } };
+
+  /* ---------- cabinet shell (1.2 mm SUS304 hairline, 45 mm corner radius) ---------- */
+  const y0 = foot, colH = H - rc - y0;
+  group.add(rbox(W - 0.1, foot - 0.004, Dd - 0.1, black, 0, foot / 2, 0, 0.006));               // recessed plinth
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {                                          // M16 levelling feet
+    const fx = sx * (W / 2 - 0.08), fz = sz * (Dd / 2 - 0.08);
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.032, 0.012, 24), rubber);
+    pad.position.set(fx, 0.006, fz);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, foot - 0.012, 12), steel);
+    stem.position.set(fx, 0.012 + (foot - 0.012) / 2, fz);
+    const nut = hexBolt(0.016, steel); nut.position.set(fx, 0.03, fz);
+    group.add(pad, stem, nut);
+  }
+  group.add(rbox(W - 2 * rc, t, Dd - 2 * rc, ss, 0, y0 + t / 2, 0, 0.004));                        // floor
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
     const col = new THREE.Mesh(new THREE.CylinderGeometry(rc, rc, colH, 32), ss);
     col.position.set(sx * (W / 2 - rc), y0 + colH / 2, sz * (Dd / 2 - rc));
@@ -220,19 +270,43 @@ export function buildComposter(renderer) {
   group.add(rbox(0.38, 0.17, 0.006, black, -0.3, (ctrlY0 + ctrlY1) / 2, Dd / 2 - 0.002, 0.004));   // bezel
   const ledRun = new THREE.MeshStandardMaterial({ color: 0x1b5e20, emissive: 0x22c55e, emissiveIntensity: 0 });
   const ledHeat = new THREE.MeshStandardMaterial({ color: 0x7a3b00, emissive: 0xff7a00, emissiveIntensity: 0 });
-  [[ledRun, 0.05], [ledHeat, 0.1]].forEach(([m, x]) => {
-    const led = new THREE.Mesh(new THREE.SphereGeometry(0.008, 12, 8), m);
-    led.position.set(x, (ctrlY0 + ctrlY1) / 2 + 0.03, Dd / 2 + 0.002);
-    group.add(led);
+  const ledFault = new THREE.MeshStandardMaterial({ color: 0x5a0d0d, emissive: 0xff2a2a, emissiveIntensity: 0 });
+  const legend = (txt) => canvasTex(160, 48, (ctx, w, h) => { ctx.fillStyle = '#e9ecef'; ctx.fillRect(0, 0, w, h); ctx.fillStyle = '#1d2228'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; fitText(ctx, txt, w / 2, h / 2, w * 0.9, h * 0.6, 600); }).tex;
+  const ctrlRow = -cHgt / 2;
+  [[ledRun, -0.08, 'ทำงาน'], [ledHeat, -0.02, 'ฮีตเตอร์'], [ledFault, 0.04, 'ขัดข้อง']].forEach(([m, x, txt]) => {
+    const bez = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.01, 24).rotateX(Math.PI / 2), steel);
+    bez.position.set(x, ctrlRow + 0.02, 0.005);
+    const lens = new THREE.Mesh(new THREE.SphereGeometry(0.011, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI / 2), m);
+    lens.position.set(x, ctrlRow + 0.02, 0.009);
+    const lg = new THREE.Mesh(new THREE.PlaneGeometry(0.045, 0.014), new THREE.MeshStandardMaterial({ map: legend(txt), roughness: 0.6 }));
+    lg.position.set(x, ctrlRow - 0.012, 0.0005);
+    consoleTilt.add(bez, lens, lg);
   });
-  const startBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.014, 24), new THREE.MeshStandardMaterial({ color: 0x1f8a3a, roughness: 0.4 }));
-  startBtn.rotation.x = Math.PI / 2;
-  startBtn.position.set(0.25, (ctrlY0 + ctrlY1) / 2, Dd / 2 + 0.007);
+  // AUTO / OFF / MAN selector, START (flush green), STOP (flush red), E-STOP (40 mm mushroom on yellow plate)
+  const sel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.012, 24).rotateX(Math.PI / 2), black);
+  sel.position.set(0.11, ctrlRow + 0.02, 0.006);
+  consoleTilt.add(sel, rbox(0.006, 0.026, 0.008, black, 0.11, ctrlRow + 0.02, 0.014, 0.002));
+  const lgSel = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.014), new THREE.MeshStandardMaterial({ map: legend('อัตโนมัติ·ปิด·มือ'), roughness: 0.6 }));
+  lgSel.position.set(0.11, ctrlRow - 0.012, 0.0005);
+  consoleTilt.add(lgSel);
+  const startBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.012, 24).rotateX(Math.PI / 2), plastic(0x1f8a3a));
+  startBtn.position.set(0.18, ctrlRow + 0.02, 0.008);
   startBtn.userData.part = 'composterStart';
-  group.add(startBtn);
-  const estop = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.022, 0.018, 24), new THREE.MeshStandardMaterial({ color: 0xc62828, roughness: 0.4 }));
-  estop.rotation.x = Math.PI / 2;
-  estop.position.set(0.42, (ctrlY0 + ctrlY1) / 2, Dd / 2 + 0.009);
+  const stopBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.012, 24).rotateX(Math.PI / 2), plastic(0xc62828));
+  stopBtn.position.set(0.235, ctrlRow + 0.02, 0.008);
+  stopBtn.userData.part = 'composterStart';
+  for (const [x, txt] of [[0.18, 'เริ่ม'], [0.235, 'หยุด']]) {
+    const g = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.006, 24).rotateX(Math.PI / 2), steel);
+    g.position.set(x, ctrlRow + 0.02, 0.003);
+    const lg = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.014), new THREE.MeshStandardMaterial({ map: legend(txt), roughness: 0.6 }));
+    lg.position.set(x, ctrlRow - 0.012, 0.0005);
+    consoleTilt.add(g, lg);
+  }
+  consoleTilt.add(startBtn, stopBtn);
+  const ePlate = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.002, 32).rotateX(Math.PI / 2), plastic(0xf2c200));
+  ePlate.position.set(0.34, ctrlRow + 0.005, 0.001);
+  const estop = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.022, 0.024, 28).rotateX(Math.PI / 2), plastic(0xc62828));
+  estop.position.set(0.34, ctrlRow + 0.005, 0.014);
   estop.userData.part = 'estop';
   const eCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.012, 24).rotateX(Math.PI / 2), black);
   eCollar.position.set(0.34, ctrlRow + 0.005, 0.006);
@@ -281,78 +355,8 @@ export function buildComposter(renderer) {
   drawer.userData = { open: 0, target: 0 };
   const DRAWER_TRAVEL = 0.5;
   group.add(drawer);
-
-  /* ---------- interior: in-vessel composting mechanism ----------
-     Drum axis runs along X. In cutaway mode the cabinet front and the drum's front half are
-     removed so the mechanism is visible (no transparency). */
-  const inside = new THREE.Group();
-  const R = C.drum.radius, Lg = C.drum.length, dy = C.drum.y, dz = -0.02;
-  const steelIn = new THREE.MeshStandardMaterial({ color: 0xc9ced3, metalness: 0.85, roughness: 0.3, side: THREE.DoubleSide });
-  const capMat = new THREE.MeshStandardMaterial({ color: 0x8e959b, metalness: 0.8, roughness: 0.4, side: THREE.DoubleSide });
-  const drumMat = steelIn;   // kept for compatibility with older code paths
-  const along = (m) => { m.rotation.z = Math.PI / 2; m.position.set(0, dy, dz); return m; };   // cylinder axis -> X
-  // drum shell in two halves (theta 0 = front / +Z)
-  const drumBack = along(new THREE.Mesh(new THREE.CylinderGeometry(R, R, Lg, 48, 1, true, Math.PI / 2, Math.PI), steelIn));
-  const drumFront = along(new THREE.Mesh(new THREE.CylinderGeometry(R, R, Lg, 48, 1, true, -Math.PI / 2, Math.PI), steelIn));
-  inside.add(drumBack, drumFront);
-  for (const sx of [-1, 1]) {
-    const cap = new THREE.Mesh(new THREE.CircleGeometry(R, 48), capMat);
-    cap.rotation.y = sx * Math.PI / 2;
-    cap.position.set(sx * Lg / 2, dy, dz);
-    inside.add(cap);
-    const flange = new THREE.Mesh(new THREE.TorusGeometry(R, 0.01, 8, 48), capMat);
-    flange.rotation.y = Math.PI / 2;
-    flange.position.set(sx * Lg / 2, dy, dz);
-    inside.add(flange);
-  }
-  // heater pads wrapped round the lower half + insulation blanket behind
-  const heatMat = new THREE.MeshStandardMaterial({ color: 0x6b2a12, emissive: 0xff5a00, emissiveIntensity: 0, roughness: 0.6, side: THREE.DoubleSide });
-  inside.add(along(new THREE.Mesh(new THREE.CylinderGeometry(R + 0.005, R + 0.005, Lg - 0.08, 40, 1, true, Math.PI * 1.2, Math.PI * 0.6), heatMat)));
-  const insul = new THREE.MeshStandardMaterial({ color: 0x55595e, roughness: 0.95, side: THREE.DoubleSide });
-  inside.add(along(new THREE.Mesh(new THREE.CylinderGeometry(R + 0.03, R + 0.03, Lg - 0.02, 40, 1, true, Math.PI / 2, Math.PI), insul)));
-  // compost bed: solid circular segment filling ~45 % of the drum
-  {
-    const r = R - 0.006, c = -R * 0.12, a = Math.asin(c / r);
-    const sh = new THREE.Shape();
-    sh.absarc(0, 0, r, Math.PI - a, 2 * Math.PI + a, false);
-    sh.closePath();
-    const depth = Lg - 0.02;
-    const bedGeo = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: false, curveSegments: 32 });
-    const bed = new THREE.Mesh(bedGeo, new THREE.MeshStandardMaterial({ color: 0x4a3423, roughness: 1 }));
-    bed.rotation.y = Math.PI / 2;
-    bed.position.set(-depth / 2, dy, dz);
-    inside.add(bed);
-  }
-  // rotor: shaft + double helical ribbon on spokes (ribbon mixer), turns slowly and reverses
-  const rotor = new THREE.Group();
-  rotor.position.set(0, dy, dz);
-  const shaftLen = Lg + 0.26;
-  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, shaftLen, 16), steelIn);
-  shaft.rotation.z = Math.PI / 2;
-  shaft.position.x = 0.04;
-  rotor.add(shaft);
-  const ribbonMat = new THREE.MeshStandardMaterial({ color: 0xb8bec4, metalness: 0.85, roughness: 0.35 });
-  for (const [rh, phase] of [[R - 0.035, 0], [R * 0.55, Math.PI]]) {
-    const turns = 1.5, len = Lg * 0.88;
-    const pts = [];
-    for (let i = 0; i <= 120; i++) {
-      const u = i / 120, ang = phase + u * turns * Math.PI * 2;
-      pts.push(new THREE.Vector3(-len / 2 + u * len, Math.cos(ang) * rh, Math.sin(ang) * rh));
-    }
-    const ribbon = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 160, 0.009, 8, false), ribbonMat);
-    ribbon.scale.set(1, 1, 1);
-    rotor.add(ribbon);
-    // spokes tying the ribbon to the shaft every half turn
-    for (let k = 0; k <= turns * 2; k++) {
-      const u = k / (turns * 2), ang = phase + u * turns * Math.PI * 2;
-      const spoke = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, rh, 8), ribbonMat);
-      spoke.position.set(-len / 2 + u * len, Math.cos(ang) * rh / 2, Math.sin(ang) * rh / 2);
-      spoke.rotation.x = ang;
-      rotor.add(spoke);
-    }
-  }
-  inside.add(rotor);
-  // shelf over the drawer bay, with the discharge opening under the drum
+  for (const sx of [-1, 1]) inside.add(rbox(0.006, 0.04, Dd - 0.14, galv, sx * (tubW / 2 + 0.01), drawerY0 + dHh / 2, -0.03, 0.001));   // cabinet slide members
+  // drawer-bay ceiling shelf with the discharge hole
   const shelfY = drawerY1 + 0.005;
   {
     const sh = new THREE.Shape(), sw = xi, sd = zi;
@@ -766,13 +770,14 @@ export function buildComposter(renderer) {
   const cutLabels = [];
   const cutLabel = (text, x, y, z) => {
     const el = document.createElement('div');
-    el.className = 'dim hw';
-    el.textContent = text;
+    el.className = 'dim hw callout';
+    el.textContent = String(n);
+    el.title = `${name} — ${spec}`;
     const o = new CSS2DObject(el);
     o.position.set(x, y, z);
     o.visible = false;
     group.add(o);
-    cutLabels.push(o);
+    callouts.push(o);
   };
   callout('ห้องหมักรูปตัว U', `SUS304 หนา 3 มม. · r 290 × ยาว 800 มม. · ~${C.capacityL} L`, -0.2, T.y0 + 0.12, dz + 0.05);
   callout('แผ่นฮีตเตอร์ซิลิโคน + ฉนวน', '1.5 kW คุม 55–65°C · ร็อกวูล 40 มม. · หุ้มแผ่น 1 มม.', -0.25, T.y0 - T.r - 0.02, dz + 0.02);
@@ -828,13 +833,13 @@ export function buildComposter(renderer) {
   }
   layChain();
 
-  // cutaway = remove the branding panel and the drum's front half (no transparency, so AO stays clean)
   function setCutaway(v) {
     cutaway = v;
-    brandPanel.visible = !v;
-    consolePivot.visible = !v;
-    drumFront.visible = !v;
-    cutLabels.forEach((l) => (l.visible = v));
+    cutHide.forEach((m) => (m.visible = !v));
+    door.userData.target = v ? 1 : 0;
+    consoleOuter.userData.target = v ? 1 : 0;
+    epDoor.userData.target = v ? 1 : 0;
+    callouts.forEach((l) => (l.visible = v));
   }
   const ease = (u, dt, k) => { if (Math.abs(u.target - u.open) <= 1e-4) return false; u.open += (u.target - u.open) * Math.min(1, dt * k); if (Math.abs(u.target - u.open) <= 1e-4) u.open = u.target; return true; };
 
@@ -845,6 +850,7 @@ export function buildComposter(renderer) {
     isRunning: () => running,
     isHatchOpen: () => !!hatch.userData.target,
     setCutaway,
+    isCutaway: () => cutaway,
     toggleHatch() { hatch.userData.target = hatch.userData.target ? 0 : 1; },
     isDrawerOpen: () => !!drawer.userData.target,
     toggleDrawer() { drawer.userData.target = drawer.userData.target ? 0 : 1; },

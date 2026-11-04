@@ -149,6 +149,15 @@
   .seg button { font: inherit; font-size: 12px; padding: 5px 0; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
   .seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+  .legend { left: 16px; top: calc(128px + env(safe-area-inset-top, 0px)); width: 330px; max-height: calc(100vh - 220px); overflow: auto; }
+  .legend h2 { margin: 0 0 8px; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; color: var(--muted); }
+  .legend ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+  .legend li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; font-size: 13px; line-height: 1.35; }
+  .legend li b { font-weight: 600; }
+  .legend li span.n { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #1d4ed8; color: #fff; font-size: 11px; font-weight: 600; }
+  .legend li small { display: block; color: var(--muted); font-size: 12px; }
+  .dim.callout { width: 20px; height: 20px; padding: 0; border-radius: 50%; display: grid; place-items: center; font-weight: 600; box-shadow: 0 0 0 2px #fff; }
+  @media (max-width: 640px) { .legend { width: calc(100% - 32px); max-height: 38vh; } }
   .specs { left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); min-width: 220px; }
   .specs dl { margin: 0; display: grid; gap: 4px; }
   .specs dl div { display: flex; justify-content: space-between; gap: 18px; font-size: 14px; }
@@ -245,6 +254,7 @@
   </details>
 
   <div class="hint">คลิกถัง ปุ่มแดง ถาด หรือช่องเติมปุ๋ย เพื่อใช้งาน</div>
+  <section class="panel legend" id="comp-legend" aria-label="ชิ้นส่วนเครื่องหมัก" hidden><h2>ชิ้นส่วนภายในเครื่องหมัก</h2><ol id="comp-legend-list"></ol></section>
   <div id="tooltip" hidden></div>
   <div id="toast" role="status" hidden></div>
   <section class="panel circuit" id="circuit" aria-label="ผังวงจร" hidden></section>
