@@ -92,7 +92,7 @@ export function buildHardware(station) {
     const text = (t, y, size, weight = 600, color = ink) => { g.fillStyle = color; g.font = `${weight} ${size}px ${FONT}`; g.textAlign = 'center'; g.fillText(t, W2 / 2, y); };
     if (kind.startsWith('tb')) { screws(22); screws(H2 - 22); g.fillStyle = 'rgba(0,0,0,0.15)'; g.fillRect(0, H2 * 0.45, W2, 6); }
     else {
-      screws(24); screws(H2 - 24);
+      if (kind !== 'mppt') { screws(24); screws(H2 - 24); }
       if (kind === 'ctrl') {
         g.fillStyle = '#0f172a'; g.fillRect(W2 * 0.12, H2 * 0.28, W2 * 0.76, H2 * 0.24);
         g.fillStyle = '#4ade80'; g.font = `600 ${Math.round(H2 * 0.08)}px ${FONT}`; g.textAlign = 'left';
@@ -154,6 +154,20 @@ export function buildHardware(station) {
   const chip = new THREE.MeshStandardMaterial({ color: 0x111317, roughness: 0.4 });
   const shield = new THREE.MeshStandardMaterial({ color: 0xc9cdd1, metalness: 0.9, roughness: 0.25 });
   const plate = new THREE.MeshStandardMaterial({ color: 0xd3d7da, metalness: 0.3, roughness: 0.6 });
+  // tube along a CurvePath: straight runs get 1 segment, bends `bendDiv` segments (no wasted rings on long runs)
+  function tubeAlong(path, radius, radial, bendDiv) {
+    const parts = path.curves.map((c) => [c, c.isLineCurve3 ? 1 : bendDiv]);
+    const n = parts.reduce((s, p) => s + p[1], 0);
+    const at = (t, fn, target) => {
+      let k = t * n;
+      for (const [c, m] of parts) { if (k <= m + 1e-6) return c[fn](Math.max(0, Math.min(1, k / m)), target); k -= m; }
+      return parts[parts.length - 1][0][fn](1, target);
+    };
+    const curve = new THREE.Curve();
+    curve.getPoint = curve.getPointAt = (t, target = new THREE.Vector3()) => at(t, 'getPoint', target);
+    curve.getTangent = curve.getTangentAt = (t, target = new THREE.Vector3()) => at(t, 'getTangent', target);
+    return new THREE.TubeGeometry(curve, n, radius, radial, false);
+  }
   // polyline with rounded corners -> tube (used for both field conduits and panel wiring)
   function routed(pts, radius, bend, mat) {
     const path = new THREE.CurvePath();
@@ -170,7 +184,7 @@ export function buildHardware(station) {
         prev = b;
       } else path.add(new THREE.LineCurve3(prev, p));
     }
-    const m = new THREE.Mesh(new THREE.TubeGeometry(path, Math.max(24, pts.length * 16), radius, 8, false), mat);
+    const m = new THREE.Mesh(tubeAlong(path, radius, radial, bendDiv), mat);
     m.userData.curve = path;
     m.castShadow = true;
     return m;
@@ -277,12 +291,13 @@ export function buildHardware(station) {
 
   // battery box: LiFePO4 12.8 V 20 Ah (256 Wh) + MPPT charge controller, vented, lockable
   const batt = new THREE.Group();
-  batt.position.set(X0 - 0.068, 0.48, -0.15);
+  batt.position.set(cabX + 0.007, CAB.y - 0.07, CAB.z + CAB.battX);   // heavy pack low   // parts mount straight on the cabinet backplate
   batt.rotation.y = -Math.PI / 2;                   // local +Z faces world -X
   const bW = 0.22, bH = 0.32, bD = 0.13;
   const battShell = new THREE.MeshStandardMaterial({ color: 0xd9dcdf, metalness: 0.2, roughness: 0.5 });
-  batt.add(enclosure(bW, bH, bD, battShell, 'battery'));
+  // (no separate battery box any more: one big cabinet, everything on its backplate)
   const battDoor = door(batt, bW, bH, bD, battShell, 'battery');
+  batt.remove(battDoor);                           // kept only as the 'opened' state for the labels
   doors.push(battDoor);
   const battLabel = document.createElement('canvas');
   battLabel.width = 360; battLabel.height = 200;
@@ -321,20 +336,20 @@ export function buildHardware(station) {
   pk.font = `400 22px ${FONT}`; pk.fillText('BMS ในตัว', 160, 170);
   const pkT = new THREE.CanvasTexture(packTex); pkT.colorSpace = THREE.SRGBColorSpace;
   const packBlue = new THREE.MeshStandardMaterial({ color: 0x1e4fa3, roughness: 0.5 });
-  const packD = 0.075, packZ = zp + packD / 2 + 0.002, packTop = -0.035;
+  const packD = 0.075, packZ = zp + packD / 2 + 0.002, packTop = -0.043;
   const pack = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.1, packD), [packBlue, packBlue, packBlue, packBlue, new THREE.MeshStandardMaterial({ map: pkT, roughness: 0.5 }), packBlue]);
   pack.position.set(0, packTop - 0.05, packZ);
   bIn.add(pack);
   bIn.add(rbox(0.18, 0.006, packD + 0.01, steel, 0, packTop - 0.103, packZ, 0.002));          // shelf
   bIn.add(rbox(0.012, 0.102, packD + 0.004, dark, 0, packTop - 0.05, packZ, 0.002));          // strap
   const termRed = wmat(0xd42a1e), termBlk = wmat(0x111111);
-  const bt = [[-0.06, termRed], [0.06, termBlk]].map(([x, m]) => {
-    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.01, 12), m);
+  for (const [x, m] of [[-0.0125, termRed], [0.0125, termBlk]]) {
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.007, 0.01, 12), m);
     t.position.set(x, packTop + 0.005, packZ);
     bIn.add(t);
-    return [x, packTop + 0.01, packZ];
-  });
+  }
   // MPPT controller (heat-sink back against the plate) with a 6-way terminal strip along its bottom
+  // (PV+ PV- BAT+ BAT- LOAD+ LOAD- at x = -0.0625 ... 0.0625, 25 mm pitch)
   const mpptY = 0.09, mpptZ = zp + 0.02;
   bIn.add(device('mppt', 0.15, 0.075, 0.03, 0, mpptY, mpptZ));
   const mpptT = [-0.0625, -0.0375, -0.0125, 0.0125, 0.0375, 0.0625].map((x) => {    // PV+ PV- BAT+ BAT- LOAD+ LOAD-
@@ -386,7 +401,7 @@ export function buildHardware(station) {
   const poleGlandSolar = gland(P(poleX, 0.76, poleZ + 0.03), P(0, 0, 1));
   const poleGlandBeacon = gland(P(poleX, 0.18, poleZ + 0.03), P(0, 0, 1));
   group.add(poleGlandSolar, poleGlandBeacon);
-  const pS = P(poleX, 0.76, poleZ + 0.056), pB = P(poleX, 0.18, poleZ + 0.056);
+  const pS = P(poleX, 0.21, poleZ + 0.056), pB = P(poleX, 0.15, poleZ + 0.056);
   const bTop = tipOf(batt, battGlandTop), bBot = tipOf(batt, battGlandBot);
   conduit([pS, P(pS.x, pS.y, pS.z + 0.03), P(bTop.x, pS.y, bTop.z), P(bTop.x, bTop.y + 0.03, bTop.z), bTop], 'cableSolar');      // solar -> battery
   /* ---------- wireless fill sensors under each lid (battery + LoRa, no cable) ---------- */
@@ -469,7 +484,6 @@ export function buildHardware(station) {
   const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.012, 32), new THREE.MeshStandardMaterial({ color: 0xf2c200, roughness: 0.5 }));
   ring.rotation.x = Math.PI / 2;
   ring.position.set(0, -0.06, 0.044);
-  unitDoor.attachFront(ring);
   const btnMat = new THREE.MeshStandardMaterial({ color: 0xd42a1e, emissive: 0x7a0d06, emissiveIntensity: 0.4, roughness: 0.35 });
   const button = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.028, 0.022, 32), btnMat);
   button.rotation.x = Math.PI / 2;
@@ -489,7 +503,6 @@ export function buildHardware(station) {
   capTex.colorSpace = THREE.SRGBColorSpace;
   const capPlate = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.033), new THREE.MeshStandardMaterial({ map: capTex, roughness: 0.7 }));
   capPlate.position.set(0, -0.122, 0.0395);
-  unitDoor.attachFront(capPlate);
   // internals: DIN-rail controller panel — controller, LTE router, LoRa gateway, DC-DC, relay,
   // breaker and terminal blocks on two rails, slotted wire duct between, routed wiring and coax
   const uIn = new THREE.Group();
@@ -550,7 +563,6 @@ export function buildHardware(station) {
   unit.add(uIn);
   const unitGlandPower = gland(P(-0.06, -uH / 2, 0), P(0, -1, 0));
   const unitGlandBeacon = gland(P(0.06, -uH / 2, 0), P(0, -1, 0));
-  unit.add(unitGlandPower, unitGlandBeacon);
   label(unit, 'คอนโทรลเลอร์ (MCU)', -0.055, r1y + 0.05, 0.02, unitDoor);
   label(unit, 'เราเตอร์ 4G LTE → แดชบอร์ด', 0.025, r1y - 0.05, 0.03, unitDoor);
   label(unit, 'LoRa gateway', 0.065, r1y + 0.055, 0.02, unitDoor);
@@ -566,7 +578,8 @@ export function buildHardware(station) {
   antBase2.position.set(-0.07, 0.158, 0);
   const stubby = new THREE.Mesh(new THREE.CapsuleGeometry(0.007, 0.05, 4, 10), dark);
   stubby.position.set(-0.07, 0.2, 0);
-  unit.add(antBase, whip, antBase2, stubby);
+  // (antennas moved to the cabinet roof)
+
   unit.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.userData.part ??= 'unit'; } });
   button.userData.part = 'callButton';
   group.add(unit);
@@ -653,6 +666,8 @@ export function buildHardware(station) {
     }
   }
   let flowing = false;
+  // the outer door opens whenever an inner box is opened, and shuts when both are closed
+  function syncCab() { cabDoor.userData.target = unitDoor.userData.target || battDoor.userData.target ? 1 : 0; }
 
   return {
     group,
@@ -664,8 +679,8 @@ export function buildHardware(station) {
     button,
     apply,
     press() { pressT = 0.25; },
-    toggleUnit() { unitDoor.userData.target = unitDoor.userData.target ? 0 : 1; },
-    toggleBattery() { battDoor.userData.target = battDoor.userData.target ? 0 : 1; },
+    toggleUnit() { unitDoor.userData.target = unitDoor.userData.target ? 0 : 1; syncCab(); },
+    toggleBattery() { battDoor.userData.target = battDoor.userData.target ? 0 : 1; syncCab(); },
     setInsideView(v) {
       insideMode = v;
       doors.forEach((d) => (d.userData.target = v ? 1 : 0));
@@ -689,7 +704,7 @@ export function buildHardware(station) {
         if (Math.abs(u.target - u.open) > 1e-4) {
           u.open += (u.target - u.open) * Math.min(1, dt * 5);
           if (Math.abs(u.target - u.open) <= 1e-4) u.open = u.target;
-          d.rotation.y = u.side * u.open * 1.9;
+          d.rotation.y = u.side * u.open * u.max;
           res = 2;
         }
       }
