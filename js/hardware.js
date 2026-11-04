@@ -634,6 +634,60 @@ export function buildHardware(station) {
   const fanBlurs = [];
   const addBlur = (f) => { for (const z of [-0.008, 0.008]) { const d = new THREE.Mesh(blurGeo, blurMat); d.position.z = z; d.visible = false; d.userData.noMerge = true; f.add(d); fanBlurs.push(d); } };   // one disc each side of the blade sweep
   const sideX = -cW / 2, fanZ = CAB.fanZ;
+  // airflow: faint streaks drawn with additive blending. Intake (door side, high): air is drawn up from under its
+  // rain hood and converges on the grille. Exhausts (pole side): air leaves each grille and is turned down and out by
+  // the hood. Streak speed, length and brightness all follow the actual rotor rpm, so they ease in and out with it.
+  const AIR_N = 36;
+  const air = [];
+  const airPos = new Float32Array(AIR_N * 4 * 2 * 3), airCol = new Float32Array(AIR_N * 4 * 2 * 3);
+  const airGeo = new THREE.BufferGeometry();
+  airGeo.setAttribute('position', new THREE.BufferAttribute(airPos, 3).setUsage(THREE.DynamicDrawUsage));
+  airGeo.setAttribute('color', new THREE.BufferAttribute(airCol, 3).setUsage(THREE.DynamicDrawUsage));
+  const airLines = new THREE.LineSegments(airGeo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  airLines.frustumCulled = false;
+  airLines.userData.noMerge = true;
+  airLines.raycast = () => {};
+  airLines.visible = false;
+  cab.add(airLines);
+  const airRnd = (() => { let q = 7; return () => ((q = (q * 16807) % 2147483647) / 2147483647); })();
+  const newParticle = (p, u0) => { p.u = u0; p.a = airRnd() * Math.PI * 2; p.r = Math.sqrt(airRnd()) * 0.045; p.k = 0.7 + airRnd() * 0.6; p.w = (airRnd() - 0.5); };
+  // emitter: c = grille centre (cab-local), out = +1 / -1 along X (outward), intake?
+  for (const fy of CAB.fanYs) air.push({ x: sideX - 0.012, y: fy, z: CAB.fanZ, out: -1, intake: false, ps: [] });
+  air.push({ x: cW / 2 + 0.012, y: CAB.inY, z: CAB.inZ, out: 1, intake: true, ps: [] });
+  for (const e of air) for (let i = 0; i < AIR_N; i++) { const p = {}; newParticle(p, i / AIR_N); e.ps.push(p); }
+  const airPt = (e, p, u, out) => {
+    // exhaust: 3 cm straight out under the hood, then curving down and away (~35 cm); intake: the reverse path
+    const t = e.intake ? 1 - u : u;
+    const spread = 1 + t * 2.2;
+    const dx = 0.03 * Math.min(1, t * 4) + 0.34 * t * p.k;              // mostly outward...
+    const dy = -0.05 * Math.min(1, t * 3) * p.k - 0.05 * t * t;           // ...turned slightly down by the hood
+    out.set(e.x + e.out * dx, e.y + Math.sin(p.a) * p.r * spread + dy, e.z + Math.cos(p.a) * p.r * spread + p.w * 0.06 * t);
+    return out;
+  };
+  const _h = new THREE.Vector3(), _t = new THREE.Vector3();
+  function updateAir(dt, rpm) {
+    const f = rpm / FAN_MAX_RPM;
+    const on = rpm > 30;
+    airLines.visible = on;
+    if (!on) return;
+    const speed = 0.25 + 1.6 * Math.pow(f, 0.6);                 // path fraction per second
+    const glow = Math.min(1, rpm / 2500);
+    const tail = 0.04 + 0.22 * Math.pow(f, 0.7);                  // streak length grows with airspeed
+    let k = 0;
+    for (const e of air) for (const p of e.ps) {
+      p.u += dt * speed * p.k;
+      if (p.u >= 1) newParticle(p, p.u - 1);
+      const u = p.u;
+      airPt(e, p, u, _h);
+      airPt(e, p, Math.max(0, u - tail), _t);   // tail = where it was a moment ago
+      const fade = Math.sin(Math.PI * u) * glow * 0.55;           // fade in at the start, out at the end
+      airPos.set([_h.x, _h.y, _h.z, _t.x, _t.y, _t.z], k * 6);
+      airCol.set([0.45 * fade, 0.75 * fade, 0.95 * fade, 0, 0, 0], k * 6);   // pale air-blue head fading to nothing
+      k++;
+    }
+    airGeo.attributes.position.needsUpdate = true;
+    airGeo.attributes.color.needsUpdate = true;
+  }
   for (const fy of CAB.fanYs) {
     const { group: f, rotor } = axialFan(0.12, fanMats);
     f.rotation.y = -Math.PI / 2;                     // outlet -> local -X, out through the side wall
