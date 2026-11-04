@@ -4,7 +4,7 @@ import { rbox, mergeStatic } from './geom.js';
 // Fertilizer shop display stand beside the composter (1 unit = 1 m).
 // A standard single-sided pegboard gondola: 1.2 m bay, 6 mm holes on a 25.4 mm grid,
 // 40x40 uprights, kick-plate base shelf and a header sign. Empty, flat compost bags hang
-// in stacks on 250 mm peg hooks with label-strip holders, like a garden-shop wall.
+// in stacks on 100 mm peg hooks with label-strip holders, like a garden-shop wall.
 // BMA bags take the main bay under the "ร้านขายปุ๋ย กทม." header; one other brand
 // (a made-up placeholder, not a real company) takes the narrow end bay.
 export const SHOP = { width: 1.2, depth: 0.42, height: 1.95 };
@@ -169,7 +169,7 @@ export function buildShop() {
   group.add(os);
 
   // peg hook with label-strip holder; a stack of flat empty bags threaded on it by the header slot
-  const hookLen = 0.25;
+  const hookLen = 0.1;                       // short 100 mm hooks: the stack is only ~5 cm deep, nothing sticks out into the walkway
   const hookGeo = new THREE.CylinderGeometry(0.003, 0.003, hookLen, 8).rotateX(Math.PI / 2);
   const tipGeo = new THREE.SphereGeometry(0.0045, 10, 8);
   const bagCache = new Map();

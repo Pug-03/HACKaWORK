@@ -86,7 +86,7 @@ scene.add(composter.group);
 
 // fertilizer shop stand across the sidewalk, facing the composter (opposite side of the walkway)
 const shop = buildShop();
-const SHOP_X = COMPOSTER_X, SHOP_Z = 0.1 + COMPOSTER.depth / 2 + 2.4 + SHOP.depth / 2;   // 2.4 m clear walkway
+const SHOP_X = COMPOSTER_X, SHOP_Z = 0.1 + COMPOSTER.depth / 2 + 4.0 + SHOP.depth / 2;   // 4 m back, across the walkway
 shop.group.position.set(SHOP_X, 0, SHOP_Z);
 shop.group.rotation.y = Math.PI;
 scene.add(shop.group);
@@ -198,7 +198,7 @@ const PART_TIPS = {
   lattice: 'ตะแกรงเจาะรูช่องถุงดำ · ระบายอากาศและมองเห็นว่าในช่องมีถุงอยู่',
   bags: 'ถุงขยะมัดปาก (ถุงดำ) · ระดับในช่องตามแถบ "ถุงดำ" ในแผงจำลอง',
   estop: 'ปุ่มหยุดฉุกเฉินเครื่องหมัก · ตัดมอเตอร์และฮีตเตอร์ทันที',
-  shop: 'ร้านขายปุ๋ย กทม. · ชั้นแขวนแผ่นเพ็กบอร์ด 1.2 ม. · ถุงเปล่า 1 / 5 / 10 กก. แขวนตะขอ 25 ซม. · ช่องท้ายเป็นแบรนด์อื่น (ชื่อสมมติ)',
+  shop: 'ร้านขายปุ๋ย กทม. · ชั้นแขวนแผ่นเพ็กบอร์ด 1.2 ม. · ถุงเปล่า 1 / 5 / 10 กก. แขวนตะขอ 10 ซม. · ช่องท้ายเป็นแบรนด์อื่น (ชื่อสมมติ)',
   rearDoor: 'ประตูหลัง (บานพับขวา · ล็อกหมุน 2 จุด · ซีลยาง) เข้าถึงฟิลเตอร์ รางสาย และท่อด้านหลัง — คลิกเพื่อเปิด/ปิด',
   serviceDoor: 'ประตูบริการหน้าเครื่อง (บานพับซ้าย · ล็อกหมุน 2 จุด · ซีลยาง) — คลิกเพื่อเปิด/ปิด',
   console: 'แผงควบคุมเอียง 18° · จอ HMI 7" · ไฟแสดงสถานะ 22 มม. · สวิตช์ อัตโนมัติ/ปิด/มือ · เริ่ม/หยุด · หยุดฉุกเฉิน',
