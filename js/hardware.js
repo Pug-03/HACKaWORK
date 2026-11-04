@@ -224,6 +224,10 @@ export function buildHardware(station) {
      -> conduit -> control unit (LTE modem + LoRa gateway) -> conduit up the pole -> beacon.
      Lid sensors are wireless (battery + LoRa) because bins are wheeled away at every pickup. */
   const X0 = -L / 2 - 0.004;                       // outer face of the left end panel
+  // one outer cabinet holds both boxes side by side (local X of the cabinet = world +Z)
+  // gap: the cabinet stands 50 mm off the panel on brackets; its 3 exhaust fans blow into that gap
+  const CAB = { w: 0.56, h: 0.58, d: 0.17, gap: 0.05, y: 0.56, z: 0.07, battX: -0.13, unitX: 0.13, fanYs: [0.19, 0.03, -0.13], fanZ: 0.02, scrY: 0.165, inY: 0.19, inZ: -0.025 };
+  const cabX = X0 - CAB.gap - CAB.d / 2;
   const poleX = X0 - 0.05, poleZ = -D / 2 + 0.04, poleTop = 1.78;
   const conduitMat = new THREE.MeshStandardMaterial({ color: 0x9aa1a8, roughness: 0.4, metalness: 0.8 });   // hot-dip galvanised rigid steel conduit
   let trunkLid = null, fanKnob = null, fanLampMat = null, fanMode = 'auto';
@@ -468,12 +472,12 @@ export function buildHardware(station) {
 
   /* ---------- control unit on the left end panel (faces -X, visible from front-left) ---------- */
   const unit = new THREE.Group();
-  unit.position.set(-L / 2 - 0.006 - 0.035, 0.68, 0.12);
+  unit.position.set(cabX + 0.037, CAB.y - 0.09, CAB.z + CAB.unitX);   // leaves the upper right for the fixed HMI   // controller parts straight on the backplate
   unit.rotation.y = -Math.PI / 2;               // local +Z now faces world -X
   const uW = 0.22, uH = 0.3, uD = 0.07;
   const unitShell = new THREE.MeshStandardMaterial({ color: 0x2f3439, metalness: 0.3, roughness: 0.45 });
-  unit.add(enclosure(uW, uH, uD, unitShell, 'unit'));
-  const unitDoor = door(unit, uW, uH, uD, unitShell, 'unit', 1);   // hinge toward the front so it doesn't cover the battery box
+  const unitDoor = door(unit, uW, uH, uD, unitShell, 'unit', 1);
+  unit.remove(unitDoor);                           // screen + button now live on the cabinet door
   doors.push(unitDoor);
   // screen
   const scr = document.createElement('canvas');
@@ -483,7 +487,6 @@ export function buildHardware(station) {
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.12), new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false }));
   screen.position.set(0, 0.065, 0.0395);
   screen.userData.part = 'unit';
-  unitDoor.attachFront(screen);
   // call button: red mushroom in a yellow ring
   const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.012, 32), new THREE.MeshStandardMaterial({ color: 0xf2c200, roughness: 0.5 }));
   ring.rotation.x = Math.PI / 2;
@@ -663,7 +666,8 @@ export function buildHardware(station) {
   // fewer draw calls: merge each enclosure (except its door) and the remaining static hardware
   mergeStatic(unit, (n) => n === unitDoor);
   mergeStatic(batt, (n) => n === battDoor);
-  mergeStatic(group, (n) => [unit, batt, solar, beacon].includes(n));
+  mergeStatic(cab, (n) => n === cabDoor || n === fanKnob || n === screen || fanRotors.some((r) => r.parent === n));
+  mergeStatic(group, (n) => [unit, batt, solar, beacon, cab, trunkLid].includes(n));
 
   /* ---------- circuit flow: glowing dots running along the conduits ---------- */
   const FLOW_COLORS = { cableSolar: 0xff5a36, cableBatt: 0xff5a36, cableBeacon: 0xffb020 };
