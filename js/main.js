@@ -340,6 +340,11 @@ const fanBtns = document.querySelectorAll('#fan-seg [data-fan]');
 function syncFanSeg() { fanBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.fan === hardware.getFanMode()))); }
 fanBtns.forEach((b) => b.addEventListener('click', () => { hardware.setFanMode(b.dataset.fan); syncFanSeg(); invalidate(true); }));
 hardware.setFanMode('auto');
+// fan speed slider: sets the target, the rotor eases to it; the readout shows the live (smoothed) rpm
+const fanSpeedEl = $('fan-speed'), fanRpmEl = $('fan-rpm');
+fanSpeedEl.addEventListener('input', () => { hardware.setFanSpeed(+fanSpeedEl.value); invalidate(); });
+hardware.setFanSpeed(+fanSpeedEl.value);
+setInterval(() => { const t = `${Math.round(hardware.getFanRpm() / 10) * 10} rpm`; if (fanRpmEl.value !== t) fanRpmEl.value = t; }, 100);
 syncFanSeg();
 const legendEl = $('comp-legend');
 $('comp-legend-list').innerHTML = composter.parts.map((p) => `<li><span class="n">${p.n}</span><div><b>${p.name}</b><small>${p.spec}</small></div></li>`).join('');

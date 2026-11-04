@@ -147,6 +147,9 @@
   .seg { display: grid; grid-template-columns: auto repeat(3, 1fr); align-items: center; gap: 4px; margin-top: 6px; font-size: 14px; }
   .seg span { padding-right: 6px; }
   .fan-ctl { display: grid; gap: 4px; margin: 2px 0 6px; font-size: 13px; }
+  .fan-ctl .fan-spd { display: grid; grid-template-columns: auto 1fr 64px; align-items: center; gap: 8px; }
+  .fan-ctl .fan-spd input { width: 100%; }
+  .fan-ctl .fan-spd output { font-variant-numeric: tabular-nums; text-align: right; font-size: 12px; }
   .fan-ctl .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
   .seg button { font: inherit; font-size: 12px; padding: 5px 0; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
   .seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -212,7 +215,7 @@
     <button class="toggle" id="t-dims" aria-pressed="false">แสดงขนาด</button>
     <button class="toggle" id="t-human" aria-pressed="false">คนเทียบสเกล</button>
     <button class="toggle" id="t-hw-open" aria-pressed="false">เปิดดูฮาร์ดแวร์ภายใน</button>
-    <div class="fan-ctl"><span>พัดลมตู้ควบคุม</span><div class="seg" id="fan-seg" role="group" aria-label="โหมดพัดลมตู้ควบคุม"><button data-fan="auto" aria-pressed="true">อัตโนมัติ</button><button data-fan="on" aria-pressed="false">เปิด</button><button data-fan="off" aria-pressed="false">ปิด</button></div></div>
+    <div class="fan-ctl"><span>พัดลมตู้ควบคุม</span><div class="seg" id="fan-seg" role="group" aria-label="โหมดพัดลมตู้ควบคุม"><button data-fan="auto" aria-pressed="true">อัตโนมัติ</button><button data-fan="on" aria-pressed="false">เปิด</button><button data-fan="off" aria-pressed="false">ปิด</button></div><label class="fan-spd"><span>รอบพัดลม</span><input type="range" id="fan-speed" min="0" max="100" step="1" value="40" aria-label="ความเร็วพัดลม"><output id="fan-rpm">0 rpm</output></label></div>
     <div class="views" style="margin-top:4px;padding-top:0;border-top:0"><button id="btn-circuit" style="grid-column: 1 / -1">ดูวงจรไฟฟ้า + ซูมอุปกรณ์</button></div>
     <button class="toggle" id="t-bags" aria-pressed="true">ถุงขยะในช่อง</button>
     <div class="views">

@@ -240,6 +240,8 @@ export function buildHardware(station) {
   const poleX = X0 - 0.05, poleZ = -D / 2 + 0.04, poleTop = 1.78;
   const conduitMat = new THREE.MeshStandardMaterial({ color: 0x9aa1a8, roughness: 0.4, metalness: 0.8 });   // hot-dip galvanised rigid steel conduit
   let trunkLid = null, fanKnob = null, fanLampMat = null, fanMode = 'auto';
+  const FAN_MAX_RPM = 20000;                       // turbo setting (slider tops out at 20 000 rpm)
+  let fanPct = 40, fanRpm = 0;                     // set speed (slider) and actual rotor speed (spins up / coasts down)
   const _cabW = new THREE.Vector3();
   const brassMat = () => new THREE.MeshStandardMaterial({ color: 0xc9a227, metalness: 0.85, roughness: 0.3 });
   const tag = (o, part) => { o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.userData.part = part; } }); return o; };
@@ -625,6 +627,12 @@ export function buildHardware(station) {
   // rain hood that opens downward, so driving rain can't get in; air comes in through the door intake below
   const fanRotors = [];
   const fanMats = { frame: dark, blade: new THREE.MeshStandardMaterial({ color: 0x2b2e33, roughness: 0.45 }), guard: steel };
+  // motion-blur disc swept by the blades: fades in as the fan speeds up (blades fade out), so a fast fan reads as
+  // a blur instead of strobing at the frame rate
+  const blurMat = new THREE.MeshBasicMaterial({ color: 0x3a3e44, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+  const blurGeo = new THREE.RingGeometry(0.12 * 0.17, 0.12 * 0.47 - 0.0015, 40);
+  const fanBlurs = [];
+  const addBlur = (f) => { for (const z of [-0.008, 0.008]) { const d = new THREE.Mesh(blurGeo, blurMat); d.position.z = z; d.visible = false; d.userData.noMerge = true; f.add(d); fanBlurs.push(d); } };   // one disc each side of the blade sweep
   const sideX = -cW / 2, fanZ = CAB.fanZ;
   for (const fy of CAB.fanYs) {
     const { group: f, rotor } = axialFan(0.12, fanMats);
@@ -632,16 +640,21 @@ export function buildHardware(station) {
     f.position.set(sideX + 0.0165, fy, fanZ);
     cab.add(f);
     fanRotors.push(rotor);
-    for (const [hh, dd, yy, zz] of [[0.012, 0.135, fy + 0.0615, fanZ], [0.012, 0.135, fy - 0.0615, fanZ], [0.135, 0.012, fy, fanZ + 0.0615], [0.135, 0.012, fy, fanZ - 0.0615]])
-      cab.add(rbox(0.01, hh, dd, dark, sideX - 0.005, yy, zz, 0.002));                                 // open grille frame
-    for (let i = 0; i < 6; i++) { const sl = rbox(0.012, 0.003, 0.115, dark, sideX - 0.011, fy - 0.05 + i * 0.02, fanZ, 0.001); sl.rotation.z = 0.7; cab.add(sl); }
-    cab.add(rbox(0.045, 0.004, 0.155, cabMat, sideX - 0.0225, fy + 0.074, fanZ, 0.001));               // hood top
-    for (const s2 of [-1, 1]) {
-      const cheek = new THREE.Shape(); cheek.moveTo(0, 0); cheek.lineTo(-0.045, 0); cheek.lineTo(0, -0.145); cheek.closePath();
-      const cm = new THREE.Mesh(new THREE.ExtrudeGeometry(cheek, { depth: 0.003, bevelEnabled: false }), cabMat);
-      cm.position.set(sideX, fy + 0.072, fanZ + s2 * 0.077 - (s2 > 0 ? 0.003 : 0));
-      cab.add(cm);
-    }
+    addBlur(f);
+  }
+  // one continuous louvred grille over all three exhausts + one rain cowl (top + full-height side cheeks) as a
+  // single folded piece; open face looks out, the slats are angled down so rain is shed outward
+  {
+    const cZ0 = fanZ - 0.079, cZ1 = cD / 2 - 0.002;      // cowl spans the wall only: never past the front edge / door
+    const yTop = Math.max(...CAB.fanYs) + 0.0675, yBot = Math.min(...CAB.fanYs) - 0.0675, gh = yTop - yBot, gy = (yTop + yBot) / 2;
+    const fz0 = fanZ - 0.0675, fz1 = cZ1 - 0.002;     // top/bottom bars run between the outer edges of the two vertical bars (no stub past the front)
+    for (const [hh, dd, yy, zz] of [[0.012, fz1 - fz0, yTop - 0.006, (fz0 + fz1) / 2], [0.012, fz1 - fz0, yBot + 0.006, (fz0 + fz1) / 2], [gh, 0.012, gy, cZ1 - 0.008], [gh, 0.012, gy, fanZ - 0.0615]])
+      cab.add(rbox(0.01, hh, dd, dark, sideX - 0.005, yy, zz, 0.002));                                   // one grille frame (front bar kept inside the cabinet's front edge)
+    for (let y = yBot + 0.02; y < yTop - 0.012; y += 0.02) { const sl = rbox(0.012, 0.003, 0.115, dark, sideX - 0.011, y, fanZ, 0.001); sl.rotation.z = 0.7; cab.add(sl); }
+    const hd = 0.045, hw = cZ1 - cZ0, hz = (cZ0 + cZ1) / 2;
+    cab.add(rbox(hd + 0.004, 0.004, hw, cabMat, sideX - hd / 2, yTop + 0.006, hz, 0.001));      // cowl top (sloped drip edge below)
+    cab.add(rbox(0.004, 0.012, hw, cabMat, sideX - hd - 0.001, yTop, hz, 0.001));              // drip lip
+    for (const s2 of [-1, 1]) cab.add(rbox(hd, gh + 0.012, 0.003, cabMat, sideX - hd / 2, gy, hz + s2 * (hw / 2 - 0.0015), 0.001));   // full-height cheeks
   }
   // intake: one 120 mm fan high on the door-side wall (opposite the three exhausts), blowing in through a
   // filter behind an open louvred grille, under a rain hood that opens downward
@@ -652,8 +665,11 @@ export function buildHardware(station) {
     f.position.set(ix - 0.0165, iy, iz);
     cab.add(f);
     fanRotors.push(rotor);
-    for (const [hh, dd, yy, zz] of [[0.012, 0.135, iy + 0.0615, iz], [0.012, 0.135, iy - 0.0615, iz], [0.135, 0.012, iy, iz + 0.0615], [0.135, 0.012, iy, iz - 0.0615]])
-      cab.add(rbox(0.01, hh, dd, dark, ix + 0.005, yy, zz, 0.002));
+    addBlur(f);
+    const gz0 = -cD / 2 + 0.003, gz1 = iz + 0.0675;   // top/bottom bars end at the vertical bars' outer edges (no stub past the back);
+    // back bar 1 mm inside the hood cheek's outer face so their end faces don't share a plane
+    for (const [hh, dd, yy, zz] of [[0.012, gz1 - gz0, iy + 0.0615, (gz0 + gz1) / 2], [0.012, gz1 - gz0, iy - 0.0615, (gz0 + gz1) / 2], [0.135, 0.012, iy, iz + 0.0615], [0.135, 0.012, iy, -cD / 2 + 0.009]])
+      cab.add(rbox(0.01, hh, dd, dark, ix + 0.005, yy, zz, 0.002));   // back bar kept inside the cabinet's rear edge
     for (let i = 0; i < 6; i++) { const sl = rbox(0.012, 0.003, 0.115, dark, ix + 0.011, iy - 0.05 + i * 0.02, iz, 0.001); sl.rotation.z = -0.7; cab.add(sl); }
     cab.add(rbox(0.045, 0.004, 0.155, cabMat, ix + 0.0225, iy + 0.074, iz, 0.001));
     for (const s2 of [-1, 1]) {
@@ -1205,6 +1221,9 @@ export function buildHardware(station) {
       fanLampMat.emissive.setHex(m === 'auto' ? 0xf59e0b : 0x22c55e);
     },
     getFanMode: () => fanMode,
+    setFanSpeed(pct) { fanPct = Math.max(0, Math.min(100, pct)); },
+    getFanSpeed: () => fanPct,
+    getFanRpm: () => fanRpm,
     cycleFanMode() { this.setFanMode(fanMode === 'auto' ? 'on' : fanMode === 'on' ? 'off' : 'auto'); },   // the "look inside" mode itself; single doors can still be opened by clicking
     // returns 2 = doors moved (shadows), 1 = repaint (button travel / labels), 3 = beacon flip only, 0 = idle
     update(dt, camPos) {
@@ -1217,15 +1236,25 @@ export function buildHardware(station) {
         moving = true;
       }
       let res = 0;
-      // fans: ON always runs; AUTO runs on the thermostat (shown running while the cabinet is open / looked into)
-      // closed cabinet: fans idle slowly (stepped at ~10 fps, full-quality repaint, so the scene still gets AO);
-      // open / inside view: full speed
-      if (fanMode !== 'off') {
-        const open = cabDoor.userData.open > 0.05 || insideMode;
-        if (open) { fanRotors.forEach((r) => (r.rotation.z += dt * 20)); moving = true; }
-        else {
-          // slow idle spin, every frame (smooth) — cheap now that there is a single render path
-          fanRotors.forEach((r) => (r.rotation.z += dt * (fanMode === 'on' ? 6 : 3)));
+      // fans: rotor speed follows the set speed through a first-order lag (rotor inertia): ~0.8 s to spin up,
+      // ~2 s to coast down, so speed changes are always smooth. The drawn spin rate saturates well below the frame
+      // rate (no wagon-wheel strobing); above that the blades fade into a motion-blur disc.
+      {
+        const goal = fanMode === 'off' ? 0 : (fanPct / 100) * FAN_MAX_RPM;
+        const tau = goal > fanRpm ? 0.8 : 2.0;
+        fanRpm += (goal - fanRpm) * (1 - Math.exp(-dt / tau));
+        if (Math.abs(goal - fanRpm) < 0.5) fanRpm = goal;
+        if (fanRpm > 0.01 || goal > 0) {
+          const w = (fanRpm * Math.PI) / 30;                         // rad/s
+          const wDraw = 24 * Math.tanh(w / 24);                      // max ~3.8 rev/s drawn: stays under the 7-blade strobe limit at 60 fps
+          fanRotors.forEach((r) => (r.rotation.z += dt * wDraw));
+          const t = Math.min(1, Math.max(0, (w - 20) / 400)), blur = t * t * (3 - 2 * t);   // full blur from ~4000 rpm
+          blurMat.opacity = 0.93 * blur;
+          fanBlurs.forEach((d) => (d.visible = blur > 0.01));
+          const bo = 1 - 0.95 * blur, wantT = bo < 0.999;
+          if (fanMats.blade.transparent !== wantT) { fanMats.blade.transparent = wantT; fanMats.blade.needsUpdate = true; }
+          fanMats.blade.opacity = bo;
+          updateAir(dt, fanRpm);
           lightFlip = true;
         }
       }
