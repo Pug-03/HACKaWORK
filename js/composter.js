@@ -66,12 +66,15 @@ function brandingTexture(wM, hM) {
 
 export function buildComposter(renderer) {
   const C = COMPOSTER;
-  const W = C.width, Dd = C.depth, H = C.height, t = 0.012, foot = 0.05;
+  const W = C.width, Dd = C.depth, H = C.height, t = 0.012, foot = 0.05, rc = 0.045;
+  const xi = W / 2 - t, zi = Dd / 2 - t;            // inner faces of the cabinet walls
   const group = new THREE.Group();
   group.name = 'composter';
 
+  /* ---------- materials ---------- */
   const brushed = makeBrushedTexture(renderer);
   const ss = new THREE.MeshStandardMaterial({ color: 0xc3c8cd, metalness: 0.85, roughness: 0.32, roughnessMap: brushed });
+  const ssIn = new THREE.MeshStandardMaterial({ color: 0xbfc5ca, metalness: 0.8, roughness: 0.38, side: THREE.DoubleSide });
   const ssDark = new THREE.MeshStandardMaterial({ color: 0x8e959b, metalness: 0.8, roughness: 0.4 });
   const black = new THREE.MeshStandardMaterial({ color: 0x1c1f22, roughness: 0.6 });
   const frontMat = new THREE.MeshStandardMaterial({ color: 0xc3c8cd, metalness: 0.85, roughness: 0.32, roughnessMap: brushed, transparent: true, opacity: 1 });
@@ -94,14 +97,12 @@ export function buildComposter(renderer) {
   }
   for (const sz of [-1, 1]) {
     const e = new THREE.Mesh(new THREE.CylinderGeometry(rc, rc, W - 2 * rc, 32, 1, true), ss);
-    e.rotation.z = Math.PI / 2;
-    e.position.set(0, H - rc, sz * (Dd / 2 - rc));
+    e.rotation.z = Math.PI / 2; e.position.set(0, H - rc, sz * (Dd / 2 - rc));
     group.add(e);
   }
   for (const sx of [-1, 1]) {
     const e = new THREE.Mesh(new THREE.CylinderGeometry(rc, rc, Dd - 2 * rc, 32, 1, true), ss);
-    e.rotation.x = Math.PI / 2;
-    e.position.set(sx * (W / 2 - rc), H - rc, 0);
+    e.rotation.x = Math.PI / 2; e.position.set(sx * (W / 2 - rc), H - rc, 0);
     group.add(e);
   }
   const wallH = H - rc - y0;
@@ -111,41 +112,59 @@ export function buildComposter(renderer) {
   group.add(sideL, sideR);
   // upper back / side fillers between the top-edge rounds and the walls
   group.add(rbox(W - 2 * rc, rc, t, ss, 0, H - rc / 2 - 0.001, -Dd / 2 + t / 2, 0.002));
-  // vent slots on the right side
-  const ventMat = new THREE.MeshBasicMaterial({ color: 0x15181b });
-  for (let i = 0; i < 6; i++) {
-    const v = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.014), ventMat);
-    v.rotation.y = Math.PI / 2;
-    v.position.set(W / 2 + 0.0005, H * 0.62 + i * 0.035, -0.05);
-    group.add(v);
+  for (const sx of [-1, 1]) group.add(rbox(t, wallH, Dd - 2 * rc, ss, sx * (W / 2 - t / 2), y0 + wallH / 2, 0, 0.003));   // sides
+  // removable side service panels: seam lines + 4 quarter-turn fasteners each
+  for (const sx of [-1, 1]) {
+    const px = sx * (W / 2 + 0.001);
+    for (const [w, h, y, z] of [[Dd - 0.2, 0.003, 0.36, 0], [Dd - 0.2, 0.003, 0.96, 0], [0.003, 0.6, 0.66, -(Dd - 0.2) / 2], [0.003, 0.6, 0.66, (Dd - 0.2) / 2]]) {
+      const seam = new THREE.Mesh(new THREE.PlaneGeometry(h === 0.003 ? w : 0.003, h === 0.003 ? 0.003 : h), black);
+      seam.rotation.y = sx * Math.PI / 2; seam.position.set(px, y, z);
+      group.add(seam);
+    }
+    for (const [y, z] of [[0.39, -0.26], [0.39, 0.26], [0.93, -0.26], [0.93, 0.26]]) {
+      const q = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.004, 20), steel);
+      q.rotation.z = Math.PI / 2; q.position.set(sx * (W / 2 + 0.002), y, z);
+      const slot = new THREE.Mesh(new THREE.PlaneGeometry(0.012, 0.002), black);
+      slot.rotation.y = sx * Math.PI / 2; slot.position.set(sx * (W / 2 + 0.005), y, z);
+      group.add(q, slot);
+    }
   }
 
-  // top with feeding hatch (front half)
-  const hatchW = 0.6, hatchD = 0.32, hatchZ = -0.02;   // centred over the drum axis
+  /* ---------- top: feed hatch over the hopper ---------- */
+  const hatchW = 0.6, hatchD = 0.32, hatchZ = dz;
   const topW = W - 2 * rc, topBack = (hatchZ - hatchD / 2) - (-Dd / 2 + rc), topFront = (Dd / 2 - rc) - (hatchZ + hatchD / 2);
   group.add(rbox(topW, t, topBack, ss, 0, H - t / 2, -Dd / 2 + rc + topBack / 2, 0.003));
   group.add(rbox(topW, t, topFront, ss, 0, H - t / 2, Dd / 2 - rc - topFront / 2, 0.003));
   const sideTopW = (topW - hatchW) / 2;
   for (const sx of [-1, 1]) group.add(rbox(sideTopW, t, hatchD, ss, sx * (hatchW / 2 + sideTopW / 2), H - t / 2, hatchZ, 0.003));
-  // hopper chute down to the drum
-  const chuteBottom = C.drum.y + Math.sqrt(C.drum.radius ** 2 - (hatchD / 2) ** 2) - 0.03;
-  const chuteH = H - t - chuteBottom;                // reaches into the drum opening
-  const chuteWall = new THREE.MeshStandardMaterial({ color: 0x5d646a, metalness: 0.7, roughness: 0.5, side: THREE.DoubleSide });
-  const open = new THREE.MeshBasicMaterial({ visible: false });
-  const chute = new THREE.Mesh(new THREE.BoxGeometry(hatchW - 0.04, chuteH, hatchD - 0.04), [chuteWall, chuteWall, open, open, chuteWall, chuteWall]);
-  chute.position.set(0, H - t - chuteH / 2, hatchZ);
-  group.add(chute);
-  // hatch lid (hinged at its back edge)
+  // EPDM gasket round the opening, interlock switch at the front edge
+  for (const [w, d, x, z] of [[hatchW, 0.008, 0, hatchZ - hatchD / 2], [hatchW, 0.008, 0, hatchZ + hatchD / 2], [0.008, hatchD, -hatchW / 2, hatchZ], [0.008, hatchD, hatchW / 2, hatchZ]])
+    group.add(rbox(w, 0.004, d, rubber, x, H + 0.001, z, 0.001));
+  const interlock = rbox(0.03, 0.05, 0.03, plastic(0xd9a400), 0.22, H - t - 0.03, hatchZ + hatchD / 2 - 0.02, 0.004);
+  group.add(interlock);
   const hatch = new THREE.Group();
   hatch.position.set(0, H, hatchZ - hatchD / 2);
-  const lid = rbox(hatchW + 0.02, 0.018, hatchD + 0.02, ss, 0, 0.009, hatchD / 2, 0.009);
-  lid.userData.part = 'hatch';
-  hatch.add(lid);
-  const hh = new THREE.Mesh(new THREE.CapsuleGeometry(0.008, 0.12, 4, 10), ssDark);
-  hh.rotation.z = Math.PI / 2;
-  hh.position.set(0, 0.03, hatchD - 0.01);
+  hatch.add(rbox(hatchW + 0.03, 0.02, hatchD + 0.03, ss, 0, 0.01, hatchD / 2, 0.008));
+  const hh = new THREE.Mesh(new THREE.CapsuleGeometry(0.009, 0.14, 4, 12), ssDark);
+  hh.rotation.z = Math.PI / 2; hh.position.set(0, 0.036, hatchD - 0.01);
   hatch.add(hh);
-  for (const sx of [-1, 1]) hatch.add(rbox(0.012, 0.022, 0.012, ssDark, sx * 0.06, 0.02, hatchD - 0.01, 0.003));
+  for (const sx of [-1, 1]) hatch.add(rbox(0.014, 0.026, 0.014, ssDark, sx * 0.07, 0.024, hatchD - 0.01, 0.003));
+  for (const sx of [-1, 1]) {                         // butt hinges + gas strut
+    hatch.add(rbox(0.06, 0.004, 0.03, steel, sx * 0.22, 0.0, -0.004, 0.001));
+    const k = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.056, 12).rotateZ(Math.PI / 2), steel);
+    k.position.set(sx * 0.22, 0.004, -0.012);
+    hatch.add(k);
+  }
+  const hatchSign = canvasTex(512, 160, (ctx, w, h) => {
+    ctx.fillStyle = '#1f7a3a'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    fitText(ctx, 'ช่องเติมเศษอาหาร', w / 2, h * 0.36, w * 0.9, h * 0.34, 600);
+    fitText(ctx, 'ห้ามใส่มือ · เครื่องย่อยหยุดเมื่อเปิดฝา', w / 2, h * 0.75, w * 0.9, h * 0.2, 400);
+  });
+  const hs = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.094), new THREE.MeshStandardMaterial({ map: hatchSign.tex, roughness: 0.6 }));
+  hs.rotation.x = -Math.PI / 2; hs.position.set(0, 0.0205, hatchD / 2 - 0.02);
+  hatch.add(hs);
+  tag(hatch, 'hatch');
   hatch.userData = { open: 0, target: 0 };
   group.add(hatch);
 
@@ -175,18 +194,27 @@ export function buildComposter(renderer) {
   estop.rotation.x = Math.PI / 2;
   estop.position.set(0.42, (ctrlY0 + ctrlY1) / 2, Dd / 2 + 0.009);
   estop.userData.part = 'estop';
-  group.add(estop);
-
-  const brand = brandingTexture(frontW, brandY1 - brandY0);
-  const brandFace = new THREE.MeshStandardMaterial({ map: brand.tex, roughness: 0.55, metalness: 0.1, transparent: true, opacity: 1 });
-  const brandPanel = new THREE.Mesh(new THREE.BoxGeometry(frontW, brandY1 - brandY0, t), [frontMat, frontMat, frontMat, frontMat, brandFace, frontMat]);
-  brandPanel.position.set(0, (brandY0 + brandY1) / 2, Dd / 2 - t / 2);
-  brandPanel.castShadow = true;
-  group.add(brandPanel);
-
+  const eCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.012, 24).rotateX(Math.PI / 2), black);
+  eCollar.position.set(0.34, ctrlRow + 0.005, 0.006);
+  consoleTilt.add(ePlate, eCollar, estop);
+  tag(consoleTilt, 'console');
+  startBtn.userData.part = stopBtn.userData.part = 'composterStart';
+  estop.userData.part = 'estop';
+  consoleOuter.userData = { open: 0, target: 0 };
+  group.add(consoleOuter);
+  for (const sx of [-1, 1]) {                         // side cheeks closing the wedge under the slope
+    const cheek = new THREE.Shape();
+    const back = cHgt * Math.sin(tilt);
+    cheek.moveTo(0, 0); cheek.lineTo(0, -cHgt * Math.cos(tilt)); cheek.lineTo(back, -cHgt * Math.cos(tilt) + 0); cheek.closePath();
+    const g = new THREE.Mesh(new THREE.ExtrudeGeometry(cheek, { depth: 0.006, bevelEnabled: false }), ss);
+    g.rotation.y = -Math.PI / 2;
+    g.position.set(sx * (frontW / 2 + 0.003) + 0.003, ctrlY1, Dd / 2 - back);
+    group.add(g);
+  }
+  // compost drawer on full-extension slides
   const drawer = new THREE.Group();
-  const dH = drawerY1 - drawerY0;
-  drawer.add(rbox(frontW - 0.004, dH - 0.008, t, ss, 0, 0, 0, 0.004));
+  const dHh = drawerY1 - drawerY0;
+  drawer.add(rbox(frontW - 0.004, dHh - 0.008, t, ss, 0, 0, 0, 0.004));
   const dLabel = canvasTex(400, 70, (ctx, w, h) => {
     ctx.fillStyle = '#2b3036'; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = '#f2f4f6'; ctx.textAlign = 'center'; ctx.font = `600 34px ${FONT}`;
@@ -195,23 +223,21 @@ export function buildComposter(renderer) {
   const dl = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.063), new THREE.MeshStandardMaterial({ map: dLabel.tex, roughness: 0.6 }));
   dl.position.set(0, 0.04, t / 2 + 0.0005);
   drawer.add(dl);
-  const dh = new THREE.Mesh(new THREE.CapsuleGeometry(0.011, 0.44, 4, 10), ssDark);
-  dh.rotation.z = Math.PI / 2;
-  dh.position.set(0, -0.035, t / 2 + 0.022);
-  drawer.add(dh);
+  const dhn = new THREE.Mesh(new THREE.CapsuleGeometry(0.011, 0.44, 4, 10), ssDark);
+  dhn.rotation.z = Math.PI / 2; dhn.position.set(0, -0.035, t / 2 + 0.022);
+  drawer.add(dhn);
   for (const sx of [-1, 1]) drawer.add(rbox(0.016, 0.016, 0.026, ssDark, sx * 0.23, -0.035, t / 2 + 0.01, 0.003));
-  // open-top drawer tub behind the front, filled with finished compost
-  const tubW = W - 0.08, tubD = Dd - 0.12, tubH = dH - 0.05, tubZ = -tubD / 2 - t / 2, tubY = -dH / 2 + 0.012 + tubH / 2;
-  const wall = 0.008;
-  drawer.add(rbox(tubW, wall, tubD, ssDark, 0, tubY - tubH / 2 + wall / 2, tubZ, 0.003));                 // floor
-  drawer.add(rbox(tubW, tubH, wall, ssDark, 0, tubY, tubZ - tubD / 2 + wall / 2, 0.003));                 // back
-  for (const sx of [-1, 1]) drawer.add(rbox(wall, tubH, tubD, ssDark, sx * (tubW / 2 - wall / 2), tubY, tubZ, 0.003));
-  const compostMat = new THREE.MeshStandardMaterial({ color: 0x4a3423, roughness: 1 });
-  const fill = rbox(tubW - 2 * wall - 0.004, tubH * 0.6, tubD - wall - 0.004, compostMat, 0, tubY - tubH / 2 + wall + tubH * 0.3, tubZ + wall / 2, 0.02);
-  drawer.add(fill);
+  const tubW = W - 0.1, tubD = Dd - 0.12, tubH = dHh - 0.05, tubZ = -tubD / 2 - t / 2, tubY = -dHh / 2 + 0.012 + tubH / 2, wall = 0.008;
+  drawer.add(rbox(tubW - 2 * wall, wall, tubD, ssDark, 0, tubY - tubH / 2 + wall / 2, tubZ, 0.003));
+  drawer.add(rbox(tubW - 2 * wall, tubH - wall, wall, ssDark, 0, tubY + wall / 2, tubZ - tubD / 2 + wall / 2, 0.003));
+  for (const sx of [-1, 1]) {
+    drawer.add(rbox(wall, tubH, tubD, ssDark, sx * (tubW / 2 - wall / 2), tubY, tubZ, 0.003));
+    drawer.add(rbox(0.004, 0.035, tubD, steel, sx * (tubW / 2 + 0.004), tubY, tubZ, 0.001));      // drawer slide member
+  }
+  drawer.add(rbox(tubW - 2 * wall - 0.004, tubH * 0.55, tubD - wall - 0.004, compostMat, 0, tubY - tubH / 2 + wall + tubH * 0.275, tubZ + wall / 2, 0.02));
   const drawerZ = Dd / 2 - t / 2;
-  drawer.position.set(0, drawerY0 + dH / 2, drawerZ);
-  drawer.traverse((o) => { if (o.isMesh) o.userData.part = 'drawer'; });
+  drawer.position.set(0, drawerY0 + dHh / 2, drawerZ);
+  tag(drawer, 'drawer');
   drawer.userData = { open: 0, target: 0 };
   const DRAWER_TRAVEL = 0.5;
   group.add(drawer);
@@ -289,16 +315,14 @@ export function buildComposter(renderer) {
   // shelf over the drawer bay, with the discharge opening under the drum
   const shelfY = drawerY1 + 0.005;
   {
-    const shelfShape = new THREE.Shape();
-    const sw = (W - 2 * t) / 2, sd = (Dd - 2 * t) / 2;
-    shelfShape.moveTo(-sw, -sd); shelfShape.lineTo(sw, -sd); shelfShape.lineTo(sw, sd); shelfShape.lineTo(-sw, sd); shelfShape.closePath();
+    const sh = new THREE.Shape(), sw = xi, sd = zi;
+    sh.moveTo(-sw, -sd); sh.lineTo(sw, -sd); sh.lineTo(sw, sd); sh.lineTo(-sw, sd); sh.closePath();
     const hole = new THREE.Path();
-    hole.moveTo(-0.16, -dz - 0.07); hole.lineTo(0.16, -dz - 0.07); hole.lineTo(0.16, -dz + 0.07); hole.lineTo(-0.16, -dz + 0.07); hole.closePath();
-    shelfShape.holes.push(hole);
-    const shelf = new THREE.Mesh(new THREE.ExtrudeGeometry(shelfShape, { depth: 0.01, bevelEnabled: false }), ssDark);
-    shelf.rotation.x = Math.PI / 2;              // shape Y -> -Z, extrude -> -Y
-    shelf.position.y = shelfY + 0.005;
-    inside.add(shelf);
+    hole.moveTo(-0.15, dz - 0.06); hole.lineTo(0.15, dz - 0.06); hole.lineTo(0.15, dz + 0.06); hole.lineTo(-0.15, dz + 0.06); hole.closePath();
+    sh.holes.push(hole);
+    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.01, bevelEnabled: false }), ssDark);
+    m.rotation.x = Math.PI / 2; m.position.y = shelfY + 0.005;
+    inside.add(m);
   }
   // discharge slide gate (opens when the drawer is pulled out) and short chute
   const gate = rbox(0.34, 0.008, 0.16, ssDark, 0, dy - R - 0.012, dz, 0.003);
@@ -427,6 +451,10 @@ export function buildComposter(renderer) {
     group.add(g);
   }
 
+  /* ---------- merge static meshes ---------- */
+  tag(inside, 'composterInside');
+  for (const o of [hatch]) tag(o, 'hatch');
+  tag(drawer, 'drawer');
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.part ??= 'composter'; } });
 
   mergeStatic(inside, (n) => [rotor, sprocketA, sprocketB, fan, gate, drumFront].includes(n));
@@ -435,16 +463,22 @@ export function buildComposter(renderer) {
   /* ---------- state ---------- */
   let running = false, cutaway = false, clock = 0;
   function drawScreen() {
-    const ctx = screen.canvas.getContext('2d');
-    ctx.fillStyle = '#0d1117'; ctx.fillRect(0, 0, 480, 200);
-    ctx.textAlign = 'left';
-    ctx.fillStyle = running ? '#22c55e' : '#9aa4ae';
-    ctx.font = `600 34px ${FONT}`;
-    ctx.fillText(running ? 'กำลังหมัก' : 'พร้อมรับเศษอาหาร', 20, 50);
-    ctx.fillStyle = '#e6edf3';
-    ctx.font = `400 28px ${FONT}`;
-    ctx.fillText(running ? 'อุณหภูมิ 58°C · ความชื้น 55%' : 'เปิดฝาด้านบนแล้วเทเศษอาหาร', 20, 105);
-    ctx.fillText(running ? 'ปุ๋ยพร้อมในอีก 18 ชม.' : `ความจุ ${C.capacityL} ลิตร`, 20, 155);
+    const ctx = screen.canvas.getContext('2d'), w = 800, h = 480;
+    ctx.fillStyle = '#0b1220'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#1f7a3a'; ctx.fillRect(0, 0, w, 64);
+    ctx.fillStyle = '#fff'; ctx.font = `600 34px ${FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('กทม. · เครื่องหมักปุ๋ย 200 L', 24, 33);
+    ctx.textAlign = 'right'; ctx.fillText(running ? 'อัตโนมัติ' : 'พร้อม', w - 24, 33);
+    const tiles = [['อุณหภูมิ', running ? '58.4 °C' : '31.0 °C'], ['ความชื้น', '55 %'], ['น้ำหนักในถัง', '68.2 กก.'], ['ใบกวน', running ? `${dir > 0 ? '▶' : '◀'} 2.0 rpm` : 'หยุด']];
+    tiles.forEach(([k, v], i) => {
+      const x = 24 + (i % 2) * 388, y = 88 + Math.floor(i / 2) * 150;
+      ctx.fillStyle = '#16213a'; ctx.fillRect(x, y, 364, 130);
+      ctx.textAlign = 'left'; ctx.fillStyle = '#9fb3c8'; ctx.font = `500 26px ${FONT}`; ctx.fillText(k, x + 18, y + 32);
+      ctx.fillStyle = running && i === 0 ? '#fb923c' : '#e6edf3'; ctx.font = `700 52px ${FONT}`; ctx.fillText(v, x + 18, y + 88);
+    });
+    ctx.fillStyle = running ? '#22c55e' : '#64748b'; ctx.fillRect(24, 400, 752, 56);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = `600 30px ${FONT}`;
+    ctx.fillText(running ? 'กำลังหมัก · ปุ๋ยพร้อมในอีก 18 ชม.' : 'เปิดฝาบน เทเศษอาหาร แล้วกดเริ่ม', w / 2, 428);
     screen.tex.needsUpdate = true;
   }
   drawScreen();
@@ -457,6 +491,7 @@ export function buildComposter(renderer) {
     drumFront.visible = !v;
     cutLabels.forEach((l) => (l.visible = v));
   }
+  const ease = (u, dt, k) => { if (Math.abs(u.target - u.open) <= 1e-4) return false; u.open += (u.target - u.open) * Math.min(1, dt * k); if (Math.abs(u.target - u.open) <= 1e-4) u.open = u.target; return true; };
 
   return {
     group,
