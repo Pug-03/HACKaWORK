@@ -864,6 +864,33 @@ export function buildHardware(station) {
     trunk.add(rbox(tx0 - tx1, 0.003, tz1 - tz0, trunkMat, (tx0 + tx1) / 2, ty0, (tz0 + tz1) / 2, 0.001));      // bottom
     trunk.add(rbox(tx0 - tx1, ty1 - ty0, 0.003, trunkMat, (tx0 + tx1) / 2, (ty0 + ty1) / 2, tz1, 0.001));      // end cap
     group.add(tag(trunk, 'trunking'));
+    // pole-end plate: closes the run against the pole, the two pole glands pass through grommeted holes;
+    // a stainless band clamps the plate to the pole so the trunking cannot be levered off
+    {
+      const es = new THREE.Shape();
+      es.moveTo(tx1, ty0); es.lineTo(tx0, ty0); es.lineTo(tx0, ty1); es.lineTo(tx1, ty1); es.closePath();
+      for (const gy of [0.15, 0.21]) { const h = new THREE.Path(); h.absarc(poleX, gy, 0.017, 0, Math.PI * 2, true); es.holes.push(h); }
+      const ep = new THREE.Mesh(new THREE.ExtrudeGeometry(es, { depth: 0.003, bevelEnabled: false, curveSegments: 24 }), trunkMat);
+      ep.position.z = tz0 + 0.001;
+      trunk.add(ep);
+      const grom = new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.85 });
+      for (const gy of [0.15, 0.21]) {
+        const g = new THREE.Mesh(new THREE.TorusGeometry(0.0165, 0.0025, 8, 24), grom);
+        g.position.set(poleX, gy, tz0 + 0.0025);
+        trunk.add(g);
+      }
+      const bandY = (ty0 + 0.15) / 2 - 0.005;
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.0315, 0.0315, 0.02, 32, 1, true), steel);
+      band.material = new THREE.MeshStandardMaterial({ color: 0xc9ced3, metalness: 0.9, roughness: 0.3, side: THREE.DoubleSide });
+      band.position.set(poleX, bandY, poleZ);
+      trunk.add(band);
+      for (const sx of [-1, 1]) {
+        trunk.add(rbox(0.006, 0.02, 0.008, band.material, poleX + sx * 0.022, bandY, tz0 - 0.0045, 0.001));   // band ears bolted to the plate
+        const bh = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.004, 6).rotateX(Math.PI / 2), steel);
+        bh.position.set(poleX + sx * 0.022, bandY, tz0 + 0.006);   // nut inside the trunking
+        trunk.add(bh);
+      }
+    }
     trunkLid = new THREE.Group();
     trunkLid.add(rbox(0.003, ty1 - ty0 + 0.006, tz1 - tz0 + 0.006, trunkMat, tx1, (ty0 + ty1) / 2, (tz0 + tz1) / 2, 0.001));
     trunkLid.add(rbox(tx0 - tx1, 0.003, tz1 - tz0, trunkMat, (tx0 + tx1) / 2, ty1, (tz0 + tz1) / 2, 0.001));
