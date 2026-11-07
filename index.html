@@ -292,6 +292,10 @@
         l.classList.add('error');
         l.textContent = msg;
       };
+      if (location.protocol === 'file:') {
+        fail('เปิดไฟล์นี้โดยตรงไม่ได้ · รัน npm run dev ในโฟลเดอร์โปรเจกต์ แล้วเปิด http://localhost:8766 (ดูวิธีอื่นใน README)');
+        return;
+      }
       const probe = document.createElement('canvas');
       if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) {
         fail('เบราว์เซอร์หรือเครื่องนี้ไม่รองรับ WebGL จึงแสดงโมเดล 3D ไม่ได้ · ลองเปิดด้วย Chrome / Safari / Edge รุ่นใหม่');
