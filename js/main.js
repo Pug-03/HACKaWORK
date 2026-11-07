@@ -46,6 +46,8 @@ camera.position.set(3.6, 2.1, 4.2);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0.4, 0.7, 0);
+// portrait screens see a much narrower slice: start further back so the whole station fits
+camera.position.sub(controls.target).multiplyScalar(Math.min(2, Math.max(1, 1.1 / camera.aspect))).add(controls.target);
 controls.enableDamping = true;
 controls.minDistance = 0.25;                       // close enough to inspect the trays under the riser
 controls.maxDistance = 14;
