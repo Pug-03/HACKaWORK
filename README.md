@@ -8,11 +8,21 @@ a food-waste composter, an electric mini garbage truck and a district dashboard.
 
 ES modules need a local server (opening `index.html` directly via `file://` will not work).
 An internet connection is required for three.js (jsDelivr CDN) and the Kanit font.
+There is nothing to install and no build step; you only need one way to serve the folder.
 
     cd HACKaWORK
-    npm run dev                    # same as: python3 -m http.server 8766
+    npm run dev                    # needs npm + python3; same as: python3 -m http.server 8766
     # 3D model:  http://localhost:8766
     # dashboard: http://localhost:8766/dashboard.html
+
+If `npm run dev` doesn't work, run one of these from the same folder instead:
+
+    python3 -m http.server 8766    # macOS / Linux, without npm
+    py -m http.server 8766         # Windows, usually has `py` rather than `python3`
+    npx serve -l 8766              # Node only, no Python
+
+If port 8766 is already in use, pick another number in the command and in the URL.
+The browser needs WebGL (a recent Chrome, Edge, Safari or Firefox).
 
 After pulling changes, hard-refresh (Cmd/Ctrl + Shift + R) so the browser drops cached modules.
 
@@ -39,6 +49,11 @@ The site is then served at `https://<user>.github.io/HACKaWORK/`.
   rotor, top hatch, pull-out compost drawer, BMA branding with an order phone placeholder.
 - **EV mini truck** — drives in for an out-of-round call or when a bin reaches 80 %,
   leaves when the pickup is confirmed.
+- **Fertilizer shop** — small timber hut with a thatched roof beside the composter, selling
+  bagged compost (BMA bags + one made-up placeholder brand).
+- **Layout mode** — turn on "จัดวางตำแหน่งเอง", then double-press and hold the station,
+  composter or shop to drag it; Q/E or the buttons rotate it by 15°. Positions are saved in
+  the browser's localStorage; "คืนตำแหน่งเดิม" restores the defaults.
 - **Simulation + dashboard** — fill sliders, call / collected buttons; state is shared
   live with `dashboard.html` (KPIs, per-station table, EV dispatch queue) via
   BroadcastChannel + localStorage, with a heartbeat so the dashboard shows when the
@@ -57,7 +72,8 @@ The site is then served at `https://<user>.github.io/HACKaWORK/`.
 | `js/hardware.js` | Solar, battery, conduits, control unit, beacon, sensors, look-inside |
 | `js/composter.js` | 200 L composter: heated U-trough, paddle mixer, chain drive, twin-shaft shredder, electrics, side bag display |
 | `js/mech.js` | Standard parts from real dimensions: sprockets / #50 roller chain, involute gears, UCP bearings, TEFC motors, cutters, bolts |
-| `js/shop.js` | Fertilizer shop pegboard stand across the walkway (BMA bags + one placeholder brand) |
+| `js/shop.js` | Fertilizer shop: thatched timber hut with stacked compost bags (BMA bags + one placeholder brand) |
+| `js/circuit.js` | Electrical and data circuit diagram overlay |
 | `js/truck.js` | EV mini garbage truck |
 | `js/environment.js` | Sidewalk, curb, road, pad, lights |
 | `js/textures.js` | Canvas textures (signs + laser-cut masks, paving, noise) |
