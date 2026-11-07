@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ซ้อมพูด 5 นาที</title>
+<style>
+@font-face{font-family:"Outfit";src:url("fonts/outfit-latin.woff2") format("woff2");font-weight:100 900}
+@font-face{font-family:"Plex Thai";src:url("fonts/plex-thai-thai-400.woff2") format("woff2");font-weight:400;unicode-range:U+0E01-0E5B,U+200C-200D,U+25CC}
+@font-face{font-family:"Plex Thai";src:url("fonts/plex-thai-thai-600.woff2") format("woff2");font-weight:600;unicode-range:U+0E01-0E5B,U+200C-200D,U+25CC}
+@font-face{font-family:"Plex Thai";src:url("fonts/plex-thai-thai-700.woff2") format("woff2");font-weight:700;unicode-range:U+0E01-0E5B,U+200C-200D,U+25CC}
+@font-face{font-family:"Plex Thai";src:url("fonts/plex-thai-latin-400.woff2") format("woff2");font-weight:400;unicode-range:U+0000-00FF,U+2000-206F}
+@font-face{font-family:"Plex Thai";src:url("fonts/plex-thai-latin-600.woff2") format("woff2");font-weight:600;unicode-range:U+0000-00FF,U+2000-206F}
+:root{--ink:#1f2937;--head:#0f4c5c;--mute:#6b7280;--line:#d1d5db;--soft:#f3f6f8;--teal:#0f8a74;--teal-bg:#e3f5f0;--gold:#d99a12;--gold-bg:#fdf3dc;--warn:#b45309;--over:#b91c1c;--over-bg:#fde8e8}
+*{box-sizing:border-box}
+html,body{margin:0;background:#eef1f4;color:var(--ink);font-family:"Plex Thai","Outfit",sans-serif}
+.num{font-family:"Outfit","Plex Thai",sans-serif;font-variant-numeric:tabular-nums}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px;padding:10px 18px;background:#fff;border-bottom:1px solid var(--line)}
+header h1{font-size:17px;margin:0;color:var(--head);font-weight:700}
+.clock{display:flex;align-items:baseline;gap:8px}
+.clock .big{font:700 34px "Outfit",sans-serif;color:var(--head)}
+.clock .of{font-size:15px;color:var(--mute)}
+.pace{font-size:15px;font-weight:600;padding:4px 12px;border-radius:20px;background:var(--soft);color:var(--mute)}
+.pace.ahead{background:var(--teal-bg);color:var(--teal)}.pace.behind{background:var(--over-bg);color:var(--over)}
+.btns{margin-left:auto;display:flex;gap:8px}
+button{font:600 15px "Plex Thai",sans-serif;border:1px solid var(--line);background:#fff;color:var(--head);border-radius:8px;padding:7px 14px;cursor:pointer}
+button.go{background:var(--teal);border-color:var(--teal);color:#fff}
+main{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;padding:16px 18px}
+.stage{position:relative;width:100%;aspect-ratio:16/9;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.under{display:flex;gap:12px;margin-top:10px;flex-wrap:wrap}
+.chip{font-size:14px;line-height:1.45;background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 12px}
+.chip.cue{background:var(--soft)}.chip.cue.v{background:var(--gold-bg)}
+.chip b{color:var(--head)}
+.side{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 20px;display:flex;flex-direction:column;min-height:0}
+.top{display:flex;align-items:center;gap:10px}
+.no{font:700 20px "Outfit",sans-serif;color:#fff;background:var(--head);border-radius:50%;min-width:34px;height:34px;line-height:34px;text-align:center}
+.no.b{background:var(--mute)}
+.title{font-size:21px;font-weight:700;color:var(--head);line-height:1.3}
+.slot{margin-left:auto;text-align:right}
+.slot .t{font:700 26px "Outfit",sans-serif;color:var(--head)}
+.slot .t.warn{color:var(--warn)}.slot .t.over{color:var(--over)}
+.slot small{display:block;font-size:12px;color:var(--mute)}
+.bar{height:6px;border-radius:3px;background:var(--soft);margin:10px 0 12px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--teal);transition:width .2s linear}
+.bar i.warn{background:var(--gold)}.bar i.over{background:var(--over)}
+.say{font-size:23px;line-height:1.7;margin:0;overflow:auto}
+.say b{color:var(--head)}
+.say u{text-decoration:none;border-bottom:2px solid var(--teal)}
+details{margin:0 18px 12px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:14px;line-height:1.55}
+summary{cursor:pointer;font-weight:600;color:var(--head)}
+details ul{margin:6px 0 4px;padding-left:20px}
+.log{margin:0 18px 22px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+.log h2{font-size:16px;margin:0 0 8px;color:var(--head)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--soft)}
+td.n,th.n{text-align:right;font-family:"Outfit","Plex Thai",sans-serif;font-variant-numeric:tabular-nums}
+tr.cur td{background:var(--teal-bg)}
+td.over{color:var(--over);font-weight:600}td.under{color:var(--teal)}
+.keys{font-size:13px;color:var(--mute);margin:8px 0 0}
+kbd{font:600 12px "Outfit",sans-serif;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:#fff;color:var(--ink)}
+@media (max-width:900px){main{grid-template-columns:1fr}.say{font-size:19px}.btns{margin-left:0}}
+</style></head><body>
+<header>
+  <h1>ซ้อมพูด 5 นาที</h1>
+  <div class="clock"><span class="big num" id="total">0:00</span><span class="of">/ <span class="num" id="plan"></span> นาที</span></div>
+  <span class="pace" id="pace">ยังไม่เริ่มจับเวลา</span>
+  <div class="btns"><button class="go" id="start">เริ่มจับเวลา</button><button id="reset">เริ่มใหม่</button></div>
+</header>
+<main>
+  <div>
+    <div class="stage"><iframe id="deck" src="index.html?embed" title="สไลด์"></iframe></div>
+    <div class="under"><div class="chip cue" id="cue"></div><div class="chip" id="next"></div></div>
+    <p class="keys"><kbd>→</kbd> <kbd>PageDown</kbd> ถัดไป · <kbd>←</kbd> ย้อน · <kbd>S</kbd> เริ่ม/หยุดจับเวลา · <kbd>R</kbd> เล่นวิดีโอซ้ำ · คลิกสไลด์ก็เลื่อนได้</p>
+  </div>
+  <section class="side">
+    <div class="top"><span class="no" id="no">1</span><span class="title" id="title"></span>
+      <div class="slot"><span class="t num" id="slotT">0:00</span><small>จาก <span class="num" id="slotP"></span> · <span id="when"></span></small></div></div>
+    <div class="bar"><i id="bar"></i></div>
+    <p class="say" id="say"></p>
+  </section>
+</main>
+<div class="log"><h2>เวลาซ้อมรอบนี้</h2>
+  <table><thead><tr><th>สไลด์</th><th class="n">แผน</th><th class="n">ซ้อมจริง</th><th class="n">ต่าง</th></tr></thead><tbody id="rows"></tbody>
+  <tfoot><tr><th>รวม 5 นาทีหลัก</th><th class="n" id="fPlan"></th><th class="n" id="fReal"></th><th class="n" id="fDiff"></th></tr></tfoot></table>
+  <p class="keys"><button id="copy">คัดลอกผลซ้อม</button> <span id="copied"></span></p>
+</div>
+<script id="data" type="application/json">{"secs": [{"key": "1", "slide": 1, "title": "เปิด", "sec": 20, "main": true, "cue": "พูดจบ กด → ไปสไลด์ถัดไป", "html": "สวัสดีครับ ผมปลั๊ก จากทีม Nótt ครับ วันนี้เรามาเสนอ VöR เมืองสะอาด ก่อนจะช่วยเมือง เราต้องดูแลพี่ ๆ คนเก็บขยะก่อน เป้าของเรามี <b>3 <\/b>ข้อครับ ถุงไม่แตะพื้น ทุกคืนเก็บใน <b>1 <\/b>ชั่วโมง และทุกคนได้นอน <b>7 <\/b>ชั่วโมง", "start": 0}, {"key": "2", "slide": 2, "title": "ปัญหา", "sec": 25, "main": true, "cue": "พูดจบ กด → ไปสไลด์ถัดไป", "html": "โจทย์ของ กทม. คือร้านเอาถุงขยะออกมาวางรอนาน หรือทิ้งไว้ข้ามคืน เพราะรถมาไม่ตรงกับเวลาที่ร้านปิด ถุงที่ค้างกลายเป็นอาหารหนู <u>ในการจำลอง<\/u>ย่านสีลม <b>639 <\/b>จุด ถ้าเก็บแบบรอบตายตัวด้วยรถ <b>4 <\/b>คัน ถุงบนทางเท้าเก็บทันใน <b>1 <\/b>ชั่วโมงแค่ <b>16%<\/b> ขยะค้างถึงเช้า <b>20 <\/b>ตัน และพี่ ๆ แต่ละคนต้องยกถึง <b>1.4 <\/b>ตันต่อคืนครับ", "start": 20}, {"key": "3", "slide": 3, "title": "ดูแลคนเก็บขยะก่อน", "sec": 25, "main": true, "cue": "พูดจบ กด → ไปสไลด์ถัดไป", "html": "เงื่อนไขแรกของเราคือ คนเก็บขยะต้องมีชีวิตที่ดีขึ้นก่อน VöR ใส่กฎตามประกาศ กทม. ไว้เลย คือทำงานไม่เกิน <b>8 <\/b>ชั่วโมง พัก <b>1 <\/b>ชั่วโมง ไม่เกิน <b>6 <\/b>คืนต่อสัปดาห์ และเพิ่มเกณฑ์ของทีม คือทำต่อเนื่องไม่เกิน <b>2 <\/b>ชั่วโมง ได้นอนอย่างน้อย <b>7 <\/b>ชั่วโมง และถุงละไม่เกิน <b>23 <\/b>กิโลกรัม แผนไหนผิดข้อเดียว VöR ไม่รับครับ", "start": 45}, {"key": "4", "slide": 4, "title": "ถังอัจฉริยะและปุ่มเรียก", "sec": 40, "main": true, "cue": "วิดีโอ 40 วินาที เล่นเอง · จบแล้วค้างภาพ · R เล่นซ้ำ", "html": "วิธีของเราคือทำให้ถุงไม่แตะพื้น นี่คือแบบ <b>3 <\/b>มิติสเกลจริงครับ ถังมีฝาตั้งบนฐานยกกันหนู ถังถุงดำใส่ก้อนขี้ผึ้งกลิ่นยูคาลิปตัสกับตะไคร้หอม ช่วยไล่หนูอีกชั้น ใต้ฐานมีถาดเหยื่อคุมกำเนิดหนู ล็อกกุญแจ ใช้แทนการวางยาเบื่อหนู ถังติดเซนเซอร์บอกได้ว่าขยะเต็มแค่ไหน และมีปุ่มเรียกเก็บ ใครเห็นถังเต็มหรือถุงอยู่นอกถัง กดเรียกได้เลย VöR จะเลือกรถคันที่อยู่ใกล้ และยังไม่เกินเวลางานไปเก็บ <u>ในการจำลอง<\/u>หนึ่งคืน มีการกดเรียก <b>140 <\/b>ครั้ง และรถไปถึงภายใน <b>33 <\/b>นาที ใน <b>9 <\/b>ครั้งจาก <b>10 <\/b>ครั้งครับ", "start": 70}, {"key": "5", "slide": 5, "title": "หน้าจอ VöR", "sec": 35, "main": true, "cue": "วิดีโอ 35 วินาที เล่นเอง · จบแล้วค้างภาพ · R เล่นซ้ำ", "html": "นี่คือวิดีโอจากหน้าจอจริงของ VöR ครับ เราจำลองทั้งคืนก่อนออกรถจริง แต่ละสีคือโซนที่รถแต่ละคันรับผิดชอบ รถวิ่งตามถนนจริง รวมถึงถนนทางเดียวด้วย เราเห็นได้ทุกนาทีว่ารถจอดที่ไหน และไปเทขยะที่ไหน และยังปรับสถานการณ์ได้ เช่น รถติดช่วงหัวค่ำ หรือฝนตกทั้งคืนครับ", "start": 110}, {"key": "6", "slide": 6, "title": "ตัววางแผน", "sec": 35, "main": true, "cue": "วิดีโอ 35 วินาที เล่นเอง · จบแล้วค้างภาพ · R เล่นซ้ำ", "html": "เจ้าหน้าที่ตั้งเป้าได้ เช่น ต้องเก็บถุงให้ได้ภายใน <b>1 <\/b>ชั่วโมง <b>85%<\/b> แล้วกดปุ่มเดียว VöR จะลอง <b>81 <\/b>แบบในเวลาประมาณ <b>3 <\/b>วินาที แล้วเลือกแผนที่จัดคนพอดีกับงาน และผ่านทุกเป้าครบทั้ง <b>4 <\/b>คืน เราดูได้ทั้งรายคันและรายคน ว่าแต่ละคนทำงานกี่ชั่วโมง พักเท่าไร ยกขยะกี่กิโล และนอนได้กี่ชั่วโมงครับ", "start": 145}, {"key": "7", "slide": 7, "title": "ผู้ช่วยปรับค่า", "sec": 30, "main": true, "cue": "วิดีโอ 30 วินาที เล่นเอง · จบแล้วค้างภาพ · R เล่นซ้ำ", "html": "ค่าที่ปรับได้มีเยอะ เราจึงทำผู้ช่วยที่พิมพ์เป็นภาษาไทยได้เลย เช่น ลองเพิ่มรถเป็น <b>12 <\/b>คัน AI จะเสนอว่าจะแก้ช่องไหน จากเท่าไรเป็นเท่าไร แต่ไม่แก้เอง คนต้องกดยืนยันก่อน แล้วจะเห็นผลก่อนกับหลังเทียบกัน ช่องที่แก้จะเรืองขึ้น ครั้งต่อไปเจ้าหน้าที่ก็หาเองได้ครับ", "start": 180}, {"key": "8", "slide": 8, "title": "ผลจำลอง", "sec": 30, "main": true, "cue": "พูดจบ กด → ไปสไลด์ถัดไป", "html": "ผลจำลองครับ ใช้คนเท่ากัน <b>45 <\/b>คน กะ <b>3 <\/b>ทุ่มถึงตี <b>5 <\/b>ตามที่เขตให้ข้อมูล รอบตายตัว <b>4 <\/b>รอบ ถุงบนทางเท้าเก็บทันใน <b>1 <\/b>ชั่วโมง <b>45%<\/b> ถ้าใช้ถังอัจฉริยะกับปุ่มเรียก ได้เกือบ <b>90%<\/b> ขยะไม่ค้างถึงเช้า ความเสี่ยงหนูลดลง <b>90%<\/b> และทุกคนยังได้นอน <b>7 <\/b>ชั่วโมง ต้นทุนเพิ่มประมาณ <b>7.5%<\/b> เพราะรถวิ่งมากขึ้น ปริมาณขยะยังเป็นค่าสมมติ เราจะปรับด้วยน้ำหนักที่ชั่งจริงของเขตครับ", "start": 210}, {"key": "9", "slide": 9, "title": "ตู้หมักปุ๋ยหยอดเหรียญ", "sec": 30, "main": true, "cue": "พูดจบ กด → ไปสไลด์ถัดไป", "html": "อีกทางคือลดเศษอาหารตั้งแต่ต้นทาง เพราะเศษอาหารคือสิ่งที่ดึงหนูมา เราออกแบบตู้หมักปุ๋ยแบบเดียวกับร้านซักผ้าหยอดเหรียญ ร้านหรือบ้านเอาเศษอาหารมาใส่ หยอดเหรียญ เครื่องย่อยเป็นปุ๋ย แล้วรับปุ๋ยกลับไปใช้ ปุ๋ยที่เหลือ เราเสนอให้ กทม. รับซื้อไปใช้ในสวนสาธารณะ ซึ่ง กทม. ทำอยู่แล้วในโครงการไม่เทรวม ส่วนนี้ยังเป็นแนวคิด ยังไม่ได้รวมในผลจำลองครับ", "start": 240}, {"key": "10", "slide": 10, "title": "ขั้นต่อไป", "sec": 20, "main": true, "cue": "พูดจบ กด → ไปสไลด์ถัดไป", "html": "ขั้นต่อไป เราจะขอตัวเลขจริงจากเขต แล้วทดลองที่สีลม ทั้งถังอัจฉริยะ ปุ่มเรียก ตารางกะตามกฎ และตู้หมักปุ๋ย ก่อนขยายไปทั้ง <b>7 <\/b>เขต เราขอน้ำหนักขยะที่ชั่งได้ จำนวนคนต่อคัน และพื้นที่ทดลองจาก กทม. ครับ", "start": 270}, {"key": "11", "slide": 11, "title": "สรุป", "sec": 10, "main": true, "cue": "พูดจบ กด → ไปสไลด์ถัดไป", "html": "สรุปครับ คนได้พัก ถุงไม่ค้าง เมืองสะอาดทุกคืน ดูแลคนเก็บก่อน เมืองสะอาดทุกคืน ขอบคุณครับ", "start": 290}, {"key": "B1", "slide": 12, "title": "ทำไมใช้ 45 คน มากกว่าตอนนี้", "sec": 20, "main": false, "cue": "Appendix · ใช้เมื่อกรรมการถาม", "html": "ตอนนี้เรายังไม่รู้ตัวเลขจริงของเขต ทั้งน้ำหนักขยะและจำนวนคน เราจึงใช้ค่าสมมติไว้ก่อน ถ้าขยะจริงน้อยกว่าที่เราตั้ง VöR ก็จะจัดคนให้พอดีกับงานเอง สิ่งที่ไม่เปลี่ยนคือไม่มีใครต้องทำงานเกินเวลา หรือได้นอนไม่ถึง <b>7 <\/b>ชั่วโมงครับ"}, {"key": "B2", "slide": 13, "title": "ถังอัจฉริยะมีจริงไหม ราคาเท่าไร", "sec": 20, "main": false, "cue": "Appendix · ใช้เมื่อกรรมการถาม", "html": "ตอนนี้ยังเป็นการออกแบบและการจำลองครับ ทีมเรามีวิศวกร IoT ที่เคยทำอุปกรณ์ส่งข้อมูลจากบ้านมาแล้ว เราอยากทดลองจริงที่สีลมก่อน ส่วนราคา ขอนำไปตรวจสอบกับทีมแล้วแจ้งกลับครับ"}, {"key": "B3", "slide": 14, "title": "ข้อมูลมาจากไหน", "sec": 20, "main": false, "cue": "Appendix · ใช้เมื่อกรรมการถาม", "html": "รายชื่อร้านมาจากสำนักงานเขตทั้ง <b>7 <\/b>เขต ข้อมูล ณ วันที่ <b>2 <\/b>ตุลาคม รวม <b>4,436 <\/b>จุด พิกัดจาก Google Maps ถนนจาก OpenStreetMap และเวลาทำงานตามประกาศ กทม. ส่วนกะดึกเราถามจากเขตบางรัก เส้นทางรถจริงมาจากระบบเส้นทางเก็บขยะของ กทม. และจุดวางถังมาจากข้อมูลเปิดของ กทม. ครับ"}, {"key": "B4", "slide": 15, "title": "เหยื่อคุมกำเนิดหนูปลอดภัยไหม", "sec": 25, "main": false, "cue": "Appendix · ใช้เมื่อกรรมการถาม", "html": "เหยื่ออยู่ในถาดล็อกกุญแจใต้ฐาน เด็กและสัตว์เลี้ยงเข้าไม่ถึง เปิดได้เฉพาะเจ้าหน้าที่ครับ เหยื่อนี้ทำให้หนูขยายพันธุ์น้อยลง ไม่ได้ฆ่าหนู จึงไม่มีหนูตายเน่าในท่อ ชนิดยาเราจะเลือกเฉพาะตัวที่ขึ้นทะเบียนในไทย ร่วมกับหน่วยควบคุมสัตว์พาหะของ กทม. ส่วนกลิ่นยูคาลิปตัสกับตะไคร้หอมเป็นชั้นเสริม มีผลทดลองในห้องแล็บ แต่ยังไม่มีผลภาคสนามครับ"}], "total": 300, "rules": []}</script>
+<script>
+const D=JSON.parse(document.getElementById('data').textContent), SEC=D.secs, frame=document.getElementById('deck');
+const $=id=>document.getElementById(id), fmt=s=>{s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+const sgn=s=>(s>0?'+':s<0?'-':'')+fmt(Math.abs(s));
+let cur=0, running=false, t0=0, base=0, enter=0;          // base: seconds banked before the last start
+const spent=SEC.map(()=>0);
+const now=()=>base+(running?(performance.now()-t0)/1000:0);
+$('plan').textContent=fmt(D.total);
+if($('rules'))$('rules').innerHTML=D.rules.map(r=>'<li>'+r.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))+'</li>').join('');
+$('rows').innerHTML=SEC.map((s,k)=>`<tr id="r${k}"><td>${s.main?s.slide:s.key} · ${s.title}</td><td class="n">${fmt(s.sec)}</td><td class="n" id="a${k}">–</td><td class="n" id="d${k}"></td></tr>`).join('');
+$('fPlan').textContent=fmt(D.total);
+function bank(){const t=now();spent[cur]+=t-enter;enter=t;}
+function show(k){
+  if(k===cur&&$('title').textContent)return;
+  bank();cur=k;const s=SEC[k],nx=SEC[k+1];
+  $('no').textContent=s.main?s.slide:s.key;$('no').className='no'+(s.main?'':' b');
+  $('title').textContent=s.title;$('slotP').textContent=fmt(s.sec);$('say').innerHTML=s.html;$('say').scrollTop=0;
+  $('when').textContent=s.main?'ควรเริ่มที่ '+fmt(s.start):'ไม่นับใน 5 นาที';
+  $('cue').textContent=s.cue;$('cue').className='chip cue'+(/วิดีโอ/.test(s.cue)?' v':'');
+  $('next').innerHTML=nx?'<b>ถัดไป</b> '+(nx.main?nx.slide:nx.key)+' · '+nx.title:'<b>สไลด์สุดท้าย</b>';
+  if(running&&s.main){const d=now()-s.start;const p=$('pace');p.className='pace '+(d>3?'behind':d<-3?'ahead':'');p.textContent=Math.abs(d)<=3?'ตรงเวลา':(d>0?'ช้ากว่าแผน ':'เร็วกว่าแผน ')+fmt(Math.abs(d));}
+  document.querySelectorAll('tbody tr').forEach((r,j)=>r.classList.toggle('cur',j===k));
+}
+function tick(){
+  const t=now(),s=SEC[cur],inSlide=spent[cur]+(t-enter);
+  $('total').textContent=fmt(t);$('slotT').textContent=fmt(inSlide);
+  const r=inSlide/s.sec,c=r>1?'over':r>0.85?'warn':'';
+  $('slotT').className='t num '+c;$('bar').className=c;$('bar').style.width=Math.min(100,r*100)+'%';
+  let real=0;SEC.forEach((x,j)=>{const a=spent[j]+(j===cur?t-enter:0);if(a<0.5)return;
+    $('a'+j).textContent=fmt(a);const d=a-x.sec,el=$('d'+j);el.textContent=sgn(d);el.className='n '+(d>2?'over':d<-2?'under':'');if(x.main)real+=a;});
+  if(real){$('fReal').textContent=fmt(real);const d=real-D.total;$('fDiff').textContent=sgn(d);$('fDiff').className='n '+(d>2?'over':d<-2?'under':'');}
+  requestAnimationFrame(tick);
+}
+function toggle(){if(running){base=now();running=false;$('start').textContent='จับเวลาต่อ';}else{t0=performance.now();running=true;$('start').textContent='หยุดจับเวลา';}}
+function reset(){running=false;base=0;enter=0;spent.fill(0);$('start').textContent='เริ่มจับเวลา';$('pace').className='pace';$('pace').textContent='ยังไม่เริ่มจับเวลา';
+  SEC.forEach((x,j)=>{$('a'+j).textContent='–';$('d'+j).textContent='';});$('fReal').textContent='';$('fDiff').textContent='';send(0);}
+const send=n=>frame.contentWindow.postMessage({deckGo:n},'*');
+function key(k){
+  if(['ArrowRight','PageDown',' ','Enter'].includes(k))send(Math.min(SEC.length-1,cur+1));
+  else if(['ArrowLeft','PageUp','Backspace'].includes(k))send(Math.max(0,cur-1));
+  else if(k==='Home')send(0);else if(k==='End')send(SEC.length-1);
+  else if(k==='r'||k==='R')send(cur);else if(k==='s'||k==='S')toggle();
+}
+addEventListener('message',e=>{const d=e.data||{};if(d.deckSlide!=null)show(d.deckSlide);if(d.deckKey)key(d.deckKey);});
+addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('button,summary'))return;if([' ','ArrowRight','ArrowLeft','PageDown','PageUp','Home','End','Backspace'].includes(e.key))e.preventDefault();key(e.key);});
+$('start').onclick=e=>{toggle();e.target.blur();};$('reset').onclick=e=>{reset();e.target.blur();};
+$('copy').onclick=()=>{const t=now();const lines=SEC.map((x,j)=>{const a=spent[j]+(j===cur?t-enter:0);return `${x.main?x.slide:x.key}\t${x.title}\tแผน ${fmt(x.sec)}\tซ้อม ${a<0.5?'-':fmt(a)}`;});
+  const txt='ผลซ้อม '+new Date().toLocaleString('th-TH')+'\n'+lines.join('\n')+'\nรวม '+$('fReal').textContent+' / '+fmt(D.total);
+  const done=()=>{$('copied').textContent='คัดลอกแล้ว';setTimeout(()=>$('copied').textContent='',2000);};
+  (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(done,()=>{const a=document.createElement('textarea');a.value=txt;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();done();});};
+$('title').textContent='';show(0);$('title').textContent=SEC[0].title;tick();
+</script>
+</body></html>

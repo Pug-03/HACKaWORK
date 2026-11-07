@@ -3,6 +3,7 @@
 สไลด์นำเสนอของทีม Nótt (MegaWiz) · HACKaWORK 2569 โจทย์ที่ 1
 
 เปิดนำเสนอ: https://pug-03.github.io/HACKaWORK/pitch/
+ซ้อมพูด (สไลด์ซ้าย บทพูดขวา จับเวลารายสไลด์): https://pug-03.github.io/HACKaWORK/pitch/rehearse.html
 
 | ปุ่ม | ทำอะไร |
 |---|---|
