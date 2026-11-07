@@ -110,7 +110,7 @@ function wedgeHood(B, zBack, zFront, mat, inset = 0) {
   if (idx) { for (let i = 0; i < idx.count; i += 3) { const t = idx.getX(i + 1); idx.setX(i + 1, idx.getX(i + 2)); idx.setX(i + 2, t); } }
   else { for (let i = 0; i < p.count; i += 3) { for (let k = 0; k < 3; k++) { const t = p.getComponent(i + 1, k); p.setComponent(i + 1, k, p.getComponent(i + 2, k)); p.setComponent(i + 2, k, t); } } }
   // drop triangles lying on the base plane (open bottom)
-  const src = geo.toNonIndexed();
+  const src = geo.index ? geo.toNonIndexed() : geo;
   const sp = src.attributes.position, keep = [];
   const va = new THREE.Vector3(), vb = new THREE.Vector3(), vc = new THREE.Vector3(), nrm = new THREE.Vector3();
   for (let i = 0; i < sp.count; i += 3) {
