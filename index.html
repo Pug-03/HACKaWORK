@@ -183,6 +183,7 @@
   #loading.error { color: #b91c1c; padding: 0 24px; text-align: center; line-height: 1.6; }
 
   @media (max-width: 640px) {
+    #toast { top: auto; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
     .controls { top: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: calc(50% - 22px); padding: 10px; max-height: 45vh; }
     .smart { top: calc(96px + env(safe-area-inset-top, 0px)); width: calc(100% - 32px); max-height: calc(50vh - 110px); }
     .controls { max-height: calc(50vh - 30px); }
