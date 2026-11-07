@@ -1,93 +1,154 @@
-# HACKaWORK — BKK Bin Station 3D
+# HACKaWORK — สถานีคัดแยกขยะ กทม. แบบ 3D
 
-A true-to-scale (1 unit = 1 m) 3D web model of a Bangkok (BMA) 4-bay sidewalk
-waste-sorting station, extended with an anti-rodent raised base, smart hardware,
-a food-waste composter, an electric mini garbage truck and a district dashboard.
+โมเดล 3D บนเว็บของสถานีคัดแยกขยะริมทางเท้า 4 ช่องของกรุงเทพมหานคร สเกลจริง (1 หน่วย = 1 เมตร)
+ต่อยอดด้วยฐานยกกันหนู ฮาร์ดแวร์อัจฉริยะ เครื่องหมักเศษอาหาร ร้านขายปุ๋ย รถเก็บขยะไฟฟ้า และแดชบอร์ดระดับเขต
 
-## Run locally
+**ลองใช้ได้เลย ไม่ต้องติดตั้ง**
 
-ES modules need a local server (opening `index.html` directly via `file://` will not work).
-An internet connection is required for three.js (jsDelivr CDN) and the Kanit font.
-There is nothing to install and no build step; you only need one way to serve the folder.
+- โมเดล 3D: <https://pug-03.github.io/HACKaWORK/>
+- แดชบอร์ดเขต: <https://pug-03.github.io/HACKaWORK/dashboard.html>
 
-    cd HACKaWORK
-    npm run dev                    # needs npm + python3; same as: python3 -m http.server 8766
-    # 3D model:  http://localhost:8766
-    # dashboard: http://localhost:8766/dashboard.html
+> โปรเจกต์นี้เป็นต้นแบบสำหรับนำเสนอแนวคิด ไม่ได้เชื่อมต่ออุปกรณ์จริง ดูรายการข้อมูลจำลองได้ที่ [ข้อมูลจำลองและค่าสมมติ](#ข้อมูลจำลองและค่าสมมติ)
 
-If `npm run dev` doesn't work, run one of these from the same folder instead:
+## ติดตั้งและรันในเครื่อง
 
-    python3 -m http.server 8766    # macOS / Linux, without npm
-    py -m http.server 8766         # Windows, usually has `py` rather than `python3`
-    npx serve -l 8766              # Node only, no Python
+โปรเจกต์นี้เป็น HTML และ JavaScript ล้วน ไม่มี build step และไม่ต้องรัน `npm install`
+ขอแค่มีตัวเปิด local server อย่างใดอย่างหนึ่งจากตารางด้านล่าง
 
-If port 8766 is already in use, pick another number in the command and in the URL.
-The browser needs WebGL (a recent Chrome, Edge, Safari or Firefox).
+**1. ดาวน์โหลดโค้ด**
 
-After pulling changes, hard-refresh (Cmd/Ctrl + Shift + R) so the browser drops cached modules.
+```bash
+git clone https://github.com/Pug-03/HACKaWORK.git
+cd HACKaWORK
+```
 
-## Deploy (GitHub Pages)
+**2. เปิด server** เลือกคำสั่งที่ตรงกับเครื่องของคุณ
 
-Everything is static HTML/JS, so GitHub Pages works as-is:
-Settings → Pages → Build and deployment → Source: *Deploy from a branch* → Branch `main`, folder `/ (root)`.
-The site is then served at `https://<user>.github.io/HACKaWORK/`.
-
-## What's in the scene
-
-- **Bin station** — steel frame (2.64 × 0.70 × 0.89 m), laser-cut sign panels, three
-  TAB120HW 120 L wheelie bins (recycle / food / general) and a sealed-bag bay with a
-  lattice band. Hood lids have a push flap that opens through the lid into the bin.
-- **Anti-rodent riser** (separate piece, 35 cm) — open underneath for cleaning, cone rat
-  guards on every leg, two lockable service trays for pest-control staff, free-standing
-  front step (12 cm clear of the deck).
-- **Smart hardware** — 50 W solar panel on a Ø60 mm pole, LiFePO4 12.8 V 20 Ah battery
-  box with MPPT, conduits, control unit (screen, LTE modem, LoRa gateway, 500 THB
-  "call extra pickup" button), two-colour beacon (red = waiting, green = collected),
-  wireless LoRa ultrasonic fill sensors under the lids. "Look inside" opens the boxes
-  and labels every internal part.
-- **Composter** — stand-alone 200 L cabinet (~50 kg food waste/day): heated drum, paddle
-  rotor, top hatch, pull-out compost drawer, BMA branding with an order phone placeholder.
-- **EV mini truck** — drives in for an out-of-round call or when a bin reaches 80 %,
-  leaves when the pickup is confirmed.
-- **Fertilizer shop** — small timber hut with a thatched roof beside the composter, selling
-  bagged compost (BMA bags + one made-up placeholder brand).
-- **Moving objects** — double-press and hold the station, composter or shop, then drag to
-  move it. Turn on "จัดวางตำแหน่งเอง" to rotate the selected object by 15° with Q/E or the
-  buttons. Positions are saved in the browser's localStorage; "คืนตำแหน่งเดิม" restores the
-  defaults.
-- **Simulation + dashboard** — fill sliders, call / collected buttons; state is shared
-  live with `dashboard.html` (KPIs, per-station table, EV dispatch queue) via
-  BroadcastChannel + localStorage, with a heartbeat so the dashboard shows when the
-  3D page is offline.
-
-## Files
-
-| File | Contents |
+| เครื่องของคุณมี | คำสั่ง |
 |---|---|
-| `index.html` | 3D page, UI panels, import map (three.js r170) |
-| `dashboard.html` | District dashboard (simulated data + live station) |
-| `js/config.js` | Station, bay and bin dimensions / colours |
-| `js/binStation.js` | Frame, panels, lattice, bag pile |
-| `js/wheelieBin.js` | TAB120HW bin: rounded body, collar, hood lid, push flap, wheels |
-| `js/riser.js` | Anti-rodent raised base, rat guards, lockable service trays (front or back pull-out, lifting lid), step with lift-out panels |
-| `js/hardware.js` | Solar, battery, conduits, control unit, beacon, sensors, look-inside |
-| `js/composter.js` | 200 L composter: heated U-trough, paddle mixer, chain drive, twin-shaft shredder, electrics, side bag display |
-| `js/mech.js` | Standard parts from real dimensions: sprockets / #50 roller chain, involute gears, UCP bearings, TEFC motors, cutters, bolts |
-| `js/shop.js` | Fertilizer shop: thatched timber hut with stacked compost bags (BMA bags + one placeholder brand) |
-| `js/circuit.js` | Electrical and data circuit diagram overlay |
-| `js/truck.js` | EV mini garbage truck |
-| `js/environment.js` | Sidewalk, curb, road, pad, lights |
-| `js/textures.js` | Canvas textures (signs + laser-cut masks, paving, noise) |
-| `js/geom.js` | Rounded boxes, creased normals, rounded-rect paths |
-| `js/main.js` | Scene, camera, render-on-demand loop, interaction, simulation, sync |
+| npm และ Python 3 (macOS / Linux) | `npm run dev` |
+| Python 3 (macOS / Linux) | `python3 -m http.server 8766` |
+| Python 3 (Windows) | `py -m http.server 8766` |
+| Node.js อย่างเดียว | `npx serve -l 8766` |
 
-`window.HACKaWORK` exposes `scene, camera, controls, station, riser, hardware, composter,
-smart, CONFIG, invalidate`. Call `HACKaWORK.invalidate(true)` after changing the scene from
-outside so it re-renders.
+**3. เปิด browser**
 
-## Notes / placeholders
+- โมเดล 3D: <http://localhost:8766>
+- แดชบอร์ด: <http://localhost:8766/dashboard.html>
 
-- Bins follow the TAB120HW drawing (500 × 550 × 1100 mm); the frame is estimated from site photos.
-- The composter's order phone number is a placeholder (`COMPOSTER.phone` in `js/composter.js`).
-- Regular collection rounds on the dashboard (06:00, 14:00, 22:00) are example values.
-- Other stations on the dashboard and the compost output rate are simulated.
+กด `Ctrl + C` ใน terminal เมื่อต้องการปิด server
+
+## เวอร์ชันที่ใช้
+
+| รายการ | เวอร์ชัน | หมายเหตุ |
+|---|---|---|
+| [three.js](https://threejs.org/) | `0.170.0` (r170) | โหลดจาก jsDelivr ไม่ต้องติดตั้ง |
+| ฟอนต์ Kanit | - | โหลดจาก Google Fonts |
+| Python | 3.x | ทดสอบกับ 3.9.6 |
+| Node.js / npm | ไม่บังคับ | ทดสอบกับ Node 26.7.0 และ npm 11.19.0 |
+| `serve` | ไม่บังคับ | `npx` โหลดให้เอง ทดสอบกับ 14.2.7 |
+| Browser | Chrome / Edge 89+, Safari 16.4+, Firefox 108+ | ต้องรองรับ WebGL และ import map |
+
+ชุดทดสอบหลักคือ macOS กับ Chrome ส่วนคำสั่งสำหรับ Windows และ browser อื่นยังไม่ได้ทดสอบบนเครื่องจริง
+ถ้าเจอปัญหา แจ้งได้ใน [Issues](https://github.com/Pug-03/HACKaWORK/issues)
+
+**เวอร์ชันของโปรเจกต์:** ตอนนี้ยังไม่มีเลขเวอร์ชันหรือ release ให้ถือว่าสาขา `main` คือเวอร์ชันล่าสุด
+ตรวจสอบว่าเครื่องคุณอยู่ที่ commit ไหนและอัปเดตได้ด้วยคำสั่งนี้
+
+```bash
+git log -1 --oneline   # ดู commit ปัจจุบัน
+git pull               # อัปเดตเป็นล่าสุด
+```
+
+**การเปลี่ยนเวอร์ชัน three.js:** แก้เลข `three@0.170.0` ใน `index.html` ให้ครบทุกจุด
+ทั้งใน import map และบรรทัด `modulepreload`
+
+## แก้ปัญหาที่พบบ่อย
+
+| อาการ | วิธีแก้ |
+|---|---|
+| ดับเบิลคลิก `index.html` แล้วโมเดลไม่ขึ้น | ต้องเปิดผ่าน local server ตามขั้นตอนด้านบน เปิดแบบ `file://` ไม่ได้ |
+| `python3` ไม่พบคำสั่ง หรือ `npm run dev` ไม่ทำงาน | บน Windows ใช้ `py -m http.server 8766` หรือใช้ `npx serve -l 8766` |
+| Port 8766 ถูกใช้อยู่ | เปลี่ยนเป็นเลขอื่นทั้งในคำสั่งและ URL เช่น `8767` |
+| ขึ้นว่าโหลดสคริปต์หรือโมเดลไม่สำเร็จ | ตรวจอินเทอร์เน็ต เพราะ three.js โหลดจาก CDN |
+| ขึ้นว่าไม่รองรับ WebGL | อัปเดต browser หรือเปิด hardware acceleration |
+| แก้โค้ดหรือ `git pull` แล้วหน้าเว็บไม่เปลี่ยน | กด `Cmd/Ctrl + Shift + R` เพื่อล้าง cache |
+| แดชบอร์ดไม่อัปเดตตามหน้า 3D | เปิดทั้งสองหน้าใน browser เดียวกันและจาก URL เดียวกัน |
+
+## วิธีใช้งาน
+
+| อยากทำอะไร | ทำอย่างไร |
+|---|---|
+| หมุนมุมมอง | ลากบนพื้นที่ว่างหรือบนโมเดล |
+| ซูม | เลื่อน scroll หรือใช้สองนิ้ว |
+| ไปมุมมองสำเร็จรูป | กดปุ่ม หน้า, ข้าง, บน, หลัง, 3/4 ในแผง "ตัวควบคุม" |
+| เปิดฝาถัง กดปุ่ม หรือเปิดถาด | คลิกที่ชิ้นนั้นในโมเดล |
+| ย้ายชุดถังขยะ เครื่องหมัก หรือร้านปุ๋ย | ดับเบิลคลิกโดยกดครั้งที่สองค้างไว้ แล้วลากไปวาง |
+| หมุนชิ้นทีละ 15° | เปิด "จัดวางตำแหน่งเอง" เลือกชิ้น แล้วกด `Q` / `E` หรือปุ่มหมุน |
+| คืนตำแหน่งเดิม | เปิด "จัดวางตำแหน่งเอง" แล้วกด "คืนตำแหน่งเดิม" |
+| จำลองระดับขยะและเรียกรถ | ใช้แผง "ระบบอัจฉริยะ · จำลอง" |
+
+ตำแหน่งที่จัดไว้จะบันทึกใน browser เครื่องนั้นเท่านั้น คนอื่นจะยังเห็นตำแหน่งเริ่มต้น
+
+## มีอะไรอยู่ในฉาก
+
+- **สถานีคัดแยกขยะ:** โครงเหล็ก 2.64 × 0.70 × 0.89 ม. แผงป้ายเจาะเลเซอร์ ถัง TAB120HW ขนาด 120 ลิตร 3 ใบ (รีไซเคิล / เศษอาหาร / ทั่วไป) และช่องถุงขยะมัดปาก
+- **ฐานยกกันหนู:** สูง 35 ซม. โล่งด้านล่างเพื่อทำความสะอาด มีกรวยกันหนูทุกขา ถาดบริการล็อกได้ 2 ถาด และบันไดด้านหน้า
+- **ฮาร์ดแวร์อัจฉริยะ:** โซลาร์ 50 W แบตเตอรี่ LiFePO4 12.8 V 20 Ah ชุดควบคุมพร้อมจอ, LTE และ LoRa ปุ่มเรียกรถนอกรอบ 500 บาท ไฟสถานะ 2 สี และเซนเซอร์วัดระดับขยะไร้สาย
+- **เครื่องหมักปุ๋ย:** ตู้ 200 ลิตร รองรับเศษอาหารประมาณ 50 กก./วัน เปิดดูกลไกภายในได้
+- **ร้านขายปุ๋ย:** กระท่อมไม้มุงจากขนาด 2.2 × 2.2 ม. พร้อมถุงปุ๋ยหมัก
+- **รถเก็บขยะไฟฟ้า:** ขับเข้ามาเมื่อมีการเรียกนอกรอบหรือถังเต็มถึง 80% และออกไปเมื่อยืนยันว่าเก็บแล้ว
+- **แดชบอร์ดเขต:** แสดง KPI ตารางสถานี และคิวรถ ซิงก์กับหน้า 3D แบบสดผ่าน BroadcastChannel และ localStorage
+
+## โครงสร้างโปรเจกต์
+
+| ไฟล์ | หน้าที่ |
+|---|---|
+| `index.html` | หน้า 3D, แผงควบคุม และ import map |
+| `dashboard.html` | แดชบอร์ดเขต (HTML, CSS และ JS อยู่ในไฟล์เดียว) |
+| `js/main.js` | ฉาก กล้อง การโต้ตอบ การย้ายชิ้นงาน การจำลอง และการซิงก์ **เริ่มอ่านจากไฟล์นี้** |
+| `js/config.js` | ขนาดและสีของสถานี ช่อง และถัง |
+| `js/binStation.js` | โครง แผงป้าย ตะแกรง และกองถุง |
+| `js/wheelieBin.js` | ถัง TAB120HW |
+| `js/riser.js` | ฐานยกกันหนู ถาดบริการ และบันได |
+| `js/hardware.js` | โซลาร์ แบตเตอรี่ ท่อร้อยสาย ชุดควบคุม ไฟสถานะ และเซนเซอร์ |
+| `js/circuit.js` | แผนผังวงจรไฟฟ้าและข้อมูล |
+| `js/composter.js` | เครื่องหมักปุ๋ยและกลไกภายใน |
+| `js/mech.js` | ชิ้นส่วนมาตรฐาน เช่น เฟือง โซ่ แบริ่ง มอเตอร์ และน็อต |
+| `js/shop.js` | ร้านขายปุ๋ย |
+| `js/truck.js` | รถเก็บขยะไฟฟ้า |
+| `js/environment.js` | ทางเท้า ขอบทาง ถนน แผ่นฐาน และแสง |
+| `js/textures.js` | texture จาก canvas เช่น ป้าย พื้น และ noise |
+| `js/geom.js` | ฟังก์ชันช่วยสร้าง geometry |
+
+สำหรับ debug เปิด console แล้วใช้ `window.HACKaWORK` ได้ มี `scene`, `camera`, `controls`, `station`, `riser`, `hardware`, `composter`, `smart`, `CONFIG` และ `invalidate`
+ถ้าแก้ฉากจากภายนอก ให้เรียก `HACKaWORK.invalidate(true)` เพื่อ render ใหม่
+
+## ทำงานร่วมกัน
+
+```bash
+git pull                        # อัปเดตก่อนเริ่มงาน
+git switch -c feat/my-change    # แยก branch
+# แก้โค้ด แล้วเปิด local server เพื่อลองในหน้าเว็บ
+git add <ไฟล์ที่แก้>
+git commit -m "feat: อธิบายสิ่งที่เปลี่ยน"
+git push -u origin feat/my-change   # จากนั้นเปิด Pull Request
+```
+
+- **ข้อความ commit:** ใช้รูปแบบ `feat:`, `fix:`, `perf:`, `docs:`, `refactor:` หรือ `chore:`
+- **การทดสอบ:** ยังไม่มี automated test ให้เปิดหน้าเว็บ ลองฟีเจอร์ที่แก้ และดูว่า console ไม่มี error
+- **การ deploy:** ทุกอย่างที่เข้า `main` จะขึ้น GitHub Pages อัตโนมัติ จึงควรลองในเครื่องก่อนเสมอ
+
+ถ้า fork ไปใช้เอง ให้เปิด Pages ที่ Settings → Pages → Source: *Deploy from a branch* → Branch `main`, โฟลเดอร์ `/ (root)`
+
+## ข้อมูลจำลองและค่าสมมติ
+
+- ถังอ้างอิงแบบ TAB120HW (500 × 550 × 1100 มม.) ส่วนโครงสถานีประมาณจากภาพถ่ายหน้างาน
+- สถานีอื่นในแดชบอร์ดและอัตราการผลิตปุ๋ยเป็นค่าจำลอง
+- รอบเก็บปกติ (06:00, 14:00, 22:00) และราคาปุ๋ยเป็นค่าตัวอย่าง
+- เบอร์สั่งซื้อปุ๋ย `02-XXX-XXXX` เป็นค่าสมมติ แก้ได้ที่ `COMPOSTER.phone` ใน `js/composter.js`
+- ปุ๋ยยี่ห้อที่สองในร้านเป็นแบรนด์สมมติ
+
+## License
+
+ยังไม่ได้กำหนด license ถ้าต้องการนำโค้ดไปใช้ต่อ กรุณาติดต่อเจ้าของ repo ก่อน
