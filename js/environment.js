@@ -113,5 +113,5 @@ export function buildEnvironment(scene, renderer, stationLength, stationDepth) {
   pad.receiveShadow = true;
   scene.add(pad);
 
-  return { sun, padHeight: 0.012 };
+  return { sun, pad, padHeight: 0.012 };
 }

@@ -229,7 +229,7 @@ function pushFlap(bin) {
 
 /* ---------- layout mode: drag the station, composter and shop around the sidewalk ---------- */
 const MOVABLES = [
-  { key: 'station', name: 'ชุดถังขยะ', groups: () => [station.group, riser.group, dims], hit: () => [station.group, riser.group] },
+  { key: 'station', name: 'ชุดถังขยะ', groups: () => [station.group, riser.group, dims, env.pad], hit: () => [station.group, riser.group] },
   { key: 'composter', name: 'เครื่องหมักปุ๋ย', groups: () => [composter.group], hit: () => [composter.group] },
   { key: 'shop', name: 'ร้านขายปุ๋ย', groups: () => [shop.group], hit: () => [shop.group] },
 ];
