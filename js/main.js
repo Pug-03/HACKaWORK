@@ -261,35 +261,47 @@ function placeMovable(m, x, z, rot) {
   z = THREE.MathUtils.clamp(z, STREET.curbZ + 0.6, 8);
   for (const g of m.groups()) { g.position.x = x; g.position.z = z; if (rot !== undefined) g.rotation.y = rot; }
 }
-// double-press to drag: the first press only selects (and still orbits the camera as usual),
-// a second press on the same object within 400 ms / 12 px picks it up; hold and drag to move it
-let lastPress = null;
+// double-press to drag, with or without layout mode: the first press only selects (and still orbits
+// the camera as usual), a second press on the same object within the window picks it up; hold and drag
+// to move it. Clicks on a movable wait out the window so picking something up doesn't also operate it.
+const DOUBLE_PRESS_MS = 300;
+let lastPress = null, pendingClick = null;
+function takePendingClick() {
+  if (!pendingClick) return null;
+  clearTimeout(pendingClick.timer);
+  const { e } = pendingClick;
+  pendingClick = null;
+  return e;
+}
 function startDrag(e) {
   const m = movableAt(e), p = m && groundAt(e);
   const prev = lastPress;
   lastPress = m ? { m, t: performance.now(), x: e.clientX, y: e.clientY } : null;
   if (!p) return;
   selected = m;
-  if (!prev || prev.m !== m || lastPress.t - prev.t > 400 || Math.hypot(e.clientX - prev.x, e.clientY - prev.y) > 12) return;
+  if (!prev || prev.m !== m || lastPress.t - prev.t > DOUBLE_PRESS_MS || Math.hypot(e.clientX - prev.x, e.clientY - prev.y) > 12) return;
   lastPress = null;
   const g = m.groups()[0];
-  drag = { m, id: e.pointerId, dx: g.position.x - p.x, dz: g.position.z - p.z };
+  drag = { m, id: e.pointerId, dx: g.position.x - p.x, dz: g.position.z - p.z, x: e.clientX, y: e.clientY, moved: false, firstClick: takePendingClick() };
   selected = m;
   controls.enabled = false;
   try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
 }
 function dragTo(e) {
+  if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) <= 5) return;   // hand jitter on a double-click is not a move
   const p = groundAt(e);
   if (!p) return;
+  drag.moved = true;
   placeMovable(drag.m, p.x + drag.dx, p.z + drag.dz);
   tooltip.hidden = true;
   invalidate(true);
 }
 function endDrag() {
   if (!drag) return;
+  const { moved } = drag;
   drag = null;
   controls.enabled = true;
-  saveLayout();
+  if (moved) saveLayout();
 }
 function rotateSelected(deg) {
   if (!selected) { toast('คลิกหรือลากชิ้นที่ต้องการหมุนก่อน'); return; }
@@ -356,7 +368,7 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   activePointers.add(e.pointerId);
   if (activePointers.size > 1) { gestured = true; endDrag(); }
   downAt = activePointers.size === 1 ? [e.clientX, e.clientY, e.pointerId] : null;
-  if (moveMode && activePointers.size === 1) startDrag(e);
+  if (activePointers.size === 1) startDrag(e);
 });
 const endPointer = (e) => {
   activePointers.delete(e.pointerId);
@@ -369,7 +381,22 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   if (moveMode) { endDrag(); downAt = null; return; }   // layout mode: clicks only move things
   const start = downAt;
   downAt = null;
+  if (drag && drag.id === e.pointerId) {
+    const { moved, firstClick } = drag;
+    endDrag();
+    if (!moved) {   // a plain double-click: both clicks still count
+      if (firstClick) clickAt(firstClick);
+      clickAt(e);
+    }
+    return;
+  }
   if (wasGesture || !start || start[2] !== e.pointerId || Math.hypot(e.clientX - start[0], e.clientY - start[1]) > 5) return;
+  const earlier = takePendingClick();
+  if (earlier) clickAt(earlier);
+  if (movableAt(e)) pendingClick = { e, timer: setTimeout(() => clickAt(takePendingClick()), DOUBLE_PRESS_MS) };
+  else clickAt(e);
+});
+function clickAt(e) {
   const { bin, part, owner } = pick(e);
   if (part === 'flap' && owner) pushFlap(owner);
   else if (part === 'callButton') requestPickup();
@@ -395,7 +422,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   else if (bin) bin.userData.target = bin.userData.target ? 0 : 1;
   syncAll();
   invalidate(true);
-});
+}
 let hoverEvent = null;
 renderer.domElement.addEventListener('pointermove', (e) => {
   if (drag && e.pointerId === drag.id) { dragTo(e); return; }

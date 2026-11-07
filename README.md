@@ -51,9 +51,10 @@ The site is then served at `https://<user>.github.io/HACKaWORK/`.
   leaves when the pickup is confirmed.
 - **Fertilizer shop** — small timber hut with a thatched roof beside the composter, selling
   bagged compost (BMA bags + one made-up placeholder brand).
-- **Layout mode** — turn on "จัดวางตำแหน่งเอง", then double-press and hold the station,
-  composter or shop to drag it; Q/E or the buttons rotate it by 15°. Positions are saved in
-  the browser's localStorage; "คืนตำแหน่งเดิม" restores the defaults.
+- **Moving objects** — double-press and hold the station, composter or shop, then drag to
+  move it. Turn on "จัดวางตำแหน่งเอง" to rotate the selected object by 15° with Q/E or the
+  buttons. Positions are saved in the browser's localStorage; "คืนตำแหน่งเดิม" restores the
+  defaults.
 - **Simulation + dashboard** — fill sliders, call / collected buttons; state is shared
   live with `dashboard.html` (KPIs, per-station table, EV dispatch queue) via
   BroadcastChannel + localStorage, with a heartbeat so the dashboard shows when the
