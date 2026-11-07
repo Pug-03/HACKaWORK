@@ -236,7 +236,7 @@ const MOVABLES = [
 const LAYOUT_KEY = 'hackawork-layout-v1';
 const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const DEFAULT_LAYOUT = {};
-let moveMode = false, drag = null, selected = null;
+let moveMode = false, drag = null, selected = null, hitHeight = 0;
 function setPointer(ev) {
   const r = renderer.domElement.getBoundingClientRect();
   pointer.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
@@ -247,8 +247,9 @@ function movableAt(ev) {
   let best = null;
   for (const m of MOVABLES) {
     const h = raycaster.intersectObjects(m.hit(), true).find((x) => !x.object.isLine && !x.object.isPoints && x.object.visible);
-    if (h && (!best || h.distance < best.d)) best = { m, d: h.distance };
+    if (h && (!best || h.distance < best.d)) best = { m, d: h.distance, y: h.point.y };
   }
+  if (best) hitHeight = best.y;
   return best?.m || null;
 }
 function groundAt(ev) {
@@ -274,7 +275,11 @@ function takePendingClick() {
   return e;
 }
 function startDrag(e) {
-  const m = movableAt(e), p = m && groundAt(e);
+  const m = movableAt(e);
+  // drag on a level plane through the grabbed point so it stays under the cursor; kept below the
+  // camera because a plane near eye level would turn small mouse moves into huge jumps
+  if (m) ground.constant = -Math.min(hitHeight, camera.position.y - 0.5);
+  const p = m && groundAt(e);
   const prev = lastPress;
   lastPress = m ? { m, t: performance.now(), x: e.clientX, y: e.clientY } : null;
   if (!p) return;
