@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VöR เมืองสะอาด · ทีม Nótt · HACKaWORK 2569</title>
+<style>
+@font-face{font-family:"Outfit";src:url("fonts/outfit-latin.woff2") format("woff2");font-weight:100 900}
+@font-face{font-family:"Plex Thai";src:url("fonts/plex-thai-thai-400.woff2") format("woff2");font-weight:400;unicode-range:U+0E01-0E5B,U+200C-200D,U+25CC}
+@font-face{font-family:"Plex Thai";src:url("fonts/plex-thai-thai-600.woff2") format("woff2");font-weight:600;unicode-range:U+0E01-0E5B,U+200C-200D,U+25CC}
+@font-face{font-family:"Plex Thai";src:url("fonts/plex-thai-thai-700.woff2") format("woff2");font-weight:700;unicode-range:U+0E01-0E5B,U+200C-200D,U+25CC}
+@font-face{font-family:"Plex Thai";src:url("fonts/plex-thai-latin-400.woff2") format("woff2");font-weight:400;unicode-range:U+0000-00FF,U+2000-206F}
+@font-face{font-family:"Plex Thai";src:url("fonts/plex-thai-latin-600.woff2") format("woff2");font-weight:600;unicode-range:U+0000-00FF,U+2000-206F}
+:root{--bg:#fff;--ink:#1f2937;--head:#0f4c5c;--mute:#6b7280;--line:#d1d5db;--soft:#f3f6f8;--teal:#0f8a74;--teal-bg:#e3f5f0;--gold:#d99a12;--gray:#9ca3af;--warn:#b45309}
+*{box-sizing:border-box}
+html,body{margin:0;background:#e5e7eb;color:var(--ink);font-family:"Plex Thai","Outfit",sans-serif}
+#deck{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.slide{position:absolute;width:1920px;height:1080px;background:var(--bg);overflow:hidden;display:none;transform-origin:center center}
+.slide.on{display:block}
+.num{position:absolute;right:56px;bottom:34px;font:600 22px "Outfit","Plex Thai",sans-serif;color:var(--mute)}
+.kick{font-size:26px;font-weight:600;color:var(--teal);letter-spacing:.02em;margin:0 0 10px}
+h2{font-size:64px;line-height:1.25;color:var(--head);margin:0 0 30px;font-weight:700}
+.cap{font-size:21px;color:var(--mute);line-height:1.5}
+.pad{position:absolute;inset:80px 96px 90px 96px}
+.photo{position:absolute;top:0;height:100%;object-fit:cover}
+.wm{font-family:"Outfit","Plex Thai",sans-serif;font-weight:700;letter-spacing:-.01em}
+.wm i{font-style:normal;color:var(--gold)}
+.pill{display:inline-block;font-size:28px;font-weight:600;color:var(--head);background:var(--teal-bg);border-radius:40px;padding:10px 26px;margin:0 12px 14px 0}
+.shot{border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(15,76,92,.12);background:#fff;display:block}
+.notes{display:none}
+.stillfull,.clipfull{position:absolute;left:0;top:0;width:1920px;height:1080px;object-fit:cover;display:block}
+.clip{background:transparent}
+body.still video{display:none}
+body.blank{background:#000!important}body.blank #deck{visibility:hidden}
+/* motto: the line the talk opens and closes on (slides 1 and 10) */
+.motto{display:flex;flex-direction:column;gap:16px}
+.motto .m{display:flex;align-items:center;gap:24px;font-size:56px;font-weight:700;color:var(--head);line-height:1.15}
+.motto .ic{flex:none;width:84px;height:84px;border-radius:50%;background:var(--teal-bg);display:flex;align-items:center;justify-content:center}
+.motto .ic svg{width:44px;height:44px}
+.motto b{font:800 86px/1 "Outfit",sans-serif;color:var(--gold);margin:0 12px}
+.mband{position:absolute;left:96px;right:96px;bottom:44px;background:rgba(15,76,92,.93);color:#fff;border-radius:18px;padding:18px 30px;font-size:40px;font-weight:700;text-align:center;z-index:2;box-shadow:0 12px 30px rgba(0,0,0,.18)}
+.mband b{font:800 54px/1 "Outfit",sans-serif;color:#f6c453}
+.mband i{font-style:normal;color:#8fd3c4;margin:0 18px}
+/* 11 close */
+.s11 .photo{right:0;width:660px;object-position:82% 50%}
+.s11 .fade{position:absolute;top:0;bottom:0;left:1180px;width:200px;background:linear-gradient(90deg,#fff,rgba(255,255,255,0))}
+.s11 .left{position:absolute;left:96px;top:90px;width:1150px}
+.s11 .cl{font-size:76px;line-height:1.2;font-weight:700;color:var(--head);margin:0 0 30px}
+.s11 .cl.b{color:var(--teal)}
+.s11 .res{margin-top:10px;font-size:34px;line-height:1.45;background:var(--soft);border-left:8px solid var(--teal);border-radius:14px;padding:18px 28px;display:inline-block}
+.s11 .res b{font:700 50px/1 "Outfit","Plex Thai",sans-serif;color:var(--teal)}
+.s11 .res span{font-size:24px;color:var(--mute)}
+.s11 .thanks{position:absolute;left:96px;bottom:170px;font-size:30px;font-weight:600;color:var(--mute)}
+/* how far through the main slides */
+.prog{position:absolute;left:0;bottom:0;height:8px;background:var(--teal);opacity:.85;z-index:3}
+/* life on screen (never in ?still renders): items rise in one after another, bars grow, numbers count up (JS) */
+@keyframes up{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+@keyframes grow{from{width:0}}
+body:not(.still) .slide.on .rise{animation:up .6s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--d,0s)}
+body:not(.still) .slide.on .bar{animation:grow 1s cubic-bezier(.2,.7,.2,1) .6s both}
+@media print{.rise,.bar{animation:none!important}}
+body.shownotes .slide.on .notes{display:block;position:absolute;left:0;right:0;bottom:0;background:rgba(255,251,235,.97);border-top:3px solid var(--gold);padding:22px 96px;font-size:26px;line-height:1.55;color:#3f3f46;z-index:9}
+/* 1 title */
+.s1 .photo{right:0;width:1180px;object-position:22% 50%}
+.s1 .fade{position:absolute;top:0;bottom:0;left:640px;width:220px;background:linear-gradient(90deg,#fff,rgba(255,255,255,0))}
+.s1 .left{position:absolute;left:96px;top:120px;width:720px}
+.s1 .wm{font-size:150px;line-height:1;color:var(--head)}
+.s1 .city{font-size:64px;font-weight:700;color:var(--head);margin:6px 0 34px}
+.s1 .tag{font-size:34px;line-height:1.45;font-weight:600;color:var(--ink);margin-bottom:34px}
+.s1 .foot{position:absolute;left:96px;bottom:70px;font-size:26px;color:var(--mute);line-height:1.5}
+/* 2 problem */
+.s2 .photo{left:0;width:860px}
+.s2 .right{position:absolute;left:940px;right:96px;top:90px}
+.row{display:flex;align-items:center;gap:22px;font-size:32px;line-height:1.4;margin:0 0 22px}
+.row svg{flex:none;width:56px;height:56px}
+.stats{display:flex;gap:28px;margin-top:38px}
+.stat{flex:1;background:var(--soft);border-radius:18px;padding:24px 28px}
+.stat b{display:block;font:700 92px/1 "Outfit","Plex Thai",sans-serif;color:var(--warn)}
+.stat span{display:block;font-size:26px;line-height:1.4;margin-top:10px}
+/* 3 workers */
+.s3 .photo{right:0;width:640px;object-position:66% 50%}
+.s3 .left{position:absolute;left:96px;top:80px;width:1110px}
+.rules{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.rule{border:2px solid var(--line);border-radius:18px;padding:22px 24px 18px;position:relative}
+.rule svg{width:52px;height:52px}
+.rule b{display:block;font:700 62px/1.1 "Outfit","Plex Thai",sans-serif;color:var(--head);margin-top:8px}
+.rule span{display:block;font-size:26px;line-height:1.35;margin-top:6px}
+.rule em{position:absolute;top:18px;right:18px;font-style:normal;font-size:18px;font-weight:600;color:var(--mute);background:var(--soft);border-radius:20px;padding:3px 12px}
+.band{margin-top:28px;background:var(--teal-bg);border-radius:16px;padding:20px 28px;font-size:30px;font-weight:600;color:var(--head);line-height:1.45}
+/* 4 smart bin */
+.s4 .photo{left:0;width:900px;object-position:55% 50%}
+.s4 .right{position:absolute;left:980px;right:96px;top:80px}
+.flow{position:relative;margin-top:10px}
+.step{display:flex;gap:24px;align-items:flex-start;margin-bottom:30px;position:relative}
+.step .n{flex:none;width:64px;height:64px;border-radius:50%;background:var(--teal);color:#fff;font:700 34px/64px "Outfit","Plex Thai",sans-serif;text-align:center;position:relative;z-index:1}
+.step:not(:last-child)::after{content:"";position:absolute;left:31px;top:64px;bottom:-30px;width:3px;background:var(--teal-bg)}
+.step b{display:block;font-size:34px;color:var(--head);line-height:1.3}
+.step span{display:block;font-size:26px;line-height:1.4;color:var(--ink)}
+.callout{background:var(--soft);border-left:8px solid var(--teal);border-radius:12px;padding:18px 26px;font-size:28px;line-height:1.45;margin-top:6px}
+.callout b{font-family:"Outfit","Plex Thai",sans-serif;font-size:40px;color:var(--teal)}
+/* 5 map */
+.s5 .shot{position:absolute;left:96px;top:210px;width:1360px}
+.s5 .side{position:absolute;left:1500px;right:80px;top:230px}
+.side .c{display:flex;gap:16px;align-items:flex-start;margin-bottom:34px;font-size:29px;line-height:1.4}
+.side .c .n{flex:none;width:52px;height:52px;border-radius:50%;background:var(--head);color:#fff;font:700 28px/52px "Outfit","Plex Thai",sans-serif;text-align:center}
+/* 6 planner */
+.s6 .p1{position:absolute;left:96px;top:220px;height:770px}
+.s6 .p3{position:absolute;left:620px;top:220px;height:770px}
+.s6 .facts{position:absolute;left:1160px;right:80px;top:240px}
+.fact{margin-bottom:34px}
+.fact b{display:block;font:700 76px/1 "Outfit","Plex Thai",sans-serif;color:var(--teal)}
+.fact span{display:block;font-size:28px;line-height:1.4;margin-top:8px}
+/* 7 assistant */
+.s7 .shot{position:absolute;left:150px;top:60px;height:960px}
+.s7 .right{position:absolute;left:740px;right:96px;top:110px}
+/* 8 results */
+.s8 table{width:100%;border-collapse:collapse;margin-top:6px}
+.s8 th{font-size:28px;text-align:left;padding:0 0 14px;color:var(--mute);font-weight:600}
+.s8 th.a{color:#4b5563} .s8 th.b{color:var(--teal)}
+.s8 td{border-top:2px solid var(--line);padding:20px 0;vertical-align:middle}
+.s8 td.k{font-size:30px;width:520px;line-height:1.35}
+.s8 td.v{font:700 64px/1 "Outfit","Plex Thai",sans-serif;width:460px}
+.s8 td.v small{font:600 26px "Plex Thai","Outfit",sans-serif;color:var(--mute);margin-left:6px}
+.s8 .va{color:#4b5563} .s8 .vb{color:var(--teal)}
+.bar{height:34px;border-radius:0 6px 6px 0;margin-top:10px}
+.s8 .band{font-size:28px;margin-top:22px}
+/* Q&A appendix (after the close; Skald present opens them in its Q&A mode) */
+.qa .q{display:flex;gap:26px;align-items:flex-start;margin:0 0 34px;font-size:38px;line-height:1.4}
+.qa .q .n{flex:none;width:60px;height:60px;border-radius:50%;background:var(--teal-bg);color:var(--head);font:700 32px/60px "Outfit","Plex Thai",sans-serif;text-align:center}
+.qa .tag{display:inline-block;font-size:24px;font-weight:600;color:var(--warn);background:#fff7ed;border-radius:30px;padding:6px 18px;margin-bottom:18px}
+/* 9 next */
+/* the strip is wider than the slide so the truck sticker (generated pseudo-text) on the right falls outside */
+.s9 .strip{position:absolute;left:0;right:0;bottom:0;height:340px;overflow:hidden}
+.s9 .strip img{position:absolute;width:2300px;left:-60px;top:-140px}
+.tl{display:flex;gap:22px;margin-top:6px}
+.tl .t{flex:1;border-top:8px solid var(--teal);padding-top:18px}
+.tl .t b{display:block;font-size:32px;color:var(--head);line-height:1.3}
+.tl .t span{display:block;font-size:24px;line-height:1.4;margin-top:6px}
+.tl .t:last-child{border-color:var(--gold)}
+.ask{margin-top:34px;background:var(--soft);border-radius:16px;padding:20px 28px;font-size:28px;line-height:1.5}
+.team{margin-top:20px;font-size:23px;color:var(--mute);line-height:1.6}
+@media print{
+ video{display:none!important}
+ html,body{background:#fff}
+ #deck{position:static;display:block}
+ .slide{position:relative;display:block!important;transform:none!important;page-break-after:always;break-after:page}
+ .notes{display:none!important}
+ @page{size:1920px 1080px;margin:0}
+}
+</style>
+</head>
+<body>
+<div id="deck">
+
+<!-- 1 -->
+<section class="slide s1">
+ <img class="photo" src="img/hero-night.png" alt="">
+ <div class="fade"></div>
+ <div class="left">
+  <div class="kick">HACKaWORK 2569 · โจทย์ที่ 1 การจัดการขยะ</div>
+  <div class="wm">V<i>ö</i>R</div>
+  <div class="city">เมืองสะอาด</div>
+  <div class="tag">ดูแลคนเก็บขยะก่อน<br>แล้วเมืองจะสะอาดได้ทุกคืน</div>
+  <div class="motto">
+   <div class="m"><span class="ic"><svg viewBox="0 0 56 56" fill="none" stroke="#0f8a74" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 17h24l3 22H13z"/><path d="M22 17a6 6 0 0 1 12 0"/><path d="M7 47h42M13 47v-5M43 47v-5"/></svg></span><span>ถุงไม่แตะพื้น</span></div>
+   <div class="m"><span class="ic"><svg viewBox="0 0 56 56" fill="none" stroke="#0f8a74" stroke-width="3.5" stroke-linecap="round"><circle cx="28" cy="28" r="22"/><path d="M28 15v13l9 6"/></svg></span><span>ทุกคืนเก็บใน<b>1</b>ชั่วโมง</span></div>
+   <div class="m"><span class="ic"><svg viewBox="0 0 56 56" fill="none" stroke="#0f8a74" stroke-width="3.5" stroke-linejoin="round"><path d="M38 9a20 20 0 1 0 9 30A16 16 0 0 1 38 9z"/></svg></span><span>ทุกคนได้นอน<b>7</b>ชั่วโมง</span></div>
+  </div>
+ </div>
+ <div class="foot">ทีม Nótt · นำเสนอโดย ณฐพร ไทรทับทิม (หัวหน้าทีม)</div>
+</section>
+
+<!-- 2 -->
+<section class="slide s2">
+ <img class="photo" src="img/bags-sidewalk.png" alt="">
+ <div class="right">
+  <div class="kick">ปัญหา</div>
+  <h2>ถุงขยะรอบนทางเท้า<br>ทั้งคืน</h2>
+  <div class="row"><svg viewBox="0 0 56 56" fill="none" stroke="#0f4c5c" stroke-width="3.5" stroke-linecap="round"><circle cx="28" cy="28" r="22"/><path d="M28 15v13l9 6"/></svg><div>ร้านปิดคนละเวลา แต่รถมาตามรอบเวลาเดิม</div></div>
+  <div class="row"><svg viewBox="0 0 56 56" fill="none" stroke="#0f4c5c" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"><path d="M28 7 51 47H5z"/><path d="M28 22v12M28 40v1"/></svg><div>ถุงค้างข้ามคืน กลายเป็นอาหารหนู มีกลิ่น และน้ำเสีย</div></div>
+  <div class="row"><svg viewBox="0 0 56 56" fill="none" stroke="#0f4c5c" stroke-width="3.5" stroke-linejoin="round"><path d="M38 9a20 20 0 1 0 9 30A16 16 0 0 1 38 9z"/></svg><div>พี่ ๆ คนเก็บทำงานกลางคืน ยกคนละ 1.4 ตันต่อคืน</div></div>
+  <div class="stats">
+   <div class="stat"><b>16%</b><span>ถุงบนทางเท้าที่ถูกเก็บ<br>ภายใน 1 ชม.</span></div>
+   <div class="stat"><b>20 ตัน</b><span>ขยะค้างถึงเช้า<br>จากทั้งหมด 32 ตัน</span></div>
+  </div>
+  <div class="cap" style="margin-top:18px">จำลองด้วย VöR · ย่านสีลม 639 จุด · รอบตายตัว 4 คัน 12 คน · กะดึก 21:00–05:00 ออก 4 รอบ<br>จำนวนรถ คน และปริมาณขยะยังเป็นค่าสมมติ รอยืนยันกับเขต</div>
+ </div>
+ <div class="num">2</div>
+</section>
+
+<!-- 3 -->
+<section class="slide s3">
+ <img class="photo" src="img/rest-morning.png" alt="">
+ <div class="left">
+  <div class="kick">หลักของเรา · ทุกคนได้นอน 7 ชั่วโมง</div>
+  <h2>ก่อนช่วยเมือง<br>ต้องดูแลคนเก็บขยะก่อน</h2>
+  <div class="rules">
+   <div class="rule"><em>ประกาศ กทม.</em><svg viewBox="0 0 56 56" fill="none" stroke="#0f8a74" stroke-width="3.5" stroke-linecap="round"><circle cx="28" cy="28" r="22"/><path d="M28 15v13l9 6"/></svg><b>≤ 8 ชม.</b><span>ทำงานต่อกะ</span></div>
+   <div class="rule"><em>ประกาศ กทม.</em><svg viewBox="0 0 56 56" fill="none" stroke="#0f8a74" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 22h30v12a12 12 0 0 1-12 12h-6A12 12 0 0 1 9 34z"/><path d="M39 26h4a6 6 0 0 1 0 12h-5M17 8v7M25 8v7"/></svg><b>1 ชม.</b><span>พักในแต่ละกะ</span></div>
+   <div class="rule"><em>ประกาศ กทม.</em><svg viewBox="0 0 56 56" fill="none" stroke="#0f8a74" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="11" width="42" height="38" rx="5"/><path d="M7 22h42M18 6v9M38 6v9"/></svg><b>≤ 6 คืน</b><span>ต่อสัปดาห์</span></div>
+   <div class="rule"><em>เกณฑ์ทีม</em><svg viewBox="0 0 56 56" fill="none" stroke="#0f8a74" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6h28M14 50h28M17 6c0 14 22 16 22 22S17 36 17 50M39 6c0 14-22 16-22 22s22 8 22 22"/></svg><b>≤ 2 ชม.</b><span>ทำงานต่อเนื่อง แล้วต้องพัก</span></div>
+   <div class="rule"><em>AASM</em><svg viewBox="0 0 56 56" fill="none" stroke="#0f8a74" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 44V14M5 34h46v10M51 34v-6a6 6 0 0 0-6-6H24v12"/><circle cx="15" cy="27" r="5"/></svg><b>≥ 7 ชม.</b><span>โอกาสนอนหลังเลิกงาน</span></div>
+   <div class="rule"><em>NIOSH</em><svg viewBox="0 0 56 56" fill="none" stroke="#0f8a74" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22h32l5 27H7z"/><path d="M21 22a7 7 0 0 1 14 0"/></svg><b>≤ 23 กก.</b><span>น้ำหนักต่อถุงที่ยก</span></div>
+  </div>
+  <div class="band">VöR ไม่ยอมรับแผนที่ผิดข้อใดข้อหนึ่ง<br>และเสนอให้ทุกคนคัดกรองการนอนด้วย Nótt Score</div>
+ </div>
+ <div class="num">3</div>
+</section>
+
+<!-- 4 -->
+<section class="slide s4">
+ <img class="photo" src="video/s4-station-3d.jpg" alt="แบบ 3 มิติสเกลจริงของสถานีถังขยะบนฐานยกกันหนู">
+ <video class="photo clip" src="video/s4-station-3d.mp4" muted playsinline preload="auto"></video>
+ <div class="right">
+  <div class="kick">วิธีของเรา</div>
+  <h2>ถุงไม่แตะพื้น<br>ทุกคืนเก็บใน 1 ชั่วโมง</h2>
+  <div class="flow">
+   <div class="step"><div class="n">1</div><div><b>ถังมีฝา ติดเซนเซอร์ ฐานกันหนู</b><span>ใต้ฐานมีเหยื่อคุมกำเนิดหนูแทนยาเบื่อ · ถังถุงดำมีกลิ่นพืชไล่หนู</span></div></div>
+   <div class="step"><div class="n">2</div><div><b>ปุ่มเรียกเก็บ</b><span>ใครเห็นถังเต็ม หรือถุงอยู่นอกถัง กดเรียกได้</span></div></div>
+   <div class="step"><div class="n">3</div><div><b>VöR เลือกรถที่เหมาะที่สุด</b><span>คันที่ใกล้ และยังไม่เกินเวลางาน</span></div></div>
+   <div class="step"><div class="n">4</div><div><b>เก็บแล้วไปเทที่ศูนย์หนองแขมหรืออ่อนนุช</b><span>ตามถนนจริง ตามเวลาจริงของคืนนั้น</span></div></div>
+  </div>
+  <div class="callout">จำลอง 1 คืน: กดเรียก <b>140</b> ครั้ง<br>9 ใน 10 ครั้ง รถมาถึงภายใน <b>33</b> นาที<br>จุดทิ้งรวม <b>22</b> จาก 46 จุด ตั้งที่จุดวางถังเดิมของ กทม.</div>
+  <div class="cap" style="margin-top:14px">ภาพซ้าย: แบบ 3 มิติสเกลจริง ถังบนฐานยกกันหนู ยังไม่ได้ติดตั้งจริง</div>
+ </div>
+ <div class="num">4</div>
+</section>
+
+<!-- 5 -->
+<section class="slide s5">
+ <img class="stillfull" src="video/s5-map.jpg" alt="หน้าจอ VöR ย่านสีลม เส้นทางรถไปเทขยะที่ศูนย์อ่อนนุช">
+ <video class="clipfull" src="video/s5-map.mp4" muted playsinline preload="auto"></video>
+</section>
+
+<!-- 6 -->
+<section class="slide s6">
+ <img class="stillfull" src="video/s6-planner.jpg" alt="ตารางรายคนใน VöR ชั่วโมงทำงาน พัก น้ำหนักที่ยก และชั่วโมงนอน">
+ <video class="clipfull" src="video/s6-planner.mp4" muted playsinline preload="auto"></video>
+</section>
+
+<!-- 7 -->
+<section class="slide s7">
+ <img class="stillfull" src="video/s7-assistant.jpg" alt="ผู้ช่วยปรับค่าใน VöR เทียบผลก่อนและหลัง">
+ <video class="clipfull" src="video/s7-assistant.mp4" muted playsinline preload="auto"></video>
+</section>
+
+<!-- 8 -->
+<section class="slide s8">
+ <div class="pad">
+  <div class="kick">ผลจำลอง ย่านสีลม 1 คืน</div>
+  <h2>ใช้คนเท่ากัน 45 คน แค่เปลี่ยนวิธีเก็บ</h2>
+  <table>
+   <tr><th></th><th class="a">รอบตายตัว</th><th class="b">ถังอัจฉริยะ + ปุ่มเรียก</th></tr>
+   <tr><td class="k">ถุงบนทางเท้าเก็บภายใน 1 ชม.</td>
+    <td class="v va">45%<div class="bar" style="width:45%;background:var(--gray)"></div></td>
+    <td class="v vb">89.5%<div class="bar" style="width:89.5%;background:var(--teal)"></div></td></tr>
+   <tr><td class="k">9 ใน 10 ถุง รอไม่เกิน</td><td class="v va">2.7<small>ชม.</small></td><td class="v vb">64<small>นาที</small></td></tr>
+   <tr><td class="k">ขยะค้างถึงเช้า</td><td class="v va">2.6<small>ตัน</small></td><td class="v vb">0<small>ตัน</small></td></tr>
+   <tr><td class="k">ความเสี่ยงหนู</td><td class="v va">4,536</td><td class="v vb">432<small>ลดลง 90%</small></td></tr>
+  </table>
+  <div class="band">ทั้งสองแบบ ทุกคนทำงานไม่เกิน 6.4 ชม. · ทำงานต่อเนื่องไม่เกิน 2 ชม. · นอนได้ 7 ชม. · ไม่มีทีมผิดเกณฑ์</div>
+  <div class="cap" style="margin-top:14px">รถ 10 คัน คันละ 4 คน กะดึกของเขต 21:00–05:00 · รอบตายตัวออก 4 รอบ · ต้นทุน 32,844 → 35,307 บาท/คืน (+7.5%) เพราะวิ่งมากขึ้น 272 → 455 กม. · ขยะ 32 ตัน/คืนเป็นค่าสมมติ จะปรับด้วยตันที่ชั่งจริงของเขต</div>
+ </div>
+ <div class="num">8</div>
+</section>
+
+<!-- 9 -->
+<section class="slide s4 s9c">
+ <img class="photo" src="img/composter-3d.jpg" alt="แบบ 3 มิติของตู้หมักปุ๋ยจากเศษอาหาร">
+ <div class="right">
+  <div class="kick">ลดขยะตั้งแต่ต้นทาง</div>
+  <h2>ตู้หมักปุ๋ยหยอดเหรียญ<br>เศษอาหารกลับมาเป็นปุ๋ย</h2>
+  <div class="flow">
+   <div class="step"><div class="n">1</div><div><b>เอาเศษอาหารมาใส่ แล้วหยอดเหรียญ</b><span>ใช้แบบเดียวกับร้านซักผ้าหยอดเหรียญ ทั้งร้านและบ้าน</span></div></div>
+   <div class="step"><div class="n">2</div><div><b>เครื่องย่อยเศษอาหารเป็นปุ๋ย</b><span>เศษอาหารไม่ต้องใส่ถุงออกมาวางรอบนทางเท้า</span></div></div>
+   <div class="step"><div class="n">3</div><div><b>รับปุ๋ยกลับไปใช้</b><span>ใส่ต้นไม้ที่ร้านหรือที่บ้าน</span></div></div>
+   <div class="step"><div class="n">4</div><div><b>เสนอให้ กทม. รับซื้อปุ๋ยที่เหลือ</b><span>นำไปใช้ในสวนสาธารณะของ กทม.</span></div></div>
+  </div>
+  <div class="callout">กทม. ทำปุ๋ยจากเศษอาหาร และนำไปใช้ในสวนสาธารณะอยู่แล้ว<br>ในโครงการ “ไม่เทรวม”</div>
+  <div class="cap" style="margin-top:14px">ข้อเสนอของทีม ยังไม่ได้รวมในผลจำลอง · ภาพซ้าย: แบบ 3 มิติ ยังไม่ได้ติดตั้งจริง · ที่มา: มติชน 14&nbsp;พ.ค.&nbsp;2567</div>
+ </div>
+ <div class="num">9</div>
+</section>
+
+<!-- 10 -->
+<section class="slide s9">
+ <div class="strip"><img src="img/crew-team.png" alt=""></div>
+ <div class="pad">
+  <div class="kick">ขั้นต่อไป</div>
+  <h2>จากการจำลอง สู่ถนนสีลมจริง</h2>
+  <div class="tl">
+   <div class="t"><b>ขอตัวเลขจริงจากเขต</b><span>ตันที่ชั่ง · คนต่อคัน · จุดพักขยะ</span></div>
+   <div class="t"><b>ลงพื้นที่สีลม</b><span>ดูเวลาปิดร้านและจุดวางถุงจริง</span></div>
+   <div class="t"><b>ทดลองจริงที่สีลม</b><span>ถังอัจฉริยะ + ปุ่มเรียก + ตารางกะตามกฎ + ตู้หมักปุ๋ย</span></div>
+   <div class="t"><b>ขยายไป 7 เขต</b><span>ตามพื้นที่ในโจทย์</span></div>
+  </div>
+  <div class="ask"><b style="color:var(--head)">สิ่งที่ขอจาก กทม.</b> น้ำหนักขยะที่ชั่ง · จำนวนคนต่อคัน · จุดพักขยะในระบบของเขต · พื้นที่ทดลอง</div>
+  <div class="team">ทีม Nótt · ณฐพร ไทรทับทิม (หัวหน้าทีม) · วรนิชาญานันท์ พันธเตชะไพศาล (พยาบาลวิชาชีพ) · วรรณวิษา นิตยศร (IoT Engineer)<br>ภาพประกอบสร้างด้วย AI · หน้าจอจาก VöR ตัวจริง 7 พ.ย. 2569</div>
+ </div>
+</section>
+
+
+<!-- 11 close: what to remember; stays on screen through the questions -->
+<section class="slide s11">
+ <img class="photo" src="img/rest-morning.png" alt="">
+ <div class="fade"></div>
+ <div class="left">
+  <div class="kick">สรุป · V<i style="font-style:normal;color:var(--gold)">ö</i>R เมืองสะอาด</div>
+  <p class="cl">คนได้พัก ถุงไม่ค้าง<br>เมืองสะอาดทุกคืน</p>
+  <p class="cl b">ดูแลคนเก็บก่อน<br>เมืองสะอาดทุกคืน</p>
+  <div class="res">ถัง · ปุ่ม · แผน → คนเท่าเดิม เก็บทันจาก <b>45%</b> เป็นเกือบ <b>90%</b><br><span>ในการจำลอง ย่านสีลม 1 คืน</span></div>
+ </div>
+ <div class="thanks">ขอบคุณครับ · ทีม Nótt</div>
+ <div class="mband">ถุงไม่แตะพื้น<i>·</i>ทุกคืนเก็บใน <b>1</b> ชั่วโมง<i>·</i>ทุกคนได้นอน <b>7</b> ชั่วโมง</div>
+</section>
+
+<!-- 12–15: Q&A appendix -->
+<section class="slide qa">
+ <div class="pad">
+  <div class="tag">Appendix</div>
+  <h2>ทำไมใช้ 45 คน มากกว่าตอนนี้?</h2>
+  <div class="q"><div class="n">1</div><div>ตัวเลขขยะและจำนวนคนตอนนี้ยังเป็นค่าสมมติ รอข้อมูลจริงจากเขต</div></div>
+  <div class="q"><div class="n">2</div><div>ถ้าขยะจริงน้อยกว่าที่ตั้งไว้ VöR จะเสนอคนน้อยลงเอง</div></div>
+  <div class="q"><div class="n">3</div><div>สิ่งที่ไม่เปลี่ยน: ทำงานไม่เกิน 8 ชม. และได้นอน 7 ชม. ทุกคน</div></div>
+ </div>
+ <div class="num">B1</div>
+</section>
+
+<section class="slide qa">
+ <div class="pad">
+  <div class="tag">Appendix</div>
+  <h2>ถังอัจฉริยะมีจริงไหม ราคาเท่าไร?</h2>
+  <div class="q"><div class="n">1</div><div>ตอนนี้เป็นการออกแบบและการจำลอง ยังไม่ได้ติดตั้ง</div></div>
+  <div class="q"><div class="n">2</div><div>ทีมมีวิศวกร IoT ที่เคยทำอุปกรณ์ส่งข้อมูลจากบ้านมาแล้ว</div></div>
+  <div class="q"><div class="n">3</div><div>ขอทดลองจริงที่สีลมก่อน ส่วนราคา ขอนำไปตรวจสอบแล้วแจ้งกลับ</div></div>
+ </div>
+ <div class="num">B2</div>
+</section>
+
+<section class="slide qa">
+ <div class="pad">
+  <div class="tag">Appendix</div>
+  <h2>ข้อมูลมาจากไหน?</h2>
+  <div class="q"><div class="n">1</div><div>รายชื่อร้าน 4,436 จุด จากสำนักงานเขตทั้ง 7 เขต (ข้อมูล ณ 2 ต.ค. 2569)</div></div>
+  <div class="q"><div class="n">2</div><div>พิกัดจาก Google Maps · ถนนจาก OpenStreetMap</div></div>
+  <div class="q"><div class="n">3</div><div>เวลาทำงานตามประกาศ กทม. · นอน 7 ชม. ตาม AASM · ถุง 23 กก. ตาม NIOSH</div></div>
+  <div class="q"><div class="n">4</div><div>กะดึก 21:00–05:00 จากการสอบถามเขตบางรัก (3 พ.ย.) · เส้นทางรถจริงจาก swmsmap · จุดวางถังจากข้อมูลเปิด กทม.</div></div>
+ </div>
+ <div class="num">B3</div>
+</section>
+
+<section class="slide qa">
+ <div class="pad">
+  <div class="tag">Appendix</div>
+  <h2>เหยื่อคุมกำเนิดหนูปลอดภัยไหม?</h2>
+  <div class="q"><div class="n">1</div><div>อยู่ในถาดล็อกกุญแจใต้ฐาน เด็กและสัตว์เลี้ยงเข้าไม่ถึง เปิดได้เฉพาะเจ้าหน้าที่</div></div>
+  <div class="q"><div class="n">2</div><div>ทำให้หนูขยายพันธุ์น้อยลง ไม่ได้ฆ่าหนู จึงไม่มีหนูตายเน่าในท่อ</div></div>
+  <div class="q"><div class="n">3</div><div>เลือกเฉพาะยาที่ขึ้นทะเบียนในไทย ร่วมกับหน่วยควบคุมสัตว์พาหะของ กทม.</div></div>
+  <div class="q"><div class="n">4</div><div>กลิ่นยูคาลิปตัสและตะไคร้หอมในถังถุงดำเป็นชั้นเสริม มีผลทดลองในห้องแล็บ ยังไม่มีผลภาคสนาม</div></div>
+  <div class="cap">ที่มา: Singla และคณะ, The Scientific World Journal 2014 (น้ำมันยูคาลิปตัส) · Singla และ Thind, Annals of Arid Zone 2023 (ยูคาลิปตัสและตะไคร้หอมในก้อนขี้ผึ้ง)</div>
+ </div>
+ <div class="num">B4</div>
+</section>
+
+</div>
+<script src="notes.js"></script>
+<script>
+const S=[...document.querySelectorAll('.slide')];let i=0;
+// clips start when their slide opens and hold the last frame; ?still = posters only (PNG/PDF render)
+const STILL=new URLSearchParams(location.search).has('still');if(STILL)document.body.classList.add('still');
+function clips(){S.forEach((s,j)=>s.querySelectorAll('video').forEach(v=>{if(j===i&&!STILL){v.currentTime=0;v.play().catch(()=>{});}else v.pause();}));}
+// speaker notes come from SCRIPT-5min.md (capture/to_skald.py writes notes.js)
+S.forEach((s,k)=>{const a=document.createElement('aside');a.className='notes';a.textContent=(window.NOTES||{})[k+1]||'';s.appendChild(a);});
+// life (not in ?still): items rise one after another; numbers count up when their slide opens
+const RISE='.kick,h2,.tag,.motto .m,.cl,.res,.thanks,.row,.stat,.rule,.band,.step,.callout,.tl .t,.ask,.q,.s8 tr,.mband';
+S.forEach(s=>s.querySelectorAll(RISE).forEach((e,k)=>{e.classList.add('rise');e.style.setProperty('--d',Math.min(k*0.09,1.3)+'s');}));
+const MAIN=S.filter(s=>!s.classList.contains('qa'));
+MAIN.forEach((s,k)=>{const p=document.createElement('div');p.className='prog';p.style.width=((k+1)/MAIN.length*100)+'%';s.appendChild(p);});
+function count(){if(STILL)return;const sl=S[i];sl.querySelectorAll('.stat b,.s8 td.v,.callout b').forEach(e=>{
+  const t=[...e.childNodes].find(n=>n.nodeType===3&&/\d/.test(n.nodeValue));if(!t)return;
+  const full=t.__full||(t.__full=t.nodeValue),m=full.match(/[\d,]+(\.\d+)?/);if(!m)return;
+  const target=parseFloat(m[0].replace(/,/g,'')),dec=m[1]?m[1].length-1:0,comma=m[0].includes(','),t0=performance.now();
+  const step=()=>{const u=Math.min(1,(performance.now()-t0)/1100);if(u>=1||!sl.classList.contains('on')){t.nodeValue=full;return;}
+    const v=target*(1-Math.pow(1-u,3));t.nodeValue=full.replace(m[0],v.toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec,useGrouping:comma}));requestAnimationFrame(step);};
+  step();});}
+function fit(){const k=Math.min(innerWidth/1920,innerHeight/1080);S.forEach(s=>s.style.transform=`scale(${k})`);}
+// embed = inside Skald's present page: it drives the slides and reads which one is on (deckSlide/deckGo/deckKey)
+const EMBED=new URLSearchParams(location.search).has('embed');
+function go(n){i=Math.max(0,Math.min(S.length-1,n));S.forEach((s,j)=>s.classList.toggle('on',j===i));
+ if(EMBED)parent.postMessage({deckSlide:i,deckTotal:S.length},'*');else history.replaceState(null,'','#'+(i+1));clips();count();}
+addEventListener('resize',fit);
+if(EMBED){
+ addEventListener('keydown',e=>{e.preventDefault();e.stopImmediatePropagation();parent.postMessage({deckKey:e.key},'*')},true);
+ addEventListener('click',e=>{e.stopImmediatePropagation();parent.postMessage({deckKey:e.clientX>innerWidth/2?'ArrowRight':'ArrowLeft'},'*')},true);
+ addEventListener('message',e=>{const d=e.data||{};if(d.deckGo!=null)go(d.deckGo);});
+}else{
+ function fs(){if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen().catch(()=>{});}
+ // clickers: F5 / Shift+F5 = start slideshow (no reload here, toggles full screen) · '.' or B = black screen
+ addEventListener('keydown',e=>{if(e.key==='F5'){e.preventDefault();fs();return;}if(e.key==='.'||e.key==='b'||e.key==='B'){document.body.classList.toggle('blank');return;}
+ if(['ArrowRight','PageDown',' ','Enter'].includes(e.key))go(i+1);else if(['ArrowLeft','PageUp','Backspace'].includes(e.key))go(i-1);
+  else if(e.key==='n'||e.key==='N')document.body.classList.toggle('shownotes');else if(e.key==='r'||e.key==='R')clips();else if(e.key==='f'||e.key==='F')fs();else if(e.key==='Home')go(0);else if(e.key==='End')go(S.length-1);});
+ document.getElementById('deck').addEventListener('click',e=>go(i+(e.clientX>innerWidth/3?1:-1)));
+}
+fit();go(EMBED?0:(parseInt(location.hash.slice(1))||1)-1);
+</script>
+</body>
+</html>
