@@ -1,91 +1,86 @@
-// Circuit panel: a single-line diagram of the station's power and data system.
+// Circuit panel: a single-line diagram of the station's low-cost smart kit (power + data).
 // Selecting a device (in 3D or by clicking a block here) highlights its blocks and wires.
+
+import { KIT_COST, kitTotal } from './hardware.js';
 
 // focus key -> blocks / wires to highlight + description
 export const FOCUS = {
   unit: {
-    title: 'กล่องควบคุม',
-    nodes: ['dcdc', 'mcu', 'lte', 'lora', 'relay', 'button'],
-    edges: ['e-load', 'e-dcdc', 'e-lte', 'e-lora', 'e-relay', 'e-btn'],
-    text: 'รับไฟ 12V จากตู้แบต → DC-DC แปลงเป็น 5V เลี้ยง MCU · MCU อ่านค่าเซ็นเซอร์ผ่าน LoRa gateway แล้วส่งขึ้นแดชบอร์ดเขตผ่าน 4G · สั่งไฟแจ้งเตือนผ่านรีเลย์ · ปุ่มเรียกรถต่อเข้า MCU โดยตรง',
+    title: 'กล่องฮับ ESP32',
+    nodes: ['mcu', 'nbiot', 'button', 'display'],
+    edges: ['e-nb', 'e-cloud', 'e-btn', 'e-disp'],
+    text: 'กล่อง IP65 16×12×7.5 ซม. · ข้างในเป็นเมนบอร์ดแผ่นเดียว 13×4 ซม. (แบบ Mac mini: เล็กแต่ครบ) รวม ESP32-C3, โมเด็ม NB-IoT ใต้ฮีตซิงก์, วงจรชาร์จ MPPT, RTC และ microSD เก็บข้อมูลสำรอง อุปกรณ์ทุกตัวเสียบผ่านคอนเน็กเตอร์มีป้าย ไม่มีสายต่อลอย · ESP32-C3 หลับลึก (deep sleep) แล้วตื่นทุก 10 นาที สแกน BLE ~10 วินาทีเพื่อรับค่าจากเซ็นเซอร์ฝาถัง · ส่งขึ้นแดชบอร์ดเขตผ่าน NB-IoT ทุก 30 นาที หรือทันทีเมื่อถังเกิน 80% · ปุ่มเรียกรถปลุก ESP32 ผ่านขา GPIO · ไฟ LED วงแหวนรอบปุ่มบอกสถานะแทนไฟบนเสา (แดง = รอรถ · เขียว = เก็บแล้ว · กระพริบ = เรียกรถนอกรอบ) · จอ e-paper 2.9″ บนฝาโชว์ % แต่ละถังและสถานะรถ ภาพค้างโดยไม่กินไฟ ESP32 วาดใหม่ผ่าน SPI เฉพาะตอนค่าเปลี่ยน · พัดลมจิ๋ว 30 มม. ข้างกล่องเป่าลมร้อนออกทางช่องระบายมีครอบกันฝน · ไฟ LED ใต้ผนังบนติดเองเมื่อเปิดฝา (สวิตช์แม่เหล็ก) และเฉพาะตอนมืด',
   },
   battery: {
-    title: 'ตู้แบตเตอรี่',
-    nodes: ['mppt', 'battery', 'brk', 'fuse'],
+    title: 'ไฟเลี้ยง',
+    nodes: ['solar', 'charger', 'cells'],
     edges: ['e-pv', 'e-bat', 'e-load'],
-    text: 'ไฟจากแผงโซลาร์เข้าเบรกเกอร์ PV → ตัวคุมชาร์จ MPPT ชาร์จแบต LiFePO4 12.8V 20Ah ผ่านเบรกเกอร์แบต · ขา LOAD ของ MPPT ผ่านฟิวส์ 10A ไปเลี้ยงกล่องควบคุม · แบตเต็มใช้ได้ 3–4 วันโดยไม่มีแดด',
-  },
-  solar: {
-    title: 'แผงโซลาร์ 50 W',
-    nodes: ['solar'],
-    edges: ['e-pv'],
-    text: 'แผงโมโน 50 W (67×54 ซม.) เอียง 15° · สายลงในเสาเหล็ก ออกทาง cable gland เข้าตู้แบต · ได้ราว 200 Wh/วัน มากกว่าที่ระบบใช้ (~60 Wh/วัน)',
-  },
-  beacon: {
-    title: 'ไฟแจ้งเตือน 2 สี',
-    nodes: ['beacon', 'relay'],
-    edges: ['e-relay', 'e-beacon'],
-    text: 'MCU สั่งรีเลย์สลับสี: แดง = รอรถมาเก็บ / ถังเกิน 80% · เขียว = เก็บแล้ว · กระพริบเมื่อมีคำขอเก็บนอกรอบ · สายเดินในท่อจากกล่องควบคุมเข้าเสาขึ้นไปที่ไฟ',
+    text: 'แผงโซลาร์ 6V 2W เหนือกล่อง สายลงตรงเข้าขั้วกันน้ำด้านบน (แผงบังฝนให้) → วงจรชาร์จ → ถ่าน 18650 ×2 (ขนาน 3.7V ~6,800 mAh) → ESP32 · ระบบใช้ไฟเฉลี่ย ~40 mAh/วัน ถ่านเต็มอยู่ได้ราว 5 เดือนแม้ไม่มีแดด · ไม่ต้องมีตู้แบตหรือเบรกเกอร์ · พัดลมจิ๋ว 5V 30 มม. ติดเฉพาะตอนในกล่องร้อนเกิน 45°C',
   },
   sensor: {
-    title: 'เซ็นเซอร์ระดับขยะ',
-    nodes: ['sensors', 'lora'],
-    edges: ['e-sensors'],
-    text: 'เซ็นเซอร์อัลตราโซนิกใต้ฝาทุกถัง ใช้ถ่านลิเธียมในตัว (~5 ปี) ส่งค่าระดับขยะแบบไร้สาย LoRa ไปที่ gateway ในกล่องควบคุม · ไม่มีสายเพราะถังต้องถูกเข็นออกไปเททุกรอบ',
+    title: 'เซ็นเซอร์ฝาถัง BLE',
+    nodes: ['sensors', 'mcu'],
+    edges: ['e-ble'],
+    text: 'ติดใต้ฝาทุกถัง: เซ็นเซอร์วัดระยะ ToF (VL53L1X) + โมดูล BLE nRF52 + ถ่าน AA ×2 · สวิตช์เอียงปลุกให้วัดตอนฝาปิด แล้วประกาศค่า % ผ่าน BLE advertising ให้ฮับมาสแกนเอง ไม่ต้องจับคู่ · ใช้ nRF52 แทน ESP32 เพราะกินไฟตอนประกาศ BLE ต่ำกว่ามาก ถ่านอยู่ได้ ~2–3 ปี · ไม่มีสายเพราะถังถูกเข็นออกไปเททุกรอบ',
   },
   overview: {
     title: 'วงจรทั้งระบบ',
     nodes: [],
     edges: [],
-    text: 'สีแดง = ไฟฟ้ากำลัง · สีฟ้า = ข้อมูล · เส้นประ = ไร้สาย · คลิกกล่องในผังเพื่อซูมไปที่อุปกรณ์',
+    text: 'สีแดง = ไฟฟ้า · สีฟ้า = ข้อมูล · เส้นประ = ไร้สาย · คลิกกล่องในผังเพื่อซูมไปที่อุปกรณ์',
+    cost: true,
   },
 };
 
 // node id -> focus key (clicking a block)
-const NODE_FOCUS = { solar: 'solar', mppt: 'battery', battery: 'battery', brk: 'battery', fuse: 'battery', dcdc: 'unit', mcu: 'unit', lte: 'unit', lora: 'unit', relay: 'beacon', button: 'unit', beacon: 'beacon', sensors: 'sensor', cloud: null };
+const NODE_FOCUS = { solar: 'battery', charger: 'battery', cells: 'battery', mcu: 'unit', nbiot: 'unit', button: 'unit', display: 'unit', sensors: 'sensor', cloud: null };
 
 const SVG = `
-<svg viewBox="0 0 340 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ผังวงจรไฟฟ้าและข้อมูลของสถานี">
+<svg viewBox="0 0 340 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ผังวงจรไฟฟ้าและข้อมูลของชุดอัจฉริยะ">
   <defs>
     <marker id="arP" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#dc2626"/></marker>
     <marker id="arD" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker>
-    <marker id="arB" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#d97706"/></marker>
   </defs>
-  <rect class="grp" x="6" y="64" width="124" height="196" rx="8"/><text class="grpt" x="14" y="78">ตู้แบต</text>
-  <rect class="grp" x="138" y="64" width="196" height="196" rx="8"/><text class="grpt" x="146" y="78">กล่องควบคุม</text>
+  <rect class="grp" x="6" y="72" width="328" height="186" rx="8"/><text class="grpt" x="14" y="86">กล่องฮับ IP65 · 16×12×7.5 ซม.</text>
 
-  <path id="e-pv" class="pw" d="M62 46 V88" marker-end="url(#arP)"/>
-  <path id="e-bat" class="pw" d="M62 128 V150" marker-end="url(#arP)"/>
-  <path id="e-load" class="pw" d="M62 208 V230 H120 V104 H150" marker-end="url(#arP)"/>
-  <path id="e-dcdc" class="pw" d="M190 118 V134" marker-end="url(#arP)"/>
-  <path id="e-lte" class="dt" d="M230 150 H248" marker-end="url(#arD)"/>
-  <path id="e-cloud" class="dt wl" d="M286 88 V48" marker-end="url(#arD)"/>
-  <path id="e-lora" class="dt" d="M230 160 H248 V196" marker-end="url(#arD)"/>
-  <path id="e-sensors" class="dt wl" d="M286 286 V224" marker-end="url(#arD)"/>
-  <path id="e-relay" class="dt" d="M190 168 V196" marker-end="url(#arD)"/>
-  <path id="e-beacon" class="bc" d="M190 226 V286" marker-end="url(#arB)"/>
-  <path id="e-btn" class="dt" d="M286 236 V246 H214 V170" />
+  <path id="e-pv" class="pw" d="M62 46 V96" marker-end="url(#arP)"/>
+  <path id="e-bat" class="pw" d="M62 130 V158" marker-end="url(#arP)"/>
+  <path id="e-load" class="pw" d="M110 175 H120 V150 H134" marker-end="url(#arP)"/>
+  <path id="e-nb" class="dt" d="M224 128 H236 V113 H248" marker-end="url(#arD)"/>
+  <path id="e-cloud" class="dt wl" d="M287 96 V50" marker-end="url(#arD)"/>
+  <path id="e-btn" class="dt" d="M248 190 H236 V156 H226" marker-end="url(#arD)"/>
+  <path id="e-disp" class="dt" d="M224 166 H230 V233 H248" marker-end="url(#arD)"/>
+  <path id="e-ble" class="dt wl" d="M179 280 V176" marker-end="url(#arD)"/>
 
-  <g class="nd" data-id="solar"><rect x="14" y="14" width="96" height="32" rx="6"/><text x="62" y="34">แผงโซลาร์ 50W</text></g>
-  <g class="nd" data-id="mppt"><rect x="14" y="88" width="96" height="40" rx="6"/><text x="62" y="106">MPPT</text><text class="sm" x="62" y="120">เบรกเกอร์ PV/BAT</text></g>
-  <g class="nd" data-id="battery"><rect x="14" y="150" width="96" height="34" rx="6"/><text x="62" y="171">LiFePO4 12.8V</text></g>
-  <g class="nd" data-id="fuse"><rect x="14" y="190" width="96" height="18" rx="5"/><text class="sm" x="62" y="203">ฟิวส์ 10A · LOAD</text></g>
-  <g class="nd" data-id="dcdc"><rect x="150" y="88" width="80" height="30" rx="6"/><text x="190" y="107">DC-DC 5V</text></g>
-  <g class="nd" data-id="mcu"><rect x="150" y="134" width="80" height="34" rx="6"/><text x="190" y="156">MCU</text></g>
-  <g class="nd" data-id="lte"><rect x="248" y="88" width="78" height="30" rx="6"/><text x="287" y="107">4G LTE</text></g>
-  <g class="nd" data-id="lora"><rect x="248" y="196" width="78" height="28" rx="6"/><text x="287" y="214">LoRa GW</text></g>
-  <g class="nd" data-id="relay"><rect x="150" y="196" width="80" height="30" rx="6"/><text x="190" y="215">รีเลย์</text></g>
-  <g class="nd" data-id="button"><rect x="248" y="134" width="78" height="30" rx="6"/><text x="287" y="153">ปุ่มเรียกรถ</text></g>
-  <g class="nd cloud" data-id="cloud"><rect x="248" y="14" width="78" height="34" rx="17"/><text x="287" y="35">แดชบอร์ดเขต</text></g>
-  <g class="nd" data-id="beacon"><rect x="150" y="286" width="80" height="30" rx="6"/><text x="190" y="305">ไฟแจ้งเตือน</text></g>
-  <g class="nd" data-id="sensors"><rect x="248" y="286" width="78" height="30" rx="6"/><text x="287" y="305">เซ็นเซอร์ ×3</text></g>
+  <g class="nd" data-id="solar"><rect x="14" y="14" width="96" height="32" rx="6"/><text x="62" y="34">โซลาร์ 2W</text></g>
+  <g class="nd" data-id="charger"><rect x="14" y="96" width="96" height="34" rx="6"/><text x="62" y="117">วงจรชาร์จ</text></g>
+  <g class="nd" data-id="cells"><rect x="14" y="158" width="96" height="34" rx="6"/><text x="62" y="179">18650 ×2</text></g>
+  <g class="nd" data-id="mcu"><rect x="134" y="112" width="90" height="64" rx="6"/><text x="179" y="140">ESP32-C3</text><text class="sm" x="179" y="156">BLE ในตัว · deep sleep</text></g>
+  <g class="nd" data-id="nbiot"><rect x="248" y="96" width="78" height="34" rx="6"/><text x="287" y="117">NB-IoT</text></g>
+  <g class="nd" data-id="button"><rect x="248" y="174" width="78" height="34" rx="6"/><text x="287" y="189">ปุ่ม + LED</text><text class="sm" x="287" y="201">ไฟสถานะ</text></g>
+  <g class="nd" data-id="display"><rect x="248" y="216" width="78" height="34" rx="6"/><text x="287" y="231">จอ e-paper</text><text class="sm" x="287" y="243">2.9″ 3 สี</text></g>
+  <g class="nd cloud" data-id="cloud"><rect x="248" y="14" width="78" height="36" rx="18"/><text x="287" y="36">แดชบอร์ดเขต</text></g>
+  <g class="nd" data-id="sensors"><rect x="120" y="280" width="118" height="34" rx="6"/><text x="179" y="301">เซ็นเซอร์ฝาถัง BLE ×3</text></g>
 </svg>`;
+
+const baht = (n) => n.toLocaleString('th-TH');
+const COST_HTML = `
+  <table class="cp-cost">
+    <caption>ต้นทุนชุดอัจฉริยะต่อสถานี (ประมาณการราคาปลีก)</caption>
+    <tbody>
+      ${KIT_COST.hub.map(([n, p]) => `<tr><td>${n}</td><td>${baht(p)}</td></tr>`).join('')}
+      <tr><td>${KIT_COST.sensor[0][0]} ×${KIT_COST.sensors}</td><td>${baht(KIT_COST.sensor[0][1] * KIT_COST.sensors)}</td></tr>
+    </tbody>
+    <tfoot><tr><td>รวม (บาท)</td><td>${baht(kitTotal())}</td></tr></tfoot>
+  </table>
+  <p class="cp-note">ค่า SIM NB-IoT ราว 20–30 บาท/เดือน · แบบเดิม (ตู้สแตนเลส + แบต LiFePO4 + โซลาร์ 50W + เราเตอร์ 4G + LoRa gateway + เสา) ประมาณ 30,000 บาทขึ้นไป</p>`;
 
 export function buildCircuitPanel(root, onSelect, onClose) {
   root.innerHTML = `
     <div class="cp-head"><strong id="cp-title">วงจร</strong><button class="cp-close" aria-label="ปิดโหมดวงจร">ปิด ✕</button></div>
     ${SVG}
     <p class="cp-text" id="cp-text"></p>
+    <div id="cp-cost" hidden>${COST_HTML}</div>
     <div class="cp-legend"><span><i class="lp"></i>ไฟฟ้า</span><span><i class="ld"></i>ข้อมูล</span><span><i class="lw"></i>ไร้สาย</span></div>`;
   root.querySelector('.cp-close').addEventListener('click', onClose);
   root.querySelectorAll('.nd').forEach((g) => {
@@ -101,6 +96,7 @@ export function buildCircuitPanel(root, onSelect, onClose) {
     const f = FOCUS[key] ?? FOCUS.overview;
     root.querySelector('#cp-title').textContent = `วงจร · ${f.title}`;
     root.querySelector('#cp-text').textContent = f.text;
+    root.querySelector('#cp-cost').hidden = !f.cost;
     root.querySelectorAll('.nd').forEach((g) => g.classList.toggle('on', f.nodes.includes(g.dataset.id)));
     root.querySelectorAll('path[id^="e-"]').forEach((p) => p.classList.toggle('on', f.edges.includes(p.id)));
     root.classList.toggle('dim-others', f.nodes.length > 0);

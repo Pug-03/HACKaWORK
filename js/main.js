@@ -7,7 +7,7 @@ import { buildEnvironment, STREET } from './environment.js';
 import { buildTruck } from './truck.js';
 import { buildCircuitPanel } from './circuit.js';
 import { buildRiser, RISER } from './riser.js';
-import { buildHardware } from './hardware.js';
+import { buildHardware, kitTotal } from './hardware.js';
 import { buildComposter, COMPOSTER } from './composter.js';
 import { buildShop, SHOP } from './shop.js';
 
@@ -172,12 +172,12 @@ const tooltip = document.getElementById('tooltip');
 const bayNames = Object.fromEntries(CONFIG.bays.map((b) => [b.id, `${b.th} · ${b.en}`]));
 const PART_TIPS = {
   callButton: 'ปุ่มเรียกรถเก็บนอกรอบ · ค่าบริการ 500 บาท — คลิกเพื่อกด',
-  fanSwitch: 'สวิตช์พัดลม อัตโนมัติ / ปิด / เปิด (อัตโนมัติ = เทอร์โมสตัท 35°C) — คลิกเพื่อสลับโหมด',
-  cabinet: 'ตู้ครอบรวม SUS304 หนา 2 มม. (56×46×17 ซม.) กันน้ำ IP55 · หลังคากันแดดสองชั้น · พัดลม 120 มม. คุมด้วยเทอร์โมสตัท · สายเข้าทางด้านล่างเท่านั้น · บานพับซ่อน + มือจับล็อก 3 จุด + กุญแจคล้อง — คลิกเพื่อเปิด/ปิดตู้',
-  trunking: 'รางครอบสายเหล็กชุบกัลวาไนซ์ · ท่อเหล็กข้างใน · ฝายึดสกรูกันงัด ตัดสายไม่ได้',
-  unit: 'กล่องควบคุม · รับข้อมูลเซ็นเซอร์ + ส่งเข้าแดชบอร์ดเขต — คลิกเพื่อซูมดูวงจร',
-  unitInside: 'ภายในกล่องควบคุม: MCU · โมดูล 4G · LoRa gateway · DC-DC · รีเลย์ไฟ · ขั้วต่อสาย',
-  batteryInside: 'ภายในตู้แบต: แพ็ก LiFePO4 + BMS · ตัวคุมชาร์จ MPPT · เบรกเกอร์ DC · บัสบาร์',
+  unit: 'กล่องฮับ ESP32 · IP65 16×12×7.5 ซม. · รับค่าเซ็นเซอร์ฝาถังผ่าน BLE แล้วส่งเข้าแดชบอร์ดเขตผ่าน NB-IoT — คลิกเพื่อซูมดูวงจร',
+  display: 'จอ e-paper 2.9″ 3 สี (ขาว/ดำ/แดง) · โชว์ระดับขยะแต่ละถัง แบต สัญญาณ และสถานะรถ · ภาพค้างได้โดยไม่กินไฟ อ่านชัดกลางแดด กินไฟเฉพาะตอนเปลี่ยนภาพ — คลิกเพื่อซูมดูวงจร',
+  fan: 'พัดลมจิ๋ว 5V 30 มม. · เป่าลมร้อนออกทางช่องระบายมีครอบกันฝนด้านข้าง · ESP32 เปิดเฉพาะตอนในกล่องร้อนเกิน 45°C (บ่ายแดดจัด) จึงแทบไม่กินแบต — คลิกเพื่อซูมดูวงจร',
+  unitLight: 'ไฟ LED ในกล่อง · ติดเองเมื่อเปิดฝา (สวิตช์แม่เหล็ก reed + แม่เหล็กที่ฝา) · มีเซ็นเซอร์แสง ติดเฉพาะตอนมืด ช่างมาเปิดกลางคืนก็เห็นชัด ปิดฝาแล้วดับเอง',
+  unitInside: 'ภายในกล่องฮับ: ESP32-C3 · โมดูล NB-IoT + เสาอากาศแปะ · วงจรชาร์จโซลาร์ · ถ่าน 18650 ×2',
+  batteryInside: 'ถ่าน 18650 ×2 (3.7V ~6,800 mAh) · ระบบใช้ไฟ ~40 mAh/วัน สำรองได้ราว 5 เดือนแม้ไม่มีแดด — คลิกเพื่อดูวงจรไฟเลี้ยง',
   trayLid: 'ฝาถาด · สลักบานพับทั้งสองขอบ ยกได้ทั้งตอนดึงออกด้านหน้าหรือด้านหลัง + กุญแจ — คลิกเพื่อเปิด/ปิดฝา',
   stepHatch: 'แผ่นบันไดถอดได้หน้าถาด · พื้นเจาะรูระบายน้ำฝน · สลักสปริงใต้มุมหน้า 2 ข้าง ต้องบีบแถบแดงใต้ขอบพร้อมกันทั้งสองมุมจึงยกออกได้ — คลิกเพื่อยกออก ดึง/ดันถาดด้านหน้า',
   tray: 'ถาดบริการใต้ฐาน 62×42×8 ซม. (ล็อกกุญแจ) · ดึงออกสุด 62 ซม. ได้ทั้งด้านหน้า (ลอดใต้บันได) และด้านหลัง แล้วยกฝาเติมเหยื่อ — คลิกเพื่อเปิดทางฝั่งที่มองอยู่/ปิด',
@@ -194,14 +194,8 @@ const PART_TIPS = {
   cashBox: 'กล่องเหรียญนิรภัย ล็อกกุญแจแยกจากประตูซ่อมบำรุง · เจ้าหน้าที่เขตเก็บเงิน',
   composterStart: 'ปุ่มเดินเครื่องหมัก — คลิกเพื่อเริ่ม/หยุด',
   flap: 'ช่องทิ้งแบบบานผลัก — คลิกเพื่อดันบานเข้าไป แล้วบานจะปิดกลับเอง',
-  sensor: 'เซ็นเซอร์อัลตราโซนิกไร้สาย · แบตในตัว ~5 ปี · ส่ง LoRa ไปกล่องควบคุม (ไม่ต้องเดินสาย เพราะถังถูกเข็นออกทุกรอบ)',
-  solar: 'แผงโซลาร์ 50 W (67×54 ซม.) เอียง 15° · ติดสูงเหนือระยะเปิดฝา',
-  battery: 'ตู้แบต LiFePO4 12.8V 20Ah (256 Wh) + MPPT · สำรองไฟ 3–4 วัน — คลิกเพื่อซูมดูวงจร',
-  beacon: 'ไฟแจ้งเตือน 2 สี · แดง = รอรถ · เขียว = เก็บแล้ว',
-  pole: 'เสาเหล็ก Ø 60 มม. · ใช้เป็นท่อร้อยสายไปแผงโซลาร์และไฟแจ้งเตือน',
-  cableSolar: 'ท่อร้อยสาย: แผงโซลาร์ → ตู้แบต',
-  cableBatt: 'ท่อร้อยสาย: ตู้แบต → กล่องควบคุม',
-  cableBeacon: 'ท่อร้อยสาย: กล่องควบคุม → เสา → ไฟแจ้งเตือน',
+  sensor: 'เซ็นเซอร์ฝาถัง BLE · ToF วัดระยะ + nRF52 + ถ่าน AA ×2 (~2–3 ปี) · วัดตอนฝาปิดแล้วประกาศค่าให้กล่องฮับ (ไม่ต้องเดินสาย เพราะถังถูกเข็นออกทุกรอบ)',
+  solar: 'แผงโซลาร์ 6V 2W (17×13 ซม.) บนกล่องฮับ เอียง 15° · ชาร์จถ่าน 18650 ในกล่อง',
   truck: 'รถเก็บขยะไฟฟ้ามินิ (EV) · บรรทุก ~500 กก. · ร่วมกับภาคเอกชน',
   frame: `โครงเหล็กสถานี · ยาว ${(L * 100).toFixed(0)} × ลึก ${(D * 100).toFixed(0)} × สูง ${(H * 100).toFixed(0)} ซม.`,
   lattice: 'ตะแกรงเจาะรูช่องถุงดำ · ระบายอากาศและมองเห็นว่าในช่องมีถุงอยู่',
@@ -215,11 +209,10 @@ const PART_TIPS = {
   drive: 'ฝาครอบโซ่ (ถอดออกในโหมดมองภายใน)',
   compostBag: 'แผงถุงปุ๋ยติดข้างเครื่อง (สแตนเลสเจาะรูแบบเดียวกับตัวเครื่อง) · ช่องดึงถุงเปล่า 1 / 5 กก. ดึงออกทีละใบแล้วเอาไปได้เลย',
 };
-const CLICKABLE = new Set(['callButton', 'fanSwitch', 'cabinet', 'serviceDoor', 'rearDoor', 'tray', 'trayLid', 'stepHatch', 'hatch', 'composterStart', 'flap', 'drawer', 'coinSlot', 'payQR', 'coinReturn', 'coinCup', 'unit', 'unitInside', 'battery', 'batteryInside',
-  'solar', 'beacon', 'sensor', 'cableSolar', 'cableBatt', 'cableBeacon']);
+const CLICKABLE = new Set(['callButton', 'display', 'fan', 'serviceDoor', 'rearDoor', 'tray', 'trayLid', 'stepHatch', 'hatch', 'composterStart', 'flap', 'drawer', 'coinSlot', 'payQR', 'coinReturn', 'coinCup', 'unit', 'unitInside', 'batteryInside',
+  'solar', 'sensor']);
 // hardware part -> circuit focus key
-const PART_FOCUS = { unit: 'unit', unitInside: 'unit', battery: 'battery', batteryInside: 'battery', solar: 'solar', beacon: 'beacon',
-  sensor: 'sensor', cableSolar: 'solar', cableBatt: 'battery', cableBeacon: 'beacon' };
+const PART_FOCUS = { unit: 'unit', unitLight: 'unit', fan: 'unit', display: 'unit', unitInside: 'unit', batteryInside: 'battery', solar: 'battery', sensor: 'sensor' };
 
 // push flap: swings in while "held", then springs back shut like the real gravity flap
 function pushFlap(bin) {
@@ -352,7 +345,7 @@ function pick(ev) {
     const m = Array.isArray(h.object.material) ? h.object.material[h.face?.materialIndex ?? 0] : h.object.material;
     return !h.object.isLine && !h.object.isPoints && isShown(h.object) && m && m.visible;   // lines (airflow streaks) have a 1 m ray threshold: never let them eat clicks
   });
-  // the call button sits in a hole in the cabinet door: a ray grazing the hole edge must still press it
+  // the call button sits in a bezel on the hub lid: a ray grazing the bezel edge must still press it
   const hit = hits.find((h) => hits[0] && h.distance - hits[0].distance < 0.04 && partOf(h.object) === 'callButton') || hits[0];
   if (!hit) return {};
   let o = hit.object, bin = null, bayId = null, part = null;
@@ -420,8 +413,6 @@ function clickAt(e) {
   else if (part === 'payQR') composter.payQR();
   else if (part === 'coinReturn') composter.returnCoins();
   else if (part === 'coinCup') composter.takeCoins();
-  else if (part === 'fanSwitch') { hardware.cycleFanMode(); syncFanSeg(); invalidate(true); }
-  else if (part === 'cabinet') { hardware.toggleCabinet(); invalidate(true); }
   else if (PART_FOCUS[part]) focusCircuit(PART_FOCUS[part]);
   else if (part === 'composterStart') { composter.setRunning(!composter.isRunning()); syncAll(); }
   else if (bin) bin.userData.target = bin.userData.target ? 0 : 1;
@@ -501,17 +492,6 @@ syncers.push(bindToggle('t-trays', () => riser.traysState() === 1, (v) => setTra
 syncers.push(bindToggle('t-trays-back', () => riser.traysState() === -1, (v) => setTrays(v ? -1 : 0)));
 syncers.push(bindToggle('t-tray-lid', () => riser.isLidOpen(), (v) => { if (!riserOn && v) { riserOn = true; placeStation(); } riser.setLidOpen(v); }));
 syncers.push(bindToggle('t-comp-run', () => composter.isRunning(), (v) => composter.setRunning(v)));
-// cabinet fan mode (AUTO / ON / OFF), mirrored by the selector knob inside the cabinet
-const fanBtns = document.querySelectorAll('#fan-seg [data-fan]');
-function syncFanSeg() { fanBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.fan === hardware.getFanMode()))); }
-fanBtns.forEach((b) => b.addEventListener('click', () => { hardware.setFanMode(b.dataset.fan); syncFanSeg(); invalidate(true); }));
-hardware.setFanMode('auto');
-// fan speed slider: sets the target, the rotor eases to it; the readout shows the live (smoothed) rpm
-const fanSpeedEl = $('fan-speed'), fanRpmEl = $('fan-rpm');
-fanSpeedEl.addEventListener('input', () => { hardware.setFanSpeed(+fanSpeedEl.value); invalidate(); });
-hardware.setFanSpeed(+fanSpeedEl.value);
-setInterval(() => { const t = `${Math.round(hardware.getFanRpm() / 10) * 10} rpm`; if (fanRpmEl.value !== t) fanRpmEl.value = t; }, 100);
-syncFanSeg();
 const legendEl = $('comp-legend');
 $('comp-legend-list').innerHTML = composter.parts.map((p) => `<li><span class="n">${p.n}</span><div><b>${p.name}</b><small>${p.spec}</small></div></li>`).join('');
 function setComposterCut(v) { cutaway = v; composter.setCutaway(v); legendEl.hidden = !v; $('smart').hidden = v; }
@@ -549,11 +529,9 @@ const circuit = buildCircuitPanel($('circuit'), (key) => focusCircuit(key), () =
 function focusCircuit(key) {
   if (!circuitKey) savedView = { pos: camera.position.clone(), tgt: controls.target.clone() };
   circuitKey = key;
-  if (riserOn === false) { /* nothing */ }
-  hardware.setUnitOpen(key === 'unit' || key === 'overview');
-  hardware.setBatteryOpen(key === 'battery' || key === 'overview');
+  hardware.setUnitOpen(key === 'unit' || key === 'battery');   // one hub box: the lid opens for both
   station.bins[0].userData.target = key === 'sensor' ? 1 : station.bins[0].userData.target;
-  hardware.setFlow(true);
+  hardware.setFlow(true, key === 'sensor' || key === 'overview');
   circuit.show(key);
   $('smart').hidden = true;
   // camera framing per device (positions derived from the device's world placement)
@@ -563,10 +541,11 @@ function focusCircuit(key) {
   const q = obj.getWorldQuaternion(new THREE.Quaternion());
   const front = new THREE.Vector3(0, 0, 1).applyQuaternion(q);       // device's own front direction
   let pos;
-  if (key === 'unit' || key === 'battery') pos = c.clone().addScaledVector(front, 0.55).add(new THREE.Vector3(0, 0.08, 0.18));
-  else if (key === 'overview') { c.z -= 0.12; pos = c.clone().addScaledVector(front, 1.0).add(new THREE.Vector3(0, 0.2, 0.25)); }
-  else if (key === 'solar') pos = c.clone().add(new THREE.Vector3(-0.9, 0.7, 1.2));
-  else if (key === 'beacon') pos = c.clone().add(new THREE.Vector3(-0.7, 0.15, 0.7));
+  if (key === 'unit' || key === 'battery') pos = c.clone().addScaledVector(front, 0.4).add(new THREE.Vector3(0, 0.1, 0.16));
+  else if (key === 'overview') {            // hub plus the bins with their lid sensors
+    c.addScaledVector(front, -0.45); c.y -= 0.05;
+    pos = c.clone().addScaledVector(front, 1.9).add(new THREE.Vector3(0, 0.9, 1.6));
+  }
   else pos = c.clone().add(new THREE.Vector3(0.15, -0.05, 0.75));     // sensor under the opened lid
   flyTo(pos, c);
   syncAll();
@@ -624,6 +603,7 @@ $('spec').innerHTML = `
   <div><dt>ฐานยกกันหนู</dt><dd>${fmt(RISER.height)}</dd></div>
   <div><dt>ถังล้อเลื่อน</dt><dd>${CONFIG.bin.capacityL} ลิตร × 3</dd></div>
   <div><dt>รุ่นถัง</dt><dd>${CONFIG.bin.model} (50×55×110)</dd></div>
+  <div><dt>ชุดอัจฉริยะ</dt><dd>ESP32 + BLE ~${kitTotal().toLocaleString('th-TH')} บาท</dd></div>
   <div><dt>เครื่องหมักปุ๋ย</dt><dd>${COMPOSTER.capacityL} ลิตร · ~${COMPOSTER.dailyKg} กก./วัน</dd></div>`;
 
 /* ---------- smart system simulation (shared with dashboard.html) ---------- */
@@ -756,7 +736,7 @@ function animate() {
     dirty = true;
   }
   if (riser.update(dt)) invalidate(true);
-  // light-only changes (blinking beacon / truck roof light) repaint at full quality directly,
+  // light-only changes (blinking status ring / truck roof light) repaint at full quality directly,
   // so the image doesn't alternate between the fast no-AO frame and the AO frame
   const hw = hardware.update(dt, camera.position);
   if (hw === 3) lightDirty = true; else if (hw) invalidate(hw === 2);

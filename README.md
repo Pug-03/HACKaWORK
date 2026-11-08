@@ -105,9 +105,17 @@ guards on every leg, two lockable service trays and a free-standing front step.
 
 ![Looking under the raised base at the legs and cone rat guards](docs/images/riser-trays.jpg)
 
-**Smart hardware:** a 50 W solar panel, a LiFePO4 12.8 V 20 Ah battery with MPPT, a control unit with
-a screen, LTE modem and LoRa gateway, a 500 THB "call extra pickup" button, a two-colour beacon and
-wireless fill sensors. "Look inside" opens the boxes and labels every internal part.
+**Smart hardware (low-cost kit, about 3,480 THB per station):** one small IP65 hub box (16 × 12 × 7.5 cm)
+on the end of the frame holds one dense 13 × 4 cm custom mainboard (ESP32-C3, NB-IoT modem under a heatsink, MPPT
+charger, RTC, microSD) with every peripheral on a labelled plug, plus two 18650 cells charged by a 2 W solar
+panel above it; the panel's cable drops straight into a gland in the top of the box, sheltered by the panel.
+A 30 mm 5 V mini fan behind a louvred hood on the side wall runs only when the box gets hot, and a warm LED bar inside turns on by itself (reed switch + lid magnet)
+when someone opens the lid in the dark. The 500 THB "call extra pickup" button sits on the lid, and its LED ring is the status
+light (red = waiting, green = collected, blinking = extra pickup requested). A 2.9" black/white/red
+e-paper screen behind a clear window above the button shows each bin's fill level, battery, signal and
+pickup status; it keeps its picture with no power and is readable in full sun. Each bin lid has a BLE fill
+sensor (ToF distance sensor, nRF52, 2 × AA) that the hub scans, so no gateway, pole, cabinet or wiring
+is needed. The circuit view lists the parts and costs. "Look inside" opens the hub and labels its parts.
 
 ![The opened control cabinet with labelled internal parts](docs/images/smart-hardware.jpg)
 
@@ -141,8 +149,8 @@ page through BroadcastChannel and localStorage, with a heartbeat that shows when
 | `js/binStation.js` | Frame, panels, lattice and bag pile |
 | `js/wheelieBin.js` | TAB120HW bin |
 | `js/riser.js` | Anti-rodent base, service trays and step |
-| `js/hardware.js` | Solar, battery, conduits, control unit, beacon and sensors |
-| `js/circuit.js` | Electrical and data circuit diagram |
+| `js/hardware.js` | ESP32 hub box, mini solar panel, e-paper screen, mini fan, call button with status ring, BLE lid sensors and parts cost |
+| `js/circuit.js` | Circuit diagram and parts-cost table for the smart kit |
 | `js/composter.js` | Composter and its internals |
 | `js/mech.js` | Standard parts such as sprockets, chain, bearings, motors and bolts |
 | `js/shop.js` | Compost shop |
