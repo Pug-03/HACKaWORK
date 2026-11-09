@@ -120,19 +120,21 @@ body.shownotes .slide.on .notes{display:block;position:absolute;left:0;right:0;b
 .s7 .right{position:absolute;left:740px;right:96px;top:110px}
 /* 8 results */
 .s8 table{width:100%;border-collapse:collapse;margin-top:6px}
-.s8 th{font-size:28px;text-align:left;padding:0 0 14px;color:var(--mute);font-weight:600}
+.s8 th{font-size:28px;text-align:left;padding:0 0 8px;color:var(--mute);font-weight:600;vertical-align:bottom}
+.s8 th small{display:block;font-size:23px;font-weight:600;color:var(--ink);margin-top:2px}
+.s8 th.c small{color:var(--head)}
 .s8 th.a{color:#4b5563} .s8 th.b{color:var(--teal)}
-.s8 h2{font-size:56px;margin-bottom:22px}
-.s8 td{border-top:2px solid var(--line);padding:10px 0;vertical-align:middle}
+.s8 h2{font-size:56px;margin-bottom:12px}
+.s8 td{border-top:2px solid var(--line);padding:8px 0;vertical-align:middle}
 .s8 td.k{font-size:28px;width:430px;line-height:1.3}
-.s8 td.v{font:700 60px/1 "Outfit","Plex Thai",sans-serif;width:400px}
+.s8 td.v{font:700 56px/1 "Outfit","Plex Thai",sans-serif;width:400px}
 .s8 th.c,.s8 .vc{color:var(--head)}
 .s8 td.k small{display:block;font-size:20px;color:var(--mute);line-height:1.35;margin-top:4px}
 .s8 td.v small.pre{margin:0 8px 0 0}
 .s8 td.v small.base{font-size:30px;margin:0}
-.s8 .condh{font-size:32px;font-weight:700;color:var(--head);margin-top:12px}
+.s8 .condh{font-size:32px;font-weight:700;color:var(--head);margin-top:8px}
 .s8 .condh em{font:700 40px "Outfit",sans-serif;font-style:normal}
-.s8 .conds{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:10px}
+.s8 .conds{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:8px}
 .s8 .cond{display:flex;gap:14px;align-items:flex-start;background:var(--teal-bg);border-left:6px solid var(--head);border-radius:12px;padding:14px 16px}
 .s8 .cond b{flex:none;width:44px;height:44px;border-radius:50%;background:var(--head);color:#fff;font:700 26px/44px "Outfit",sans-serif;text-align:center}
 .s8 .cond strong{display:block;font-size:28px;line-height:1.3;color:var(--head)}
@@ -140,7 +142,7 @@ body.shownotes .slide.on .notes{display:block;position:absolute;left:0;right:0;b
 .s8 td.v small{font:600 26px "Plex Thai","Outfit",sans-serif;color:var(--mute);margin-left:6px}
 .s8 .va{color:#4b5563} .s8 .vb{color:var(--teal)}
 .bar{height:34px;border-radius:0 6px 6px 0;margin-top:10px}
-.s8 .band{font-size:24px;margin-top:12px;padding-top:12px;padding-bottom:12px}
+.s8 .band{font-size:24px;margin-top:10px;padding-top:10px;padding-bottom:10px}
 /* Q&A appendix (after the close; Skald present opens them in its Q&A mode) */
 .qa .q{display:flex;gap:26px;align-items:flex-start;margin:0 0 34px;font-size:38px;line-height:1.4}
 .qa .q .n{flex:none;width:60px;height:60px;border-radius:50%;background:var(--teal-bg);color:var(--head);font:700 32px/60px "Outfit","Plex Thai",sans-serif;text-align:center}
@@ -268,7 +270,7 @@ body.shownotes .slide.on .notes{display:block;position:absolute;left:0;right:0;b
   <div class="kick">ผลจำลอง ย่านสีลม เขตบางรัก · 1 คืน</div>
   <h2>เปลี่ยนวิธีเก็บได้เกือบ 90% · ครบ 4 เงื่อนไขได้ 100%</h2>
   <table>
-   <tr><th></th><th class="a">รอบตายตัว</th><th class="b">ถังอัจฉริยะ + ปุ่มเรียก</th><th class="c">+ 4 เงื่อนไข</th></tr>
+   <tr><th></th><th class="a">รอบตายตัว<small>รถ 10 คัน · คน 50 คน</small></th><th class="b">ถังอัจฉริยะ + ปุ่มเรียก<small>รถ 10 คัน · คน 50 คน</small></th><th class="c">+ 4 เงื่อนไข<small>รถ 12 คัน · คน 60 คน (รวมสำรอง)</small></th></tr>
    <tr><td class="k">ถุงบนทางเท้าเก็บภายใน 1 ชม.</td>
     <td class="v va">45%<div class="bar" style="width:45%;background:var(--gray)"></div></td>
     <td class="v vb">89.5%<div class="bar" style="width:89.5%;background:var(--teal)"></div></td>
@@ -281,11 +283,11 @@ body.shownotes .slide.on .notes{display:block;position:absolute;left:0;right:0;b
   <div class="conds">
    <div class="cond"><b>1</b><div><strong>ร้านวางถุงตรงเวลา</strong><span>ไม่วางถุงก่อนเวลานัด</span></div></div>
    <div class="cond"><b>2</b><div><strong>ทุกร้านใช้ระบบ</strong><span>ทิ้งที่จุดทิ้งรวม หรือกดปุ่มเรียก</span></div></div>
-   <div class="cond"><b>3</b><div><strong>มีรถและคนสำรอง</strong><span>รถ 2 คัน · คน 10 คน</span></div></div>
+   <div class="cond"><b>3</b><div><strong>มีรถและคนสำรอง</strong><span>รถสำรอง 2 คัน · คนสำรอง 10 คน</span></div></div>
    <div class="cond"><b>4</b><div><strong>V<i style="font-style:normal;color:var(--gold)">ö</i>R จัดคิวตามเวลา</strong><span>ถุงที่ใกล้ครบ 1 ชม. ได้รถก่อน</span></div></div>
   </div>
   <div class="band">ทั้ง 3 แบบ ทุกคนทำงานไม่เกิน 6.4 ชม. · ทำงานต่อเนื่องไม่เกิน 2 ชม. · นอนได้ 7 ชม. · ไม่มีทีมผิดเกณฑ์</div>
-  <div class="cap" style="margin-top:8px">รถ 10 คัน คันละ 4 คน กะดึกของเขต 21:00–05:00 · ต้นทุน 32,844 → 35,307 → 38,984 บาท/คืน · 100% ได้ทั้ง 10 คืนที่จำลอง ทดสอบเพิ่มอีก 20 คืน ได้ 100% 16 คืน อีก 4 คืนพลาดคืนละ 1 ถุง<br>ขยะ 32 ตัน/คืนเป็นค่าสมมติ จะปรับด้วยตันที่ชั่งจริงของเขต</div>
+  <div class="cap" style="margin-top:8px">รถ 1 คัน = คนขับ 1 + พนักงานเก็บ 4 · กะดึกของเขต 21:00–05:00 · คืนนี้มีคนลา 2 แบบแรกออกรถได้ 9 คัน (45 คน) แบบ 100% ใช้คนสำรองออกครบ 10 คัน (50 คน)<br>ต้นทุน 32,844 → 35,307 → 38,984 บาท/คืน · 100% ได้ทั้ง 10 คืนที่จำลอง ทดสอบเพิ่มอีก 20 คืน ได้ 100% 16 คืน อีก 4 คืนพลาดคืนละ 1 ถุง · ขยะ 32 ตัน/คืนเป็นค่าสมมติ</div>
  </div>
  <div class="num">8</div>
 </section>
