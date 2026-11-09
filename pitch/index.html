@@ -123,17 +123,24 @@ body.shownotes .slide.on .notes{display:block;position:absolute;left:0;right:0;b
 .s8 th{font-size:28px;text-align:left;padding:0 0 14px;color:var(--mute);font-weight:600}
 .s8 th.a{color:#4b5563} .s8 th.b{color:var(--teal)}
 .s8 h2{font-size:56px;margin-bottom:22px}
-.s8 td{border-top:2px solid var(--line);padding:14px 0;vertical-align:middle}
+.s8 td{border-top:2px solid var(--line);padding:10px 0;vertical-align:middle}
 .s8 td.k{font-size:28px;width:430px;line-height:1.3}
 .s8 td.v{font:700 60px/1 "Outfit","Plex Thai",sans-serif;width:400px}
 .s8 th.c,.s8 .vc{color:var(--head)}
-.s8 .conds{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:20px}
-.s8 .cond{display:flex;gap:12px;align-items:flex-start;background:var(--soft);border-radius:14px;padding:14px 16px;font-size:24px;line-height:1.35}
-.s8 .cond b{flex:none;width:38px;height:38px;border-radius:50%;background:var(--head);color:#fff;font:700 22px/38px "Outfit",sans-serif;text-align:center}
+.s8 td.k small{display:block;font-size:20px;color:var(--mute);line-height:1.35;margin-top:4px}
+.s8 td.v small.pre{margin:0 8px 0 0}
+.s8 td.v small.base{font-size:30px;margin:0}
+.s8 .condh{font-size:32px;font-weight:700;color:var(--head);margin-top:12px}
+.s8 .condh em{font:700 40px "Outfit",sans-serif;font-style:normal}
+.s8 .conds{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:10px}
+.s8 .cond{display:flex;gap:14px;align-items:flex-start;background:var(--teal-bg);border-left:6px solid var(--head);border-radius:12px;padding:14px 16px}
+.s8 .cond b{flex:none;width:44px;height:44px;border-radius:50%;background:var(--head);color:#fff;font:700 26px/44px "Outfit",sans-serif;text-align:center}
+.s8 .cond strong{display:block;font-size:28px;line-height:1.3;color:var(--head)}
+.s8 .cond span{display:block;font-size:22px;line-height:1.35;margin-top:2px}
 .s8 td.v small{font:600 26px "Plex Thai","Outfit",sans-serif;color:var(--mute);margin-left:6px}
 .s8 .va{color:#4b5563} .s8 .vb{color:var(--teal)}
 .bar{height:34px;border-radius:0 6px 6px 0;margin-top:10px}
-.s8 .band{font-size:26px;margin-top:16px}
+.s8 .band{font-size:24px;margin-top:12px;padding-top:12px;padding-bottom:12px}
 /* Q&A appendix (after the close; Skald present opens them in its Q&A mode) */
 .qa .q{display:flex;gap:26px;align-items:flex-start;margin:0 0 34px;font-size:38px;line-height:1.4}
 .qa .q .n{flex:none;width:60px;height:60px;border-radius:50%;background:var(--teal-bg);color:var(--head);font:700 32px/60px "Outfit","Plex Thai",sans-serif;text-align:center}
@@ -268,16 +275,17 @@ body.shownotes .slide.on .notes{display:block;position:absolute;left:0;right:0;b
     <td class="v vc">100%<div class="bar" style="width:100%;background:var(--head)"></div></td></tr>
    <tr><td class="k">9 ใน 10 ถุง รอไม่เกิน</td><td class="v va">2.7<small>ชม.</small></td><td class="v vb">64<small>นาที</small></td><td class="v vc">17<small>นาที</small></td></tr>
    <tr><td class="k">ขยะค้างถึงเช้า</td><td class="v va">2.6<small>ตัน</small></td><td class="v vb">0<small>ตัน</small></td><td class="v vc">0<small>ตัน</small></td></tr>
-   <tr><td class="k">ความเสี่ยงหนู</td><td class="v va">4,536</td><td class="v vb">432<small>ลดลง 90%</small></td><td class="v vc">133<small>ลดลง 97%</small></td></tr>
+   <tr><td class="k">เศษอาหารเหลือ<small>ถุง × ชม. ที่วางนอกร้าน เทียบรอบตายตัว</small></td><td class="v va"><small class="base">ฐานเทียบ</small></td><td class="v vb"><small class="pre">ลดลง</small>90%</td><td class="v vc"><small class="pre">ลดลง</small>97%</td></tr>
   </table>
+  <div class="condh">ได้ <em>100%</em> เมื่อครบ 4 เงื่อนไข</div>
   <div class="conds">
-   <div class="cond"><b>1</b><span>ร้านวางถุงตามเวลานัด<br>ไม่วางก่อนเวลา</span></div>
-   <div class="cond"><b>2</b><span>ทุกร้านใช้จุดทิ้งรวม<br>หรือกดปุ่มเรียก</span></div>
-   <div class="cond"><b>3</b><span>สำรองรถ 2 คัน คน 10 คน<br>แทนรถเสียและคนลา</span></div>
-   <div class="cond"><b>4</b><span>V<i style="font-style:normal;color:var(--gold)">ö</i>R จัดคิวรถตาม<br>เวลาที่เหลือของแต่ละถุง</span></div>
+   <div class="cond"><b>1</b><div><strong>ร้านวางถุงตรงเวลา</strong><span>ไม่วางถุงก่อนเวลานัด</span></div></div>
+   <div class="cond"><b>2</b><div><strong>ทุกร้านใช้ระบบ</strong><span>ทิ้งที่จุดทิ้งรวม หรือกดปุ่มเรียก</span></div></div>
+   <div class="cond"><b>3</b><div><strong>มีรถและคนสำรอง</strong><span>รถ 2 คัน · คน 10 คน</span></div></div>
+   <div class="cond"><b>4</b><div><strong>V<i style="font-style:normal;color:var(--gold)">ö</i>R จัดคิวตามเวลา</strong><span>ถุงที่ใกล้ครบ 1 ชม. ได้รถก่อน</span></div></div>
   </div>
   <div class="band">ทั้ง 3 แบบ ทุกคนทำงานไม่เกิน 6.4 ชม. · ทำงานต่อเนื่องไม่เกิน 2 ชม. · นอนได้ 7 ชม. · ไม่มีทีมผิดเกณฑ์</div>
-  <div class="cap" style="margin-top:10px">รถ 10 คัน คันละ 4 คน กะดึกของเขต 21:00–05:00 · ต้นทุน 32,844 → 35,307 → 38,984 บาท/คืน · 100% ได้ทั้ง 10 คืนที่จำลอง ทดสอบเพิ่มอีก 20 คืน ได้ 100% 16 คืน อีก 4 คืนพลาดคืนละ 1 ถุง<br>ขยะ 32 ตัน/คืนเป็นค่าสมมติ จะปรับด้วยตันที่ชั่งจริงของเขต</div>
+  <div class="cap" style="margin-top:8px">รถ 10 คัน คันละ 4 คน กะดึกของเขต 21:00–05:00 · ต้นทุน 32,844 → 35,307 → 38,984 บาท/คืน · 100% ได้ทั้ง 10 คืนที่จำลอง ทดสอบเพิ่มอีก 20 คืน ได้ 100% 16 คืน อีก 4 คืนพลาดคืนละ 1 ถุง<br>ขยะ 32 ตัน/คืนเป็นค่าสมมติ จะปรับด้วยตันที่ชั่งจริงของเขต</div>
  </div>
  <div class="num">8</div>
 </section>
@@ -391,7 +399,7 @@ function clips(){S.forEach((s,j)=>s.querySelectorAll('video').forEach(v=>{if(j==
 // speaker notes come from SCRIPT-5min.md (capture/to_skald.py writes notes.js)
 S.forEach((s,k)=>{const a=document.createElement('aside');a.className='notes';a.textContent=(window.NOTES||{})[k+1]||'';s.appendChild(a);});
 // life (not in ?still): items rise one after another; numbers count up when their slide opens
-const RISE='.war,.kick,h2,.s8 .cond,.tag,.motto .m,.cl,.res,.thanks,.row,.stat,.rule,.band,.step,.callout,.tl .t,.ask,.q,.s8 tr,.mband';
+const RISE='.war,.kick,h2,.s8 .condh,.s8 .cond,.tag,.motto .m,.cl,.res,.thanks,.row,.stat,.rule,.band,.step,.callout,.tl .t,.ask,.q,.s8 tr,.mband';
 S.forEach(s=>s.querySelectorAll(RISE).forEach((e,k)=>{e.classList.add('rise');e.style.setProperty('--d',Math.min(k*0.09,1.3)+'s');}));
 const MAIN=S.filter(s=>!s.classList.contains('qa'));
 MAIN.forEach((s,k)=>{const p=document.createElement('div');p.className='prog';p.style.width=((k+1)/MAIN.length*100)+'%';s.appendChild(p);});
