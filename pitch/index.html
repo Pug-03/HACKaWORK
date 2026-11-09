@@ -71,6 +71,11 @@ body.shownotes .slide.on .notes{display:block;position:absolute;left:0;right:0;b
 /* 2 problem */
 .s2 .photo{left:0;width:860px;object-position:64% 50%}
 .s2 .right{position:absolute;left:940px;right:96px;top:90px}
+.s2 .war{position:absolute;left:56px;top:56px;background:rgba(255,255,255,.96);border-left:14px solid var(--warn);border-radius:16px;padding:20px 34px 22px 30px;box-shadow:0 14px 40px rgba(0,0,0,.45)}
+.s2 .war span{display:block;font-size:26px;font-weight:600;color:var(--head);line-height:1.35}
+.s2 .war b{display:block;font-size:96px;font-weight:700;color:var(--warn);line-height:1.2;margin:2px 0 4px}
+.s2 .war em{display:block;font-style:normal;font-size:30px;font-weight:600;color:var(--ink);line-height:1.35}
+.s2 .war em i{font-style:normal;color:var(--mute);margin:0 10px}
 .row{display:flex;align-items:center;gap:22px;font-size:32px;line-height:1.4;margin:0 0 22px}
 .row svg{flex:none;width:56px;height:56px}
 .stats{display:flex;gap:28px;margin-top:38px}
@@ -167,12 +172,13 @@ body.shownotes .slide.on .notes{display:block;position:absolute;left:0;right:0;b
    <div class="m"><span class="ic"><svg viewBox="0 0 56 56" fill="none" stroke="#0f8a74" stroke-width="3.5" stroke-linejoin="round"><path d="M38 9a20 20 0 1 0 9 30A16 16 0 0 1 38 9z"/></svg></span><span>ทุกคนได้นอน<b>7</b>ชั่วโมง</span></div>
   </div>
  </div>
- <div class="foot">ทีม Nótt · นำเสนอโดย ณฐพร ไทรทับทิม (หัวหน้าทีม)</div>
+ <div class="foot">ทีม Nótt</div>
 </section>
 
 <!-- 2 -->
 <section class="slide s2">
  <img class="photo" src="img/bags-sidewalk.png" alt="">
+ <div class="war"><span>นโยบาย กทม. · นำร่องถนนสีลม เขตบางรัก</span><b>สงครามสู้หนู</b><em>ทิ้ง 1 ชม.<i>·</i>เก็บ 1 ชม.</em></div>
  <div class="right">
   <div class="kick">ปัญหา</div>
   <h2>ถุงขยะรอบนทางเท้า<br>ทั้งคืน</h2>
@@ -295,7 +301,7 @@ body.shownotes .slide.on .notes{display:block;position:absolute;left:0;right:0;b
    <div class="t"><b>ขยายทั้งเขตบางรัก<br>แล้วไป 7 เขต</b><span>ตามพื้นที่ในโจทย์</span></div>
   </div>
   <div class="ask"><b style="color:var(--head)">สิ่งที่ขอจาก กทม.</b> น้ำหนักขยะที่ชั่ง · จำนวนคนต่อคัน · จุดพักขยะในระบบของเขต · พื้นที่ทดลอง</div>
-  <div class="team">ทีม Nótt · ณฐพร ไทรทับทิม (หัวหน้าทีม) · วรนิชาญานันท์ พันธเตชะไพศาล (พยาบาลวิชาชีพ) · วรรณวิษา นิตยศร (IoT Engineer) · ปริพล ทู้ไพเราะห์ (ที่ปรึกษา)<br>ภาพประกอบสร้างด้วย AI · หน้าจอจาก VöR ตัวจริง 7 พ.ย. 2569</div>
+  <div class="team">ทีม Nótt · วรนิชาญานันท์ พันธเตชะไพศาล (พยาบาลวิชาชีพ) · วรรณวิษา นิตยศร (IoT Engineer) · ปริพล ทู้ไพเราะห์ (ที่ปรึกษา)<br>ภาพประกอบสร้างด้วย AI · หน้าจอจาก VöR ตัวจริง 7 พ.ย. 2569</div>
  </div>
 </section>
 
@@ -373,7 +379,7 @@ function clips(){S.forEach((s,j)=>s.querySelectorAll('video').forEach(v=>{if(j==
 // speaker notes come from SCRIPT-5min.md (capture/to_skald.py writes notes.js)
 S.forEach((s,k)=>{const a=document.createElement('aside');a.className='notes';a.textContent=(window.NOTES||{})[k+1]||'';s.appendChild(a);});
 // life (not in ?still): items rise one after another; numbers count up when their slide opens
-const RISE='.kick,h2,.tag,.motto .m,.cl,.res,.thanks,.row,.stat,.rule,.band,.step,.callout,.tl .t,.ask,.q,.s8 tr,.mband';
+const RISE='.war,.kick,h2,.tag,.motto .m,.cl,.res,.thanks,.row,.stat,.rule,.band,.step,.callout,.tl .t,.ask,.q,.s8 tr,.mband';
 S.forEach(s=>s.querySelectorAll(RISE).forEach((e,k)=>{e.classList.add('rise');e.style.setProperty('--d',Math.min(k*0.09,1.3)+'s');}));
 const MAIN=S.filter(s=>!s.classList.contains('qa'));
 MAIN.forEach((s,k)=>{const p=document.createElement('div');p.className='prog';p.style.width=((k+1)/MAIN.length*100)+'%';s.appendChild(p);});
