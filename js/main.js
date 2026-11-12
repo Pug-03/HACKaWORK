@@ -607,11 +607,11 @@ $('spec').innerHTML = `
   <div><dt>เครื่องหมักปุ๋ย</dt><dd>${COMPOSTER.capacityL} ลิตร · ~${COMPOSTER.dailyKg} กก./วัน</dd></div>`;
 
 /* ---------- smart system simulation (shared with dashboard.html) ---------- */
-const STATION_ID = 'BKK-PTW-001';
+const STATION_ID = 'BKK-BRK-001';
 // named tabs: the dashboard's "back to 3D" link reuses this tab instead of opening a second simulation
 window.name = 'hackawork-3d';
 const smart = {
-  id: STATION_ID, name: 'สถานีจำลอง 3D · หน้าสยาม', district: 'ปทุมวัน',
+  id: STATION_ID, name: 'สถานีจำลอง 3D · ถ.สีลม', district: 'บางรัก',
   fills: [35, 62, 48, 30], status: 'collected', callRequested: false,
   lastPickup: Date.now() - 3 * 3600e3, requests: [],
   // composter beside the station; compost output is simulated at an accelerated rate while it runs
@@ -665,7 +665,7 @@ function requestPickup() {
   if (smart.callRequested) { toast('ส่งคำขอไปแล้ว · รถมินิ EV กำลังมา'); return; }
   smart.callRequested = true;
   smart.requests.push({ at: Date.now(), fee: 500 });
-  toast('ส่งคำขอเรียกรถเก็บนอกรอบแล้ว · ค่าบริการ 500 บาท · แจ้งเขตปทุมวันแล้ว');
+  toast('ส่งคำขอเรียกรถเก็บนอกรอบแล้ว · ค่าบริการ 500 บาท · แจ้งเขตบางรักแล้ว');
   truck.arrive(() => toast('รถเก็บขยะไฟฟ้ามินิมาถึงแล้ว · กด "จำลอง: รถมาเก็บแล้ว" เมื่อเก็บเสร็จ'));
   applySmart();
 }
