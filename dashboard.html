@@ -86,7 +86,7 @@
     <div class="controls">
       <label for="district" class="loc">เขต</label>
       <select id="district">
-        <option>ปทุมวัน</option><option>บางรัก</option><option>สาทร</option><option>ราชเทวี</option>
+        <option>ปทุมวัน</option><option selected>บางรัก</option><option>สาทร</option><option>ราชเทวี</option>
       </select>
       <a class="btn" href="./index.html" target="hackawork-3d">กลับไปหน้า 3D</a>
     </div>
@@ -144,7 +144,7 @@
   let seed = 11;
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
-  const state = { district: 'ปทุมวัน', stations: [], live: null, compostKg: 0 };
+  const state = { district: 'บางรัก', stations: [], live: null, compostKg: 0 };
   function makeStations(d) {
     seed = d.length * 977;
     return PLACES[d].map((p, i) => ({

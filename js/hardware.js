@@ -233,7 +233,7 @@ export function buildHardware(station) {
       g.fillStyle = '#fafaf7'; g.fillRect(0, 0, w, h);
       g.fillStyle = '#1f7a3a'; g.fillRect(0, 0, w, 54);
       g.fillStyle = '#fff'; g.font = `600 30px ${FONT}`; g.textAlign = 'left'; g.fillText('ทรัพย์สิน กทม.', 16, 38);
-      g.fillStyle = '#111'; g.font = `700 34px ${MONO}`; g.fillText('BKK-PTW-001', 16, 104);
+      g.fillStyle = '#111'; g.font = `700 34px ${MONO}`; g.fillText('BKK-BRK-001', 16, 104);
       g.font = `400 22px ${FONT}`; g.fillText('ฮับ ESP32 · NB-IoT · v1.2', 16, 140);
       g.fillText('ติดตั้ง 11/2026', 16, 172);
       g.fillText('แจ้งเสีย โทร 1555', 16, 206);
@@ -783,7 +783,7 @@ export function buildHardware(station) {
   sticker(0.122, 0.0105, 1024, 88, 0, 0.0405, (g, w, h) => {
     g.fillStyle = '#1f7a3a'; g.beginPath(); g.roundRect(0, 0, w, h, 18); g.fill();
     g.fillStyle = '#fff'; g.font = `600 50px ${FONT}`; g.textAlign = 'left'; g.fillText('BKK SMART BIN', 30, 62);
-    g.textAlign = 'right'; g.font = `500 40px ${FONT}`; g.fillText('กทม. · เขตปทุมวัน', w - 30, 60);
+    g.textAlign = 'right'; g.font = `500 40px ${FONT}`; g.fillText('กทม. · เขตบางรัก', w - 30, 60);
   });
   sticker(0.04, 0.026, 400, 260, -0.041, btnY, (g, w, h) => {
     g.fillStyle = '#f6f4ee'; g.beginPath(); g.roundRect(0, 0, w, h, 22); g.fill();
@@ -1060,7 +1060,7 @@ export function buildHardware(station) {
       g.fillStyle = '#e6e8ea'; g.fillRect(0, 0, w, h);
       g.fillStyle = '#fff'; g.beginPath(); g.roundRect(8, 8, w - 16, h - 16, 18); g.fill();
       g.fillStyle = '#1d4ed8'; g.font = `700 50px ${FONT}`; g.textAlign = 'left'; g.fillText('BLE FILL', 26, 70);
-      g.fillStyle = '#374151'; g.font = `500 32px ${MONO}`; g.fillText('PTW-001', 26, 118); g.font = `500 28px ${FONT}`; g.fillText('ถ่าน AA ×2 · เปลี่ยน 2029', 26, 162);
+      g.fillStyle = '#374151'; g.font = `500 32px ${MONO}`; g.fillText('BRK-001', 26, 118); g.font = `500 28px ${FONT}`; g.fillText('ถ่าน AA ×2 · เปลี่ยน 2029', 26, 162);
       g.fillStyle = '#111'; for (let i = 0; i < 9; i++) for (let j = 0; j < 9; j++) if ((i * 7 + j * 13) % 5 < 2) g.fillRect(380 + i * 12, 40 + j * 12, 12, 12);
     }),
   });
