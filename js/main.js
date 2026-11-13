@@ -10,7 +10,7 @@ import { buildRiser, RISER } from './riser.js';
 import { buildHardware, kitTotal } from './hardware.js';
 import { buildComposter, COMPOSTER } from './composter.js';
 import { buildShop, SHOP } from './shop.js';
-import { buildVariants, ARROW_LAYER, COMPARE, VARIANT_INFO } from './variants.js';
+import { buildVariants, ARROW_LAYER, COMPARE, VARIANT_INFO, DISTRICT_POINTS } from './variants.js';
 import { CAM_TYPES, CAM_TIPS, poleTotal } from './camPole.js';
 
 await Promise.all([
@@ -649,8 +649,8 @@ function syncCamUi() {
   const src = variants.feedSource(), type = variants.camType(), info = CAM_TYPES[type];
   camChips.forEach((b) => { b.setAttribute('aria-pressed', String(b.dataset.cam === type)); b.disabled = !src.poleOn; });
   $('cam-cost').innerHTML = !src.poleOn
-    ? 'ถอดเสาออก · จุดที่มีกล้อง กทม. มองเห็นอยู่แล้วใช้ภาพเดิมเข้า AI ได้ ค่าอุปกรณ์ ~0 บาท'
-    : `<b>${info.name}</b>${info.cost ? ` ~${baht(info.cost)} บาท` : ''} · ${info.note}${info.open ? `<br>เปิดฝา: ${info.open}` : ''}<br>ชุดเสา + โซลาร์ + 4G ~${baht(poleTotal())} บาท · รวม ~${baht(poleTotal() + info.cost)} บาท`;
+    ? 'ถอดเสาออก · ใช้กล้องวงจรปิดของ กทม. ที่มองเห็นจุดทิ้งอยู่แล้วแทน ไม่คิดค่ากล้อง (ต้องขออนุญาตเข้าถึงกล้องก่อน)'
+    : `<b>${info.name}</b>${info.cost ? ` ~${baht(info.cost)} บาท` : ''} · ${info.note}${info.open ? `<br>เปิดฝา: ${info.open}` : ''}<br>กรณีจุดที่ไม่มีกล้อง กทม.: ชุดเสา + โซลาร์ + 4G ~${baht(poleTotal())} บาท · รวม ~${baht(poleTotal() + info.cost)} บาท (ไม่อยู่ในราคาชุดอัจฉริยะ)`;
   $('cctv-camid').textContent = src.live ? `POLE-C · ${info.label}` : '—';
   $('cctv-osd').textContent = src.live ? `CAM C-01 · ${info.label}${variants.night() ? ' · IR' : ''}` : 'CAM C-01';
   cctvScreen.classList.toggle('fish', src.live && type === 'fisheye');
@@ -786,23 +786,22 @@ function drawAiBoxes(w, h) {
 }
 
 // comparison panel: what each variant measures, costs and gives up
-const fmtBaht = (n) => n.toLocaleString('th-TH');
 {
-  const max = Math.max(...COMPARE.map((c) => c.cost()));
   const rows = COMPARE.map((c) => {
-    const info = VARIANT_INFO[c.k], cost = c.cost();
+    const info = VARIANT_INFO[c.k];
     return `<article class="cmp" style="--c:${info.color}">
       <header><b>${c.k}</b><div><strong>${info.title}</strong><small>วัด: ${c.measures}</small></div></header>
-      <div class="bar"><i style="width:${Math.max(2, (cost / max) * 100)}%"></i><span>${cost ? `~${fmtBaht(cost)} บาท/สถานี` : '~0 บาท · ใช้กล้องเดิม'}</span></div>
+      <div class="bar"><span>${c.price()}</span></div>
       <ul>${c.pros.map((p) => `<li class="pro">${p}</li>`).join('')}${c.cons.map((p) => `<li class="con">${p}</li>`).join('')}</ul>
       <button class="cmp-go" data-k="${c.k}">ดูแบบ ${c.k} ในโมเดล</button>
     </article>`;
   }).join('');
-  const per100 = COMPARE.map((c) => `<td>${c.cost() ? fmtBaht(c.cost() * 100) : '~0'}</td>`).join('');
+  const perDistrict = COMPARE.map((c) => `<td>${c.district()}</td>`).join('');
   compareEl.innerHTML = `<div class="cp-head"><b>เทียบ 3 แบบ · รู้ได้ยังไงว่าถังเต็ม</b><button class="cp-close" id="cmp-close">ปิด</button></div>
     ${rows}
-    <table class="cp-cost"><caption>ค่าอุปกรณ์ 1 เขต (สมมติ 100 สถานี · บาท)</caption><tr><td>แบบ A</td><td>แบบ B</td><td>แบบ C</td></tr><tr class="big">${per100}</tr></table>
-    <p class="cmp-note"><b>แบบ C ไม่มีอุปกรณ์บนถังเลย:</b> เสากล้องข้างถังมีโซลาร์ แบต และ 4G ในตัว ไม่ต้องเดินสายไฟ · จุดที่กล้อง กทม. มองเห็นสถานีอยู่แล้ว ใช้ภาพเดิมเข้า AI ได้ ค่าอุปกรณ์ ~0 บาท ถูกที่สุด · ส่วน AI อ่านภาพเป็นงานเฟสถัดไป (ตอนนี้กรอบ AI ในภาพเป็นการจำลอง)</p>`;
+    <table class="cp-cost"><caption>ชุดอัจฉริยะทั้งเขตบางรัก (${DISTRICT_POINTS} จุดในการจำลอง · บาท)</caption><tr><td>แบบ A</td><td>แบบ B</td><td>แบบ C</td></tr><tr class="big">${perDistrict}</tr></table>
+    <p class="cmp-note"><b>แบบ C ไม่มีอุปกรณ์บนถัง:</b> ใช้กล้องวงจรปิดของ กทม. ที่มองเห็นจุดทิ้งอยู่แล้ว ไม่คิดค่ากล้อง แต่ต้องขออนุญาตเข้าถึงกล้องและดูเรื่องข้อมูลส่วนบุคคลก่อน · ค่าระบบวิเคราะห์ภาพยังไม่ได้ประเมิน · จุดที่ไม่มีกล้อง กทม. ตั้งเสากล้องโซลาร์ข้างถังแทนได้ (เสาในโมเดล) · AI อ่านภาพเป็นงานเฟสถัดไป กรอบ AI ในภาพเป็นการจำลอง</p>
+    <p class="cmp-note">ราคาชุดอัจฉริยะเป็นราคาปลีกโดยประมาณ + ค่า SIM เดือนละ 20–30 บาท ไม่รวมโครงฐาน ถัง และค่าติดตั้ง</p>`;
   $('cmp-close').addEventListener('click', () => setCompare(false));
   compareEl.querySelectorAll('.cmp-go').forEach((b) => b.addEventListener('click', () => flyToVariant(b.dataset.k)));
 }
@@ -825,7 +824,7 @@ $('spec').innerHTML = `
   <div><dt>รุ่นถัง</dt><dd>${CONFIG.bin.model} (50×55×110)</dd></div>
   <div><dt>ชุดอัจฉริยะ</dt><dd>ESP32 + BLE ~${kitTotal().toLocaleString('th-TH')} บาท</dd></div>
   <div><dt>แบบ B ชั่งน้ำหนัก</dt><dd>${VARIANT_INFO.B.cost()}</dd></div>
-  <div><dt>แบบ C เสากล้อง</dt><dd>${VARIANT_INFO.C.cost()}</dd></div>
+  <div><dt>แบบ C กล้อง</dt><dd>${VARIANT_INFO.C.cost()}</dd></div>
   <div><dt>เครื่องหมักปุ๋ย</dt><dd>${COMPOSTER.capacityL} ลิตร · ~${COMPOSTER.dailyKg} กก./วัน</dd></div>`;
 
 /* ---------- smart system simulation (shared with dashboard.html) ---------- */

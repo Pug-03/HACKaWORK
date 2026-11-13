@@ -5,7 +5,7 @@ import { buildStation } from './binStation.js';
 import { buildRiser, RISER } from './riser.js';
 import { buildHardware, buildFillLevels, KIT_COST, kitTotal } from './hardware.js';
 import { rbox } from './geom.js';
-import { buildCamPole, CAM_TYPES, poleTotal } from './camPole.js';
+import { buildCamPole, CAM_TYPES } from './camPole.js';
 
 // Two more ways to know how full a station is, built as full stations beside the original:
 //  A (original, main.js): BLE time-of-flight sensor under every bin lid
@@ -13,6 +13,12 @@ import { buildCamPole, CAM_TYPES, poleTotal } from './camPole.js';
 //  C: no hardware on the bins: a short solar camera pole beside the station looks down on it and an AI
 //     (next phase) reads overflowing bins, lids that will not shut and bags dumped outside
 // Floating arrows drop in from the sky above each station and say which one is which.
+//
+// Prices on screen follow the pitch deck's public slide B5 (13 Nov 2026): only A has a kit price
+// (hub 1,920 + 3 lid sensors x 520 = 3,480 per point, 57 points in the Bang Rak simulation).
+// B is not priced in the deck yet (WEIGH_COST below is a parts list, not shown). C uses the BMA's
+// existing CCTV: no camera cost, image analysis not costed yet, access needs the BMA's permission.
+// The solar pole in the model is for points with no BMA camera and is not in the kit price.
 
 const FONT = 'Kanit, Thonburi, sans-serif';
 const MONO = 'Menlo, Consolas, monospace';
@@ -28,6 +34,8 @@ export const WEIGH_COST = [
 const hubTotal = () => KIT_COST.hub.reduce((s, [, p]) => s + p, 0);
 const plateTotal = () => WEIGH_COST.reduce((s, [, p]) => s + p, 0);
 export const weighTotal = () => hubTotal() + plateTotal() * 3;
+export const DISTRICT_POINTS = 57;      // drop points in the deck's Bang Rak simulation
+const baht = (n) => n.toLocaleString('th-TH');
 
 // rough net weight of a full 120 L bin by stream (kg): turns weight back into % full
 const FULL_KG = { recycle: 9, food: 72, general: 24 };
@@ -35,21 +43,24 @@ const BIN_TARE = 9.5;
 
 export const VARIANT_INFO = {
   A: { color: '#2563eb', title: 'เซ็นเซอร์ใต้ฝาถัง', sub: 'แบบเดิม · ToF วัดระยะ + BLE', cost: () => `~${kitTotal().toLocaleString('th-TH')} บาท/สถานี` },
-  B: { color: '#ea580c', title: 'ชั่งน้ำหนักใต้ถัง', sub: 'แผ่นโหลดเซลล์ 3 แผ่น · ต่อสายเข้าฮับเดิม', cost: () => `~${weighTotal().toLocaleString('th-TH')} บาท/สถานี` },
-  C: { color: '#7c3aed', title: 'เสากล้องข้างถัง + AI', sub: 'โซลาร์ + 4G ในตัว · ใส่กล้องได้ 5 แบบ', cost: () => `~${(poleTotal() + CAM_TYPES.dome.cost).toLocaleString('th-TH')} บาท/สถานี` },
+  B: { color: '#ea580c', title: 'ชั่งน้ำหนักใต้ถัง', sub: 'แผ่นโหลดเซลล์ 3 แผ่น · ต่อสายเข้าฮับเดิม', cost: () => 'ยังไม่ประเมินราคา' },
+  C: { color: '#7c3aed', title: 'กล้องวงจรปิด + AI', sub: 'ใช้กล้อง กทม. ที่มีอยู่ · ไม่มีก็ตั้งเสาเอง', cost: () => 'ไม่คิดค่ากล้อง กทม.' },
 };
 
 // comparison panel content
 export const COMPARE = [
-  { k: 'A', measures: 'ความสูงขยะในถัง (ToF ใต้ฝา)', cost: () => kitTotal(),
+  { k: 'A', measures: 'ความสูงขยะในถัง (ToF ใต้ฝา)',
+    price: () => `~${baht(kitTotal())} บาท/สถานี`, district: () => baht(kitTotal() * DISTRICT_POINTS),
     pros: ['รู้ % ปริมาตรตรง ๆ ทุกประเภทขยะ', 'ไม่ต้องเดินสาย'],
     cons: ['มีถ่าน AA ในถังทุกใบ เปลี่ยนทุก 2–3 ปี', 'เซ็นเซอร์ติดไปกับถัง ถังหาย/สลับต้องจับคู่ใหม่'] },
-  { k: 'B', measures: 'น้ำหนักขยะจริง (กก.) ใต้ถัง', cost: () => weighTotal(),
+  { k: 'B', measures: 'น้ำหนักขยะจริง (กก.) ใต้ถัง',
+    price: () => 'ยังไม่ประเมินราคา', district: () => 'ยังไม่ประเมิน',
     pros: ['ไม่มีอุปกรณ์บนถัง สลับถังได้ทันที', 'ไม่มีถ่านในถัง ใช้ไฟจากฮับผ่านสาย', 'ได้ กก. จริง วางแผนรถ/คิดค่าบริการตามน้ำหนัก'],
     cons: ['ขยะเบา (รีไซเคิล) ต้องแปลงเป็น % ด้วยค่าความหนาแน่น', 'ถังสูงขึ้น 3 ซม. ต้องมีทางลาดเข็นขึ้น'] },
-  { k: 'C', measures: 'ภาพจากกล้อง: ถังล้น ฝาเผยอ ถุงกองนอกถัง', cost: () => poleTotal() + CAM_TYPES.dome.cost,
-    pros: ['ไม่มีอุปกรณ์บนถัง ไม่ต้องเดินสายไฟ (โซลาร์ + แบต + 4G ในตัวเสา)', 'เห็นสิ่งที่เซ็นเซอร์ไม่เห็น: ทิ้งนอกถัง หนู ยืนยันรถมาเก็บ', 'จุดที่มีกล้อง กทม. มองเห็นอยู่แล้ว ใช้ภาพเดิมเข้า AI ได้เลย ไม่ต้องตั้งเสา (~0 บาท)'],
-    cons: ['มองไม่เห็นในถังตอนฝาปิด รู้ได้เมื่อล้นหรือฝาเผยอ', 'ถ้าต้องตั้งเสาเอง แพงกว่า A / B', 'AI ทำในเฟสถัดไป + ขอใช้ภาพตาม PDPA'] },
+  { k: 'C', measures: 'ภาพจากกล้อง: ถังล้น ฝาเผยอ ถุงกองนอกถัง',
+    price: () => 'ไม่คิดค่ากล้อง กทม.', district: () => 'ไม่คิดค่ากล้อง',
+    pros: ['ไม่มีอุปกรณ์บนถัง ไม่ต้องเดินสายไฟ', 'เห็นสิ่งที่เซ็นเซอร์ไม่เห็น: ทิ้งนอกถัง หนู ยืนยันรถมาเก็บ', 'จุดที่กล้อง กทม. มองเห็นจุดทิ้งอยู่แล้ว ไม่ต้องซื้อกล้อง'],
+    cons: ['มองไม่เห็นในถังตอนฝาปิด รู้ได้เมื่อล้นหรือฝาเผยอ', 'ต้องขออนุญาตเข้าถึงกล้อง กทม. และดูเรื่องข้อมูลส่วนบุคคล (PDPA)', 'ค่าระบบวิเคราะห์ภาพยังไม่ได้ประเมิน · AI ทำในเฟสถัดไป', 'จุดที่ไม่มีกล้อง กทม. ต้องตั้งเสากล้องเอง (เสาในโมเดล)'] },
 ];
 
 function canvasTex(w, h, draw) {
