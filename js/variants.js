@@ -17,7 +17,9 @@ import { buildCamPole, CAM_TYPES } from './camPole.js';
 // Prices on screen follow the pitch deck's public slide B5 (13 Nov 2026): only A has a kit price
 // (hub 1,920 + 3 lid sensors x 520 = 3,480 per point, 57 points in the Bang Rak simulation).
 // B is not priced in the deck yet (WEIGH_COST below is a parts list, not shown). C uses the BMA's
-// existing CCTV: no camera cost, image analysis not costed yet, access needs the BMA's permission.
+// existing CCTV: no camera cost, access needs the BMA's permission. Image analysis: one local machine in
+// Thailand reads stills every 5 min from all 57 points (~21,000 baht over 3 years + power = ~640 baht/month,
+// ~11 baht per point); the images stay in the country. Linking to the BMA's CCTV centre is not costed.
 // The solar pole in the model is for points with no BMA camera and is not in the kit price.
 
 const FONT = 'Kanit, Thonburi, sans-serif';
@@ -35,6 +37,8 @@ const hubTotal = () => KIT_COST.hub.reduce((s, [, p]) => s + p, 0);
 const plateTotal = () => WEIGH_COST.reduce((s, [, p]) => s + p, 0);
 export const weighTotal = () => hubTotal() + plateTotal() * 3;
 export const DISTRICT_POINTS = 57;      // drop points in the deck's Bang Rak simulation
+export const ANALYSIS_MONTH = 640;      // baht/month, one local image-analysis machine for the district
+export const analysisPerPoint = () => Math.round(ANALYSIS_MONTH / DISTRICT_POINTS);
 const baht = (n) => n.toLocaleString('th-TH');
 
 // rough net weight of a full 120 L bin by stream (kg): turns weight back into % full
@@ -44,7 +48,7 @@ const BIN_TARE = 9.5;
 export const VARIANT_INFO = {
   A: { color: '#2563eb', title: 'เซ็นเซอร์ใต้ฝาถัง', sub: 'แบบเดิม · ToF วัดระยะ + BLE', cost: () => `~${kitTotal().toLocaleString('th-TH')} บาท/สถานี` },
   B: { color: '#ea580c', title: 'ชั่งน้ำหนักใต้ถัง', sub: 'แผ่นโหลดเซลล์ 3 แผ่น · ต่อสายเข้าฮับเดิม', cost: () => 'ยังไม่ประเมินราคา' },
-  C: { color: '#7c3aed', title: 'กล้องวงจรปิด + AI', sub: 'ใช้กล้อง กทม. ที่มีอยู่ · ไม่มีก็ตั้งเสาเอง', cost: () => 'ไม่คิดค่ากล้อง กทม.' },
+  C: { color: '#7c3aed', title: 'กล้องวงจรปิด + AI', sub: 'ใช้กล้อง กทม. ที่มีอยู่ · ไม่มีก็ตั้งเสาเอง', cost: () => `ไม่คิดค่ากล้อง · วิเคราะห์ภาพ ~${analysisPerPoint()} บาท/เดือน` },
 };
 
 // comparison panel content
@@ -58,9 +62,10 @@ export const COMPARE = [
     pros: ['ไม่มีอุปกรณ์บนถัง สลับถังได้ทันที', 'ไม่มีถ่านในถัง ใช้ไฟจากฮับผ่านสาย', 'ได้ กก. จริง วางแผนรถ/คิดค่าบริการตามน้ำหนัก'],
     cons: ['ขยะเบา (รีไซเคิล) ต้องแปลงเป็น % ด้วยค่าความหนาแน่น', 'ถังสูงขึ้น 3 ซม. ต้องมีทางลาดเข็นขึ้น'] },
   { k: 'C', measures: 'ภาพจากกล้อง: ถังล้น ฝาเผยอ ถุงกองนอกถัง',
-    price: () => 'ไม่คิดค่ากล้อง กทม.', district: () => 'ไม่คิดค่ากล้อง',
+    price: () => `ไม่คิดค่ากล้อง กทม. · วิเคราะห์ภาพ ~${analysisPerPoint()} บาท/สถานี/เดือน`,
+    district: () => `~${baht(ANALYSIS_MONTH)}/เดือน`,
     pros: ['ไม่มีอุปกรณ์บนถัง ไม่ต้องเดินสายไฟ', 'เห็นสิ่งที่เซ็นเซอร์ไม่เห็น: ทิ้งนอกถัง หนู ยืนยันรถมาเก็บ', 'จุดที่กล้อง กทม. มองเห็นจุดทิ้งอยู่แล้ว ไม่ต้องซื้อกล้อง'],
-    cons: ['มองไม่เห็นในถังตอนฝาปิด รู้ได้เมื่อล้นหรือฝาเผยอ', 'ต้องขออนุญาตเข้าถึงกล้อง กทม. และดูเรื่องข้อมูลส่วนบุคคล (PDPA)', 'ค่าระบบวิเคราะห์ภาพยังไม่ได้ประเมิน · AI ทำในเฟสถัดไป', 'จุดที่ไม่มีกล้อง กทม. ต้องตั้งเสากล้องเอง (เสาในโมเดล)'] },
+    cons: ['มองไม่เห็นในถังตอนฝาปิด รู้ได้เมื่อล้นหรือฝาเผยอ', 'ต้องขออนุญาตเข้าถึงกล้อง กทม. และดูเรื่องข้อมูลส่วนบุคคล (PDPA)', 'ยังไม่รวมค่าเชื่อมระบบกล้อง กทม. · AI ทำในเฟสถัดไป', 'จุดที่ไม่มีกล้อง กทม. ต้องตั้งเสากล้องเอง (เสาในโมเดล)'] },
 ];
 
 function canvasTex(w, h, draw) {

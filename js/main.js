@@ -10,7 +10,7 @@ import { buildRiser, RISER } from './riser.js';
 import { buildHardware, kitTotal } from './hardware.js';
 import { buildComposter, COMPOSTER } from './composter.js';
 import { buildShop, SHOP } from './shop.js';
-import { buildVariants, ARROW_LAYER, COMPARE, VARIANT_INFO, DISTRICT_POINTS } from './variants.js';
+import { buildVariants, ARROW_LAYER, COMPARE, VARIANT_INFO, DISTRICT_POINTS, analysisPerPoint } from './variants.js';
 import { CAM_TYPES, CAM_TIPS, poleTotal } from './camPole.js';
 
 await Promise.all([
@@ -800,7 +800,7 @@ function drawAiBoxes(w, h) {
   compareEl.innerHTML = `<div class="cp-head"><b>เทียบ 3 แบบ · รู้ได้ยังไงว่าถังเต็ม</b><button class="cp-close" id="cmp-close">ปิด</button></div>
     ${rows}
     <table class="cp-cost"><caption>ชุดอัจฉริยะทั้งเขตบางรัก (${DISTRICT_POINTS} จุดในการจำลอง · บาท)</caption><tr><td>แบบ A</td><td>แบบ B</td><td>แบบ C</td></tr><tr class="big">${perDistrict}</tr></table>
-    <p class="cmp-note"><b>แบบ C ไม่มีอุปกรณ์บนถัง:</b> ใช้กล้องวงจรปิดของ กทม. ที่มองเห็นจุดทิ้งอยู่แล้ว ไม่คิดค่ากล้อง แต่ต้องขออนุญาตเข้าถึงกล้องและดูเรื่องข้อมูลส่วนบุคคลก่อน · ค่าระบบวิเคราะห์ภาพยังไม่ได้ประเมิน · จุดที่ไม่มีกล้อง กทม. ตั้งเสากล้องโซลาร์ข้างถังแทนได้ (เสาในโมเดล) · AI อ่านภาพเป็นงานเฟสถัดไป กรอบ AI ในภาพเป็นการจำลอง</p>
+    <p class="cmp-note"><b>แบบ C ไม่มีอุปกรณ์บนถัง:</b> ใช้กล้องวงจรปิดของ กทม. ที่มองเห็นจุดทิ้งอยู่แล้ว ไม่คิดค่ากล้อง แต่ต้องขออนุญาตเข้าถึงกล้องและดูเรื่องข้อมูลส่วนบุคคลก่อน · ค่าวิเคราะห์ภาพประมาณ ${analysisPerPoint()} บาทต่อสถานีต่อเดือน ถ้าประมวลผลบนเครื่องในไทย 1 เครื่องทั้งเขต (ภาพนิ่งทุก 5 นาที ภาพไม่ออกนอกประเทศ) ยังไม่รวมค่าเชื่อมระบบกล้อง กทม. · จุดที่ไม่มีกล้อง กทม. ตั้งเสากล้องโซลาร์ข้างถังแทนได้ (เสาในโมเดล) · AI อ่านภาพเป็นงานเฟสถัดไป กรอบ AI ในภาพเป็นการจำลอง</p>
     <p class="cmp-note">ราคาชุดอัจฉริยะเป็นราคาปลีกโดยประมาณ + ค่า SIM เดือนละ 20–30 บาท ไม่รวมโครงฐาน ถัง และค่าติดตั้ง</p>`;
   $('cmp-close').addEventListener('click', () => setCompare(false));
   compareEl.querySelectorAll('.cmp-go').forEach((b) => b.addEventListener('click', () => flyToVariant(b.dataset.k)));
