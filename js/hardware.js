@@ -80,7 +80,8 @@ function routedGeo(pts, radius, bend, radial = 6) {
 const hexGeo = new THREE.CylinderGeometry(1, 1, 1, 6);
 const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 18);
 
-export function buildHardware(station) {
+// opts.lidSensors = false: hub only (the weighing variant measures under the bins instead)
+export function buildHardware(station, opts = {}) {
   const group = new THREE.Group();
   group.name = 'hardware';
   const B = CONFIG.bin;
@@ -1080,7 +1081,7 @@ export function buildHardware(station) {
   aaWrap.center.set(0.5, 0.5); aaWrap.rotation = Math.PI / 2;
   const aaMat = new THREE.MeshStandardMaterial({ map: aaWrap, roughness: 0.35 });
   const sW = 0.072, sDp = 0.05, sH = 0.022, winZ = 0.013;
-  station.bins.forEach((bin, bi) => {
+  (opts.lidSensors === false ? [] : station.bins).forEach((bin, bi) => {
     const s = new THREE.Group();
     // two-part shell (base against the lid + cover) with a parting-line groove
     s.add(rbox(sW, 0.007, sDp, sensorBody, 0, -0.0035, 0, 0.003));
@@ -1150,16 +1151,8 @@ export function buildHardware(station) {
   });
 
   /* ---------- fill level inside bins (trash surface) ---------- */
-  const trashMat = new THREE.MeshStandardMaterial({ color: 0x3a342c, roughness: 0.95 });
-  const trashGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.02, 4, 1);
-  trashGeo.rotateY(Math.PI / 4);
-  const trashes = station.bins.map((bin) => {
-    const m = new THREE.Mesh(trashGeo, trashMat);
-    m.visible = false;
-    bin.add(m);
-    return m;
-  });
-  const bagOrder = station.bagPile ? station.bagPile.children.slice() : [];
+  const fillView = buildFillLevels(station);
+  const trashes = fillView.trashes;
   let fills = [0, 0, 0, 0];
 
   // decals (labels, stickers, screens, antenna prints): pull them toward the camera in depth so they never
@@ -1248,19 +1241,7 @@ export function buildHardware(station) {
     ringMat.color.copy(col).multiplyScalar(0.6);
     blink = !!state.callRequested;
     if (!blink) { ringMat.emissiveIntensity = 2.4; lastOn = null; blinkT = 0; }
-    const usable = B.rimHeight - 0.1;
-    station.bins.forEach((bin, i) => {
-      const f = state.fills[i] / 100, m = trashes[i];
-      m.visible = f > 0.02;
-      const y = 0.03 + f * usable;
-      const t = Math.min(1, y / (B.rimHeight - 0.07));
-      const w = THREE.MathUtils.lerp(B.bodyBottomWidth, B.bodyTopWidth, t) - 0.03;
-      const d = THREE.MathUtils.lerp(B.bodyBottomDepth, B.bodyTopDepth, t) - 0.03;
-      m.scale.set(w / 0.7071, 1, d / 0.7071);
-      m.position.y = y;
-    });
-    const fb = state.fills[3] / 100;
-    bagOrder.forEach((o, i) => (o.visible = i / bagOrder.length < fb));
+    fillView.apply(state.fills);
   }
 
   // ToF cones: window straight down to the trash surface, with the distance and the fill it maps to
@@ -1289,7 +1270,7 @@ export function buildHardware(station) {
   return {
     group,
     // world-space anchors for the camera when focusing a device
-    focusTargets: { unit: hub, battery: hub, sensor: () => sensors[0].children[0] },   // the shell only: the ToF cone would skew the bounding box
+    focusTargets: { unit: hub, battery: hub, sensor: () => sensors[0]?.children[0] ?? hub },   // the shell only: the ToF cone would skew the bounding box
     setUnitOpen: setLid,
     setBatteryOpen: setLid,
     // beams: also draw the ToF cones (off when zoomed on the hub, where they would cover it)
@@ -1373,6 +1354,40 @@ export function buildHardware(station) {
         moving = true;
       }
       return res || (moving ? 1 : lightFlip ? 3 : 0);
+    },
+  };
+}
+
+// Visible fill level: a trash surface inside each bin and the share of bag-pile bags shown in the open bay.
+// Shared by every station variant (the camera variant has no hub, but still shows how full it is).
+export function buildFillLevels(station) {
+  const B = CONFIG.bin;
+  const trashMat = new THREE.MeshStandardMaterial({ color: 0x3a342c, roughness: 0.95 });
+  const trashGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.02, 4, 1);
+  trashGeo.rotateY(Math.PI / 4);
+  const trashes = station.bins.map((bin) => {
+    const m = new THREE.Mesh(trashGeo, trashMat);
+    m.visible = false;
+    bin.add(m);
+    return m;
+  });
+  const bagOrder = station.bagPile ? station.bagPile.children.slice() : [];
+  const usable = B.rimHeight - 0.1;
+  return {
+    trashes,
+    apply(fills) {
+      station.bins.forEach((bin, i) => {
+        const f = fills[i] / 100, m = trashes[i];
+        m.visible = f > 0.02;
+        const y = 0.03 + f * usable;
+        const t = Math.min(1, y / (B.rimHeight - 0.07));
+        const w = THREE.MathUtils.lerp(B.bodyBottomWidth, B.bodyTopWidth, t) - 0.03;
+        const d = THREE.MathUtils.lerp(B.bodyBottomDepth, B.bodyTopDepth, t) - 0.03;
+        m.scale.set(w / 0.7071, 1, d / 0.7071);
+        m.position.y = y;
+      });
+      const fb = fills[3] / 100;
+      bagOrder.forEach((o, i) => (o.visible = i / bagOrder.length < fb));
     },
   };
 }

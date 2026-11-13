@@ -36,6 +36,8 @@
 <link rel="modulepreload" href="./js/textures.js">
 <link rel="modulepreload" href="./js/shop.js">
 <link rel="modulepreload" href="./js/mech.js">
+<link rel="modulepreload" href="./js/variants.js">
+<link rel="modulepreload" href="./js/camPole.js">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -193,6 +195,98 @@
     .specs dl div { font-size: 12px; gap: 6px; }
     .specs .note, .hint, .brand p { display: none; }
   }
+
+  /* ---------- A / B / C variants ---------- */
+  .dim.weigh { background: #c2410c; font-size: 11px; padding: 2px 7px; display: grid; justify-items: center; line-height: 1.25; border-radius: 6px; }
+  .dim.weigh b { font-weight: 600; } .dim.weigh small { font-size: 10px; opacity: .85; }
+  .vtag { pointer-events: auto; cursor: pointer; font: inherit; display: flex; align-items: center; gap: 10px; text-align: left;
+    padding: 8px 14px 8px 8px; border-radius: 14px; border: 0; color: #fff;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--c) 92%, #fff), color-mix(in srgb, var(--c) 70%, #000));
+    box-shadow: 0 10px 30px color-mix(in srgb, var(--c) 45%, transparent), inset 0 1px 0 rgba(255,255,255,.35);
+    transform: translateY(-8px) scale(.92); opacity: .0; transition: transform .45s cubic-bezier(.2,1.4,.4,1), opacity .3s; white-space: nowrap; }
+  .vtag.landed { transform: none; opacity: 1; }
+  .vtag:hover { filter: brightness(1.08); }
+  .vtag:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  .vtag > b { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: #fff; color: var(--c);
+    font-size: 22px; font-weight: 600; flex: none; }
+  .vtag span { display: grid; line-height: 1.2; }
+  .vtag strong { font-size: 14px; font-weight: 600; }
+  .vtag small { font-size: 11px; opacity: .88; }
+  .vtag em { font-style: normal; font-size: 11px; font-weight: 500; margin-top: 3px; padding: 1px 7px; border-radius: 999px;
+    background: rgba(255,255,255,.2); justify-self: start; }
+  .views.var { grid-template-columns: repeat(3, 1fr); }
+  .camtypes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 4px 0 2px; }
+  .camtypes button { font: inherit; font-size: 12px; padding: 5px 0; border-radius: 7px; border: 1px solid #7c3aed40; background: transparent; color: #6d28d9; cursor: pointer; }
+  .camtypes button:hover:not(:disabled) { border-color: #7c3aed; }
+  .camtypes button[aria-pressed="true"] { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+  .camtypes button:disabled { opacity: .4; cursor: default; }
+  .cam-cost { margin: 4px 0 2px; font-size: 11.5px; line-height: 1.45; color: var(--muted, #6b7280); }
+  .cam-cost b { color: #6d28d9; font-weight: 600; }
+  #cctv-screen.fish #cctv-feed { clip-path: circle(34% at 50% 50%); filter: saturate(.55) contrast(1.15) brightness(.95); }
+  #cctv-screen.fish { background: #05060a; }
+  #cctv-screen.night #cctv-feed { filter: grayscale(1) contrast(1.25) brightness(1.15); }
+  #cctv-screen.nosig { background: repeating-linear-gradient(0deg, #15171d 0 2px, #0c0d11 2px 4px); }
+  #cctv-screen .nosig-msg { display: none; position: absolute; inset: 0; z-index: 3; place-items: center; color: #e5e7eb; font-family: Menlo, Consolas, monospace; font-size: 12px; letter-spacing: .04em; }
+  #cctv-screen.nosig .nosig-msg { display: grid; }
+  .toggle:disabled { opacity: .45; cursor: default; }
+  .views.var button[data-vview="A"] { border-color: #2563eb55; color: #1d4ed8; }
+  .views.var button[data-vview="B"] { border-color: #ea580c55; color: #c2410c; }
+  .views.var button[data-vview="C"] { border-color: #7c3aed55; color: #6d28d9; }
+
+  #cctv { position: fixed; z-index: 4; right: 252px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: min(420px, calc(100% - 32px));
+    border-radius: 14px; overflow: hidden; background: #0b0d12; color: #e5e7eb; box-shadow: 0 18px 48px rgba(0,0,0,.35);
+    border: 1px solid rgba(167,139,250,.45); font-size: 12px; }
+  #cctv header, .cmp header { justify-content: flex-start; }
+  #cctv header { position: static; pointer-events: auto; display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: #12141b; }
+  #cctv header b { font-weight: 600; letter-spacing: .02em; }
+  #cctv .rec { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 8px #ef4444; animation: rec 1.2s steps(2) infinite; }
+  @keyframes rec { 50% { opacity: .15; } }
+  @media (prefers-reduced-motion: reduce) { #cctv .rec { animation: none; } }
+  #cctv .cam-id { color: #a78bfa; font-family: Menlo, Consolas, monospace; font-size: 11px; }
+  #cctv-close { margin-left: auto; font: inherit; font-size: 11px; color: #e5e7eb; background: #262a35; border: 0; border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+  #cctv-screen { position: relative; aspect-ratio: 16 / 9; pointer-events: none; }
+  #cctv-feed { position: absolute; inset: 0; width: 100%; height: 100%; display: block; filter: saturate(.55) contrast(1.12) brightness(.97); }
+  #cctv-screen::before { content: ''; position: absolute; inset: 0; z-index: 1;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.10) 0 1px, transparent 1px 3px), radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.45)); }
+  #cctv-screen .osd { position: absolute; left: 8px; top: 6px; font-family: Menlo, Consolas, monospace; font-size: 11px; color: #fff; text-shadow: 0 1px 2px #000; }
+  #cctv-screen .osd2 { left: auto; right: 8px; }
+  #cctv-screen .corner { position: absolute; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.7); }
+  #cctv-screen .c1 { left: 6px; bottom: 6px; border-right: 0; border-top: 0; } #cctv-screen .c2 { right: 6px; bottom: 6px; border-left: 0; border-top: 0; }
+  #cctv-boxes { position: absolute; inset: 0; z-index: 2; }
+  #cctv-screen .osd, #cctv-screen .corner { z-index: 3; }
+  .aib { position: absolute; border: 1.5px solid #22c55e; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0,0,0,.35), inset 0 0 12px rgba(34,197,94,.18); }
+  .aib span { position: absolute; left: -1.5px; bottom: 100%; margin-bottom: 2px; white-space: nowrap; font-size: 10px; font-weight: 500; line-height: 1.4;
+    color: #04130a; background: #22c55e; padding: 0 5px; border-radius: 3px 3px 3px 0; }
+  .aib.below span { bottom: auto; top: 100%; margin: 2px 0 0; border-radius: 0 3px 3px 3px; }
+  .aib span i { font-style: normal; opacity: .65; font-family: Menlo, Consolas, monospace; }
+  .aib.warn { border-color: #f59e0b; box-shadow: 0 0 0 1px rgba(0,0,0,.35), inset 0 0 12px rgba(245,158,11,.2); } .aib.warn span { background: #f59e0b; }
+  .aib.bad { border-color: #ef4444; box-shadow: 0 0 0 1px rgba(0,0,0,.35), inset 0 0 16px rgba(239,68,68,.3); } .aib.bad span { background: #ef4444; color: #fff; }
+  #cctv footer { display: grid; gap: 2px; padding: 7px 10px 9px; background: #12141b; }
+  #cctv-ai { font-weight: 600; } #cctv-ai[data-state="ok"] { color: #4ade80; } #cctv-ai[data-state="bad"] { color: #f87171; }
+  #cctv footer small { color: #9ca3af; font-size: 11px; line-height: 1.4; }
+  body.cctv-on .hint { display: none; }
+  /* narrow screens: dock the feed bottom-left over the specs bar, clear of the controls on the right */
+  @media (max-width: 1100px) { #cctv { right: auto; left: 16px; width: min(360px, calc(100% - 270px)); } }
+  @media (max-width: 640px) { #cctv { left: 16px; right: 16px; width: auto; top: calc(96px + env(safe-area-inset-top, 0px)); bottom: auto; } }
+
+  .compare { left: 16px; top: calc(128px + env(safe-area-inset-top, 0px)); width: 380px; z-index: 3;
+    max-height: calc(100vh - 128px - 76px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow: auto; }
+  .cmp { border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: 10px; padding: 9px 10px; margin: 8px 0; background: #fff; }
+  .cmp header { position: static; pointer-events: auto; display: flex; gap: 9px; align-items: center; }
+  .cmp header > b { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--c); color: #fff; font-weight: 600; flex: none; }
+  .cmp strong { font-weight: 600; font-size: 14px; display: block; }
+  .cmp small { color: var(--muted); font-size: 12px; }
+  .cmp .bar { position: relative; height: 20px; margin: 8px 0 6px; background: #f1f3f5; border-radius: 6px; overflow: hidden; }
+  .cmp .bar i { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--c) 30%, #fff); }
+  .cmp .bar span { position: relative; padding-left: 7px; font-size: 12px; font-weight: 500; line-height: 20px; font-variant-numeric: tabular-nums; }
+  .cmp ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; font-size: 12.5px; line-height: 1.4; }
+  .cmp li { padding-left: 16px; position: relative; }
+  .cmp li.pro::before { content: '+'; position: absolute; left: 2px; color: #15803d; font-weight: 600; }
+  .cmp li.con::before { content: '−'; position: absolute; left: 2px; color: #b91c1c; font-weight: 600; }
+  .cmp-go { font: inherit; font-size: 12px; margin-top: 7px; border: 1px solid var(--line); background: #fff; border-radius: 7px; padding: 4px 9px; cursor: pointer; color: var(--c); }
+  .compare .cp-cost td { text-align: center; } .compare .cp-cost tr.big td { font-size: 14px; font-weight: 600; text-align: center; padding-left: 0; }
+  .cmp-note { font-size: 12.5px; line-height: 1.55; margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: #f5f3ff; color: #3b0764; }
+  @media (max-width: 640px) { .compare { top: calc(96px + env(safe-area-inset-top, 0px)); width: calc(100% - 32px); max-height: calc(50vh - 110px); } }
 </style>
 </head>
 <body>
@@ -230,13 +324,39 @@
       <button data-view="iso">3/4</button>
       <button data-view="smart">ควบคุม</button>
       <button data-view="truck" style="grid-column: 1 / -1">มุมรถเก็บขยะ</button>
-      <button data-view="tray" style="grid-column: 1 / -1">ก้มดูใต้ฐาน (ถาดบริการ)</button>
+      <button data-view="tray" style="grid-column: 1 / -1">ดูตลับเหยื่อข้างฐาน</button>
+    </div>
+    <h2>3 แบบวัดระดับขยะ</h2>
+    <button class="toggle" id="t-arrows" aria-pressed="true">ลูกศรชี้แต่ละแบบ</button>
+    <button class="toggle" id="t-xray" aria-pressed="false">มองทะลุแผงหน้า (แบบ B)</button>
+    <button class="toggle" id="t-cctv" aria-pressed="false">ภาพกล้อง CCTV + AI (แบบ C)</button>
+    <button class="toggle" id="t-campole" aria-pressed="true">เสากล้องข้างถัง (แบบ C)</button>
+    <div class="camtypes" role="group" aria-label="เลือกกล้องบนเสาข้างถัง">
+      <button data-cam="dome">โดม</button>
+      <button data-cam="bullet">บูลเล็ต</button>
+      <button data-cam="ptz">PTZ</button>
+      <button data-cam="fisheye">ฟิชอาย 360°</button>
+      <button data-cam="ai">กล้อง AI</button>
+      <button data-cam="none">ถอดออก</button>
+    </div>
+    <p class="cam-cost" id="cam-cost"></p>
+    <button class="toggle" id="t-camopen" aria-pressed="false">เปิดฝากล้อง ดูระบบภายใน</button>
+    <button class="toggle" id="t-camnight" aria-pressed="false">โหมดกลางคืน (ไฟ IR + IR-cut)</button>
+    <button class="toggle" id="t-boxopen" aria-pressed="false">เปิดกล่องไฟบนเสา</button>
+    <div class="views var">
+      <button data-vview="A">แบบ A</button>
+      <button data-vview="B">แบบ B</button>
+      <button data-vview="C">แบบ C</button>
+      <button data-vview="all" style="grid-column: 1 / -1">ดูทั้ง 3 แบบ</button>
+      <button data-vview="campole" style="grid-column: 1 / -1">ซูมเสากล้องข้างถัง</button>
+      <button data-vview="camhead" style="grid-column: 1 / -1">ซูมหัวกล้อง + เปิดฝา</button>
+      <button data-vview="camhead2" style="grid-column: 1 / -1">ซูมกล่องไฟ (แบต · 4G)</button>
+      <button id="btn-compare" style="grid-column: 1 / -1">เทียบงบ 3 แบบ</button>
     </div>
     <h2>ฐานยกกันหนู</h2>
     <button class="toggle" id="t-riser" aria-pressed="true">วางบนฐานยก</button>
-    <button class="toggle" id="t-trays" aria-pressed="false">ดึงถาดออกสุด (ด้านหน้า)</button>
-    <button class="toggle" id="t-trays-back" aria-pressed="false">ดึงถาดออกสุด (ด้านหลัง)</button>
-    <button class="toggle" id="t-tray-lid" aria-pressed="false">ยกฝาถาด เติมเหยื่อ</button>
+    <button class="toggle" id="t-trays-back" aria-pressed="false">ถอดตลับเหยื่อออกด้านข้าง</button>
+    <button class="toggle" id="t-tray-lid" aria-pressed="false">เปิดฝาตลับ เติมเหยื่อ</button>
     <h2>เครื่องหมักปุ๋ย</h2>
     <button class="toggle" id="t-comp-run" aria-pressed="false">เดินเครื่อง</button>
     <button class="toggle" id="t-comp-hatch" aria-pressed="false">เปิดช่องเติม</button>
@@ -280,6 +400,17 @@
   <div id="tooltip" hidden></div>
   <div id="toast" role="status" hidden></div>
   <section class="panel circuit" id="circuit" aria-label="ผังวงจร" hidden></section>
+  <section class="panel compare" id="compare" aria-label="เทียบ 3 แบบ" hidden></section>
+  <section id="cctv" aria-label="ภาพจากกล้องเสาข้างถัง แบบ C" hidden>
+    <header><i class="rec" aria-hidden="true"></i><b id="cctv-title">กล้องเสาข้างถัง</b><span class="cam-id" id="cctv-camid">POLE-C</span><button id="cctv-close">ปิด</button></header>
+    <div id="cctv-screen">
+      <canvas id="cctv-feed"></canvas>
+      <div id="cctv-boxes"></div>
+      <span class="osd" id="cctv-osd">CAM C-01</span><span class="nosig-msg">ไม่มีสัญญาณ · ไม่มีกล้องบนแท่น</span><span class="osd osd2" id="cctv-time"></span>
+      <i class="corner c1"></i><i class="corner c2"></i>
+    </div>
+    <footer><span>AI: <b id="cctv-ai" data-state="ok">ปกติ</b></span><small id="cctv-note">กล้องบนเสาข้างถัง · ถ่ายภาพนิ่งทุก 5 นาที ส่งผ่าน 4G · กรอบ AI เป็นการจำลอง ระบบจริงทำในเฟสถัดไป</small></footer>
+  </section>
 
   <script>
     // tell the user when the 3D scene can't start, instead of "loading…" forever

@@ -10,6 +10,8 @@ import { buildRiser, RISER } from './riser.js';
 import { buildHardware, kitTotal } from './hardware.js';
 import { buildComposter, COMPOSTER } from './composter.js';
 import { buildShop, SHOP } from './shop.js';
+import { buildVariants, ARROW_LAYER, COMPARE, VARIANT_INFO } from './variants.js';
+import { CAM_TYPES, CAM_TIPS, poleTotal } from './camPole.js';
 
 await Promise.all([
   document.fonts.load('600 80px Kanit'),
@@ -42,6 +44,7 @@ const scene = new THREE.Scene();
 let dirty = true, shadowsDirty = true, needHQ = true, lastMotion = 0, lightDirty = false;
 
 const camera = new THREE.PerspectiveCamera(38, viewport.clientWidth / viewport.clientHeight, 0.05, 100);
+camera.layers.enable(1);                         // explain layer: sky arrows, CCTV field of view
 camera.position.set(3.6, 2.1, 4.2);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -49,7 +52,7 @@ controls.target.set(0.4, 0.7, 0);
 // portrait screens see a much narrower slice: start further back so the whole station fits
 camera.position.sub(controls.target).multiplyScalar(Math.min(2, Math.max(1, 1.1 / camera.aspect))).add(controls.target);
 controls.enableDamping = true;
-controls.minDistance = 0.25;                       // close enough to inspect the trays under the riser
+controls.minDistance = 0.06;                       // close enough to inspect the trays under the riser
 controls.maxDistance = 14;
 controls.maxPolarAngle = Math.PI * 0.6;            // can drop below the deck and look slightly up
 controls.autoRotateSpeed = 1.2;
@@ -67,12 +70,13 @@ scene.add(station.group);
 const riser = buildRiser(renderer, L, D);
 riser.group.position.y = env.padHeight;
 scene.add(riser.group);
-let riserOn = true, dimsRef = null;
+let riserOn = true, dimsRef = null, variants = null;
 const lift = () => (riserOn ? RISER.height : 0);
 function placeStation() {
   station.group.position.y = env.padHeight + lift();
   riser.group.visible = riserOn;
   if (dimsRef) dimsRef.position.y = env.padHeight + lift();   // same base as the station group
+  variants?.setRiser(riserOn);
 }
 placeStation();
 
@@ -96,6 +100,10 @@ scene.add(shop.group);
 
 // electric mini garbage truck: drives along the road behind the station on out-of-round calls
 const truck = buildTruck();
+
+// two more stations to compare how fill is measured: B = weighing plates, C = the BMA's CCTV + AI
+variants = buildVariants({ renderer, scene, mainStation: station, padHeight: env.padHeight, onPick: (k) => flyToVariant(k) });
+const allBins = [...station.bins, ...variants.bins];
 truck.group.position.set(0, -STREET.curbHeight, STREET.curbZ - STREET.curbWidth - 1.25);
 scene.add(truck.group);
 
@@ -178,10 +186,10 @@ const PART_TIPS = {
   unitLight: 'ไฟ LED ในกล่อง · ติดเองเมื่อเปิดฝา (สวิตช์แม่เหล็ก reed + แม่เหล็กที่ฝา) · มีเซ็นเซอร์แสง ติดเฉพาะตอนมืด ช่างมาเปิดกลางคืนก็เห็นชัด ปิดฝาแล้วดับเอง',
   unitInside: 'ภายในกล่องฮับ: ESP32-C3 · โมดูล NB-IoT + เสาอากาศแปะ · วงจรชาร์จโซลาร์ · ถ่าน 18650 ×2',
   batteryInside: 'ถ่าน 18650 ×2 (3.7V ~6,800 mAh) · ระบบใช้ไฟ ~40 mAh/วัน สำรองได้ราว 5 เดือนแม้ไม่มีแดด — คลิกเพื่อดูวงจรไฟเลี้ยง',
-  trayLid: 'ฝาถาด · สลักบานพับทั้งสองขอบ ยกได้ทั้งตอนดึงออกด้านหน้าหรือด้านหลัง + กุญแจ — คลิกเพื่อเปิด/ปิดฝา',
-  stepHatch: 'แผ่นบันไดถอดได้หน้าถาด · พื้นเจาะรูระบายน้ำฝน · สลักสปริงใต้มุมหน้า 2 ข้าง ต้องบีบแถบแดงใต้ขอบพร้อมกันทั้งสองมุมจึงยกออกได้ — คลิกเพื่อยกออก ดึง/ดันถาดด้านหน้า',
-  tray: 'ถาดบริการใต้ฐาน 62×42×8 ซม. (ล็อกกุญแจ) · ดึงออกสุด 62 ซม. ได้ทั้งด้านหน้า (ลอดใต้บันได) และด้านหลัง แล้วยกฝาเติมเหยื่อ — คลิกเพื่อเปิดทางฝั่งที่มองอยู่/ปิด',
-  riser: `ฐานยกกันหนู สูง ${RISER.height * 100} ซม. · ใต้ฐานโล่ง ทำความสะอาดง่าย · ถาดแขวนบนโครงเหล็กกล่อง + รางเหล็กฉาก`,
+  trayLid: 'ฝาตลับเหยื่อ · บานพับขอบใน + กุญแจล็อก · เปิดได้เมื่อยกตลับออกมาวางแล้ว — คลิกเพื่อเปิด/ปิดฝา',
+  tray: 'ตลับเหยื่อถอดได้ 42×56×8 ซม. · อยู่หัวท้ายฐาน ข้างละตลับ เลื่อนออกด้านข้างระหว่างขาฐาน (ไม่มีอะไรขวาง) ~45 ซม. แล้วยกออกไปเติมเหยื่อ เสร็จแล้วใส่คืน — คลิกเพื่อถอดออก/ใส่คืน',
+  trayGate: 'ประตูล็อกช่องตลับ (เหล็กแบนสีเหลือง) + กุญแจคล้อง · ปิดล็อกไว้ คนทั่วไปดึงตลับออกไม่ได้ — คลิกเพื่อปลดล็อกแล้วถอดตลับ',
+  riser: `ฐานยกกันหนู สูง ${RISER.height * 100} ซม. · ใต้ฐานโล่ง ทำความสะอาดง่าย · ตลับเหยื่อหัวท้ายฐานบนรางเหล็กฉาก ถอดออกด้านข้างได้`,
   ratGuard: 'แผ่นกันหนูปีน (rat guard) Ø 26 ซม. · หนูปีนเสาขึ้นมาแล้วติดใต้กรวย อ้อมขึ้นไปไม่ได้',
   composter: `เครื่องหมักปุ๋ยจากเศษอาหาร ${COMPOSTER.capacityL} ลิตร`,
   hatch: 'ช่องเติมเศษอาหาร — คลิกเพื่อเปิด/ปิด',
@@ -207,10 +215,17 @@ const PART_TIPS = {
   console: 'แผงควบคุมเอียง 18° · จอ HMI 7" · ไฟแสดงสถานะ 22 มม. · สวิตช์ อัตโนมัติ/ปิด/มือ · เริ่ม/หยุด · หยุดฉุกเฉิน',
   composterInside: 'ภายในเครื่องหมัก — เปิด "มองภายใน" เพื่อดูหมายเลขชิ้นส่วนและสเปก',
   drive: 'ฝาครอบโซ่ (ถอดออกในโหมดมองภายใน)',
+  weighPlate: 'แผ่นชั่งใต้ถัง (แบบ B) · พื้นเหล็กลายกันลื่นลอยบนโหลดเซลล์ 50 กก. 4 จุด + บอร์ด HX711 · ชั่งทั้งถังแล้วหักน้ำหนักถังเปล่า 9.5 กก. แปลงเป็น % ตามความหนาแน่นของขยะแต่ละประเภท · ทางลาดด้านหลังให้เข็นถังขึ้น — คลิกเพื่อมองทะลุแผงหน้า',
+  weighCable: 'สายโหลดเซลล์ (แบบ B) · รางสายหน้าพื้นสถานี ออกทางข้อต่อกันน้ำที่แผงซ้าย แล้วขึ้นท่อเข้าฮับ ESP32 · ถังไม่มีอุปกรณ์ใด ๆ เข็นออกไปเทได้เลย',
+  qrCall: 'ป้าย QR เรียกรถนอกรอบ (แบบ C) · แทนปุ่มกดและกล่องฮับ ไม่มีอุปกรณ์ไฟฟ้าที่สถานี — คลิกเพื่อจำลองสแกนเรียกรถ',
   compostBag: 'แผงถุงปุ๋ยติดข้างเครื่อง (สแตนเลสเจาะรูแบบเดียวกับตัวเครื่อง) · ช่องดึงถุงเปล่า 1 / 5 กก. ดึงออกทีละใบแล้วเอาไปได้เลย',
+  ...CAM_TIPS,
 };
-const CLICKABLE = new Set(['callButton', 'display', 'fan', 'serviceDoor', 'rearDoor', 'tray', 'trayLid', 'stepHatch', 'hatch', 'composterStart', 'flap', 'drawer', 'coinSlot', 'payQR', 'coinReturn', 'coinCup', 'unit', 'unitInside', 'batteryInside',
-  'solar', 'sensor']);
+const CLICKABLE = new Set(['callButton', 'display', 'fan', 'serviceDoor', 'rearDoor', 'tray', 'trayLid', 'trayGate', 'hatch', 'composterStart', 'flap', 'drawer', 'coinSlot', 'payQR', 'coinReturn', 'coinCup', 'unit', 'unitInside', 'batteryInside',
+  'solar', 'sensor', 'weighPlate', 'qrCall', 'camPole', 'camSolar', 'camBox', 'camShell', 'camScrew', 'boxBattery', 'boxMppt', 'boxRelay', 'boxRouter', 'boxFuse']);
+// station B reuses the hub: its tips must not promise lid sensors or a circuit zoom
+const VARIANT_CLICK = new Set(['flap', 'callButton', 'qrCall', 'weighPlate', 'weighCable', 'camPole', 'camSolar', 'camBox', 'camShell', 'camScrew', 'boxBattery', 'boxMppt', 'boxRelay', 'boxRouter', 'boxFuse']);
+const VARIANT_TIPS = { B: { unit: 'กล่องฮับ ESP32 (ตัวเดียวกับแบบ A) · อ่านแผ่นชั่ง 3 แผ่นผ่านสาย (HX711) แทนการรับ BLE · ส่งเข้าแดชบอร์ดเขตผ่าน NB-IoT' } };
 // hardware part -> circuit focus key
 const PART_FOCUS = { unit: 'unit', unitLight: 'unit', fan: 'unit', display: 'unit', unitInside: 'unit', batteryInside: 'battery', solar: 'battery', sensor: 'sensor' };
 
@@ -225,6 +240,8 @@ const MOVABLES = [
   { key: 'station', name: 'ชุดถังขยะ', groups: () => [station.group, riser.group, dims, env.pad], hit: () => [station.group, riser.group] },
   { key: 'composter', name: 'เครื่องหมักปุ๋ย', groups: () => [composter.group], hit: () => [composter.group] },
   { key: 'shop', name: 'ร้านขายปุ๋ย', groups: () => [shop.group], hit: () => [shop.group] },
+  { key: 'varB', name: 'ชุดถังแบบ B (ชั่งน้ำหนัก)', groups: () => [variants.roots.B], hit: () => [variants.roots.B] },
+  { key: 'varC', name: 'ชุดถังแบบ C (เสากล้องข้างถัง)', groups: () => [variants.roots.C], hit: () => [variants.roots.C] },
 ];
 const LAYOUT_KEY = 'hackawork-layout-v1';
 const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -329,7 +346,7 @@ function resetLayout() {
 function setMoveMode(v) {
   moveMode = v;
   if (!v) { endDrag(); selected = null; }
-  else toast('โหมดจัดวาง: ดับเบิ้ลคลิกค้างที่ชุดถังขยะ เครื่องหมัก หรือร้านปุ๋ย แล้วลากไปวาง · Q/E หรือปุ่มหมุน เพื่อหมุนทีละ 15°');
+  else toast('โหมดจัดวาง: ดับเบิ้ลคลิกค้างที่ชุดถังขยะ (A/B/C) เครื่องหมัก หรือร้านปุ๋ย แล้วลากไปวาง · Q/E หรือปุ่มหมุน เพื่อหมุนทีละ 15°');
   $('move-tools').hidden = !v;
 }
 
@@ -338,7 +355,7 @@ function pick(ev) {
   pointer.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(pointer, camera);
   const isShown = (o) => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
-  const targets = [station.group, composter.group, shop.group, truck.group];
+  const targets = [station.group, composter.group, shop.group, truck.group, variants.roots.B, variants.roots.C];
   if (riserOn) targets.push(riser.group);
   const partOf = (o) => { for (; o; o = o.parent) if (o.userData.part) return o.userData.part; return null; };
   const hits = raycaster.intersectObjects(targets, true).filter((h) => {
@@ -348,16 +365,17 @@ function pick(ev) {
   // the call button sits in a bezel on the hub lid: a ray grazing the bezel edge must still press it
   const hit = hits.find((h) => hits[0] && h.distance - hits[0].distance < 0.04 && partOf(h.object) === 'callButton') || hits[0];
   if (!hit) return {};
-  let o = hit.object, bin = null, bayId = null, part = null;
+  let o = hit.object, bin = null, bayId = null, part = null, variant = null;
   while (o) {
     if (o.userData.part) part ??= o.userData.part;
     if (o.userData.bayId) bayId ??= o.userData.bayId;
-    if (station.bins.includes(o)) bin = o;
+    if (o.userData.variant) variant = o.userData.variant;
+    if (allBins.includes(o)) bin = o;
     o = o.parent;
   }
   const owner = bin;                            // bin this part belongs to (for the push flap)
   if (part && part !== 'unit') bin = null;   // hardware parts take priority over the bin under them
-  return { bin, bayId, part, owner };
+  return { bin, bayId, part, owner, variant };
 }
 // a click = one pointer pressed and released in place; multi-touch gestures (pinch/rotate) never count
 const activePointers = new Set();
@@ -395,16 +413,24 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   else clickAt(e);
 });
 function clickAt(e) {
-  const { bin, part, owner } = pick(e);
+  const { bin, part, owner, variant } = pick(e);
+  if (variant) {                               // stations B / C: their own parts, never the A-only circuit zoom or trays
+    if (part === 'flap' && owner) pushFlap(owner);
+    else if (part === 'callButton') requestPickup(variants.B.hardware);
+    else if (part === 'qrCall') requestPickup(null);
+    else if (part === 'camPole' || part === 'camSolar') setCctv(!cctvOn);
+    else if (part === 'camShell' || part === 'camScrew') setCamOpen(!variants.camOpen());
+    else if (part === 'camBox' || part.startsWith('box')) variants.setBoxOpen(!variants.boxOpen());
+    else if (part === 'weighPlate' || part === 'weighCable') setXray(!xrayOn);
+    else if (bin) { bin.userData.target = bin.userData.target >= 0.5 ? 0 : 1; variants.apply(smart); }   // C: a closed overfull lid rides up again
+    syncAll();
+    invalidate(true);
+    return;
+  }
   if (part === 'flap' && owner) pushFlap(owner);
   else if (part === 'callButton') requestPickup();
-  else if (part === 'stepHatch') { riser.setTraysOpen(riser.traysState() === 1 ? 0 : 1); syncAll(); }
   else if (part === 'trayLid' && riser.traysState()) { riser.setLidOpen(!riser.isLidOpen()); syncAll(); }
-  else if (part === 'tray' || part === 'trayLid') {
-    // open toward whichever side the viewer is on (front = step side, back = road side); click again to close
-    const side = camera.position.z >= riser.group.getWorldPosition(new THREE.Vector3()).z ? 1 : -1;
-    riser.setTraysOpen(riser.traysState() ? 0 : side); syncAll();
-  }
+  else if (part === 'tray' || part === 'trayLid' || part === 'trayGate') { riser.setTraysOpen(!riser.traysState()); syncAll(); }
   else if (part === 'hatch') { composter.toggleHatch(); syncAll(); }
   else if (part === 'serviceDoor') { composter.toggleDoor(); invalidate(true); }
   else if (part === 'rearDoor') { composter.toggleRear(); syncAll(); }
@@ -439,9 +465,11 @@ function processHover() {
     }
     return;
   }
-  const { bin, bayId, part } = pick(e);
-  const partText = PART_TIPS[part];
-  const clickable = bin || CLICKABLE.has(part);
+  const { bin, bayId, part, variant } = pick(e);
+  let partText = VARIANT_TIPS[variant]?.[part] || PART_TIPS[part];
+  const variantDead = variant && !VARIANT_CLICK.has(part);     // e.g. B / C riser trays: only station A's operate
+  if (variantDead) partText = partText?.replace(/ — คลิก.*$/, '');
+  const clickable = bin || (CLICKABLE.has(part) && !variantDead);
   renderer.domElement.style.cursor = clickable ? 'pointer' : 'grab';
   if (partText || bayId) {
     tooltip.hidden = false;
@@ -479,22 +507,25 @@ addEventListener('keydown', (e) => {
 });
 loadLayout();
 bindToggle('t-bags', () => station.bagPile.visible, (v) => (station.bagPile.visible = v));
-const anyOpen = () => station.bins.some((b) => b.userData.target);
+const anyOpen = () => allBins.some((b) => b.userData.target >= 0.5);
 const syncers = [];
-syncers.push(bindToggle('t-lids', anyOpen, (v) => station.bins.forEach((b) => (b.userData.target = v ? 1 : 0))));
+syncers.push(bindToggle('t-lids', anyOpen, (v) => { allBins.forEach((b) => (b.userData.target = v ? 1 : 0)); if (!v) variants.apply(smart); }));
 syncers.push(bindToggle('t-hw-open', () => hardware.isInsideView(), (v) => {
   hardware.setInsideView(v);
   if (v) document.querySelector('[data-view=smart]').click();
 }));
 syncers.push(bindToggle('t-riser', () => riserOn, (v) => { riserOn = v; placeStation(); }));
 const setTrays = (v) => { if (!riserOn && v) { riserOn = true; placeStation(); } riser.setTraysOpen(v); };
-syncers.push(bindToggle('t-trays', () => riser.traysState() === 1, (v) => setTrays(v ? 1 : 0)));
-syncers.push(bindToggle('t-trays-back', () => riser.traysState() === -1, (v) => setTrays(v ? -1 : 0)));
+syncers.push(bindToggle('t-trays-back', () => !!riser.traysState(), (v) => setTrays(v)));
 syncers.push(bindToggle('t-tray-lid', () => riser.isLidOpen(), (v) => { if (!riserOn && v) { riserOn = true; placeStation(); } riser.setLidOpen(v); }));
 syncers.push(bindToggle('t-comp-run', () => composter.isRunning(), (v) => composter.setRunning(v)));
 const legendEl = $('comp-legend');
 $('comp-legend-list').innerHTML = composter.parts.map((p) => `<li><span class="n">${p.n}</span><div><b>${p.name}</b><small>${p.spec}</small></div></li>`).join('');
-function setComposterCut(v) { cutaway = v; composter.setCutaway(v); legendEl.hidden = !v; $('smart').hidden = v; }
+function setComposterCut(v) {
+  cutaway = v; composter.setCutaway(v); legendEl.hidden = !v;
+  if (v) compareEl.hidden = true;
+  $('smart').hidden = v || !compareEl.hidden || !!circuitKey;
+}
 syncers.push(bindToggle('t-comp-cut', () => cutaway, (v) => setComposterCut(v)));
 // inspection cameras: fly to a part of the composter with the cutaway on (outside views keep it closed)
 document.querySelectorAll('[data-cview]').forEach((btn) => btn.addEventListener('click', () => {
@@ -533,6 +564,7 @@ function focusCircuit(key) {
   station.bins[0].userData.target = key === 'sensor' ? 1 : station.bins[0].userData.target;
   hardware.setFlow(true, key === 'sensor' || key === 'overview');
   circuit.show(key);
+  compareEl.hidden = true;
   $('smart').hidden = true;
   // camera framing per device (positions derived from the device's world placement)
   const T = hardware.focusTargets;
@@ -564,7 +596,7 @@ function exitCircuit() {
   invalidate(true);
 }
 $('btn-circuit').addEventListener('click', () => (circuitKey ? exitCircuit() : focusCircuit('overview')));
-addEventListener('keydown', (e) => { if (e.key === 'Escape') exitCircuit(); });
+addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; exitCircuit(); if (!compareEl.hidden) setCompare(false); else if (cctvOn) setCctv(false); });
 const VIEWS = {
   front: [[0, 1.2, 5.4], [0, 0.75, 0]],
   side: [[5.2, 1.2, 0], [0, 0.75, 0]],
@@ -572,7 +604,7 @@ const VIEWS = {
   iso: [[3.6, 2.1, 4.2], [0.4, 0.7, 0]],
   back: [[-2.8, 2.0, -4.2], [0, 0.75, 0]],
   truck: [[-5.6, 3.2, -8.2], [0, 0.8, -1.8]],
-  tray: [[-L / 2 - 0.5, 0.11, 0.3], [-L / 4, 0.12, 0.05]],          // from the side, under the deck, past the step
+  tray: [[-L / 2 - 1.15, 0.55, 1.0], [-L / 2 - 0.15, 0.1, 0]],       // at the left end of the riser, where the cassette comes out
   smart: [[-L / 2 - 1.25, 1.35, 0.55], [-L / 2, 0.95, -0.03]],
 };
 document.querySelectorAll('[data-view]').forEach((btn) =>
@@ -594,6 +626,194 @@ function groupView(key) {
   return [g.localToWorld(new THREE.Vector3(...p)).toArray(), g.localToWorld(new THREE.Vector3(...t)).toArray()];
 }
 
+
+/* ---------- three ways to measure fill: sky arrows, CCTV feed with AI boxes, x-ray, comparison ---------- */
+let cctvOn = false, xrayOn = false;
+const cctvEl = $('cctv'), cctvScreen = $('cctv-screen'), cctvBoxes = $('cctv-boxes'), compareEl = $('compare');
+function setCctv(v) {
+  cctvOn = v;
+  cctvEl.hidden = !v;
+  // ≤1100 px the feed docks on the left, where compare / smart live: show one at a time
+  if (v && innerWidth <= 1100) { compareEl.hidden = true; $('smart').hidden = true; }
+  else if (!v) $('smart').hidden = !compareEl.hidden || !!circuitKey || cutaway;
+  document.body.classList.toggle('cctv-on', v);
+  variants.setFov(v);
+  if (v) tickCctvClock();
+  syncAll();
+  invalidate();
+}
+// camera pole beside station C: on/off, camera body, cover, night mode, power box; the feed panel follows
+const camChips = [...document.querySelectorAll('[data-cam]')];
+const baht = (n) => n.toLocaleString('th-TH');
+function syncCamUi() {
+  const src = variants.feedSource(), type = variants.camType(), info = CAM_TYPES[type];
+  camChips.forEach((b) => { b.setAttribute('aria-pressed', String(b.dataset.cam === type)); b.disabled = !src.poleOn; });
+  $('cam-cost').innerHTML = !src.poleOn
+    ? 'ถอดเสาออก · จุดที่มีกล้อง กทม. มองเห็นอยู่แล้วใช้ภาพเดิมเข้า AI ได้ ค่าอุปกรณ์ ~0 บาท'
+    : `<b>${info.name}</b>${info.cost ? ` ~${baht(info.cost)} บาท` : ''} · ${info.note}${info.open ? `<br>เปิดฝา: ${info.open}` : ''}<br>ชุดเสา + โซลาร์ + 4G ~${baht(poleTotal())} บาท · รวม ~${baht(poleTotal() + info.cost)} บาท`;
+  $('cctv-camid').textContent = src.live ? `POLE-C · ${info.label}` : '—';
+  $('cctv-osd').textContent = src.live ? `CAM C-01 · ${info.label}${variants.night() ? ' · IR' : ''}` : 'CAM C-01';
+  cctvScreen.classList.toggle('fish', src.live && type === 'fisheye');
+  cctvScreen.classList.toggle('night', src.live && variants.night());
+  cctvScreen.classList.toggle('nosig', !src.live);
+  $('t-camopen').disabled = !src.live;
+}
+function setCamType(k) { variants.setCamType(k); syncCamUi(); syncAll(); invalidate(true); }
+function setCamOpen(v) { if (v && !variants.canCamOpen()) return; variants.setCamOpen(v); syncAll(); invalidate(true); }
+camChips.forEach((b) => b.addEventListener('click', () => { setCamType(b.dataset.cam); if (!cctvOn) setCctv(true); }));
+syncers.push(bindToggle('t-campole', () => variants.camPoleOn(), (v) => { variants.setCamPole(v); syncCamUi(); invalidate(true); }));
+syncers.push(bindToggle('t-camopen', () => variants.camOpen(), (v) => setCamOpen(v)));
+syncers.push(bindToggle('t-camnight', () => variants.night(), (v) => { variants.setNight(v); syncCamUi(); invalidate(true); }));
+syncers.push(bindToggle('t-boxopen', () => variants.boxOpen(), (v) => { variants.setBoxOpen(v); invalidate(true); }));
+syncCamUi();
+function setXray(v) { xrayOn = v; variants.setXray(v); syncAll(); invalidate(true); }
+syncers.push(bindToggle('t-arrows', () => variants.arrowsOn(), (v) => variants.setArrows(v)));
+syncers.push(bindToggle('t-cctv', () => cctvOn, (v) => setCctv(v)));
+syncers.push(bindToggle('t-xray', () => xrayOn, (v) => setXray(v)));
+$('cctv-close').addEventListener('click', () => setCctv(false));
+function tickCctvClock() {
+  const d = new Date(), p = (n) => String(n).padStart(2, '0');
+  $('cctv-time').textContent = `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear() + 543} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+setInterval(() => { if (cctvOn) tickCctvClock(); }, 1000);
+
+// camera framings per variant (follow the stations wherever they were dragged)
+const VARIANT_VIEWS = {
+  A: () => [station.group, [2.3, 1.9, 3.4], [0, 0.55, 0]],
+  B: () => [variants.roots.B, [2.5, 2.5, 4.1], [0, 0.85, 0]],
+  C: () => [variants.roots.C, [2.4, 3.4, 5.0], [0.3, 1.5, 0]],
+  campole: () => { const p = variants.C.camPole.group.position; return [variants.roots.C, [p.x + 1.7, 2.3, p.z + 2.6], [p.x - 0.55, 1.75, p.z]]; },
+  camhead: () => {
+    // frame whichever body is on the mount (a dome is 15 cm across, the AI box camera ~25 cm long)
+    const root = variants.roots.C, box = new THREE.Box3().setFromObject(variants.C.camPole.head());
+    const c = root.worldToLocal(box.getCenter(new THREE.Vector3())), d = Math.max(0.16, box.getSize(new THREE.Vector3()).length());
+    return [root, [c.x + d * 1.0, c.y - d * 0.45, c.z + d * 1.9], [c.x, c.y - d * 0.08, c.z]];
+  },
+  camhead2: () => { const p = variants.C.camPole.group.position; return [variants.roots.C, [p.x + 0.75, 1.62, p.z + 0.25], [p.x + 0.12, 1.45, p.z]]; },
+};
+function flyToVariant(key) {
+  if (key === 'all') {
+    const box = new THREE.Box3();
+    for (const g of [station.group, variants.roots.B, variants.roots.C]) box.expandByPoint(g.getWorldPosition(new THREE.Vector3()));
+    const span = Math.max(6, box.getSize(new THREE.Vector3()).length() + L + 1.5);
+    const mid = box.getCenter(new THREE.Vector3());
+    // the side panels cover ~250 px left and right: back off a little more on narrow screens
+    const fit = span * 1.1 / Math.min(1, camera.aspect) * (innerWidth < 1100 ? 1.15 : 1);
+    flyTo(new THREE.Vector3(mid.x + 1.0, 2.6 + fit * 0.4, mid.z + fit), new THREE.Vector3(mid.x, 1.4, mid.z));
+    return;
+  }
+  const [g, p, t] = VARIANT_VIEWS[key]();
+  g.updateMatrixWorld();
+  flyTo(g.localToWorld(new THREE.Vector3(...p)), g.localToWorld(new THREE.Vector3(...t)));
+  if (key === 'B' && !xrayOn) setXray(true);
+  if ((key === 'campole' || key === 'camhead' || key === 'camhead2') && !variants.camPoleOn()) { variants.setCamPole(true); syncCamUi(); }
+  if (key === 'camhead') { if (variants.camType() === 'none') setCamType('dome'); setCamOpen(true); }
+  if (key === 'camhead2') { variants.setBoxOpen(true); syncAll(); }
+  if ((key === 'C' || key === 'campole') && !cctvOn) setCctv(true);
+}
+document.querySelectorAll('[data-vview]').forEach((btn) => btn.addEventListener('click', () => flyToVariant(btn.dataset.vview)));
+
+// CCTV picture-in-picture: the same scene from the BMA dome, plus the (simulated) AI boxes on top
+const _v = new THREE.Vector3(), _box = new THREE.Box3();
+const _corners = Array.from({ length: 8 }, () => new THREE.Vector3());
+// drawn into a corner of the main canvas, copied into the panel's own 2D canvas in the same task, then
+// covered by the main render (so CSS labels of the main view never show through the feed)
+const feed = $('cctv-feed'), feedCtx = feed.getContext('2d');
+function renderCctv() {
+  if (!cctvOn) return;
+  if (!variants.feedSource().live) {           // no camera on the mount: no signal, no AI
+    if (cctvBoxes.dataset.key) { cctvBoxes.innerHTML = ''; cctvBoxes.dataset.key = ''; }
+    feedCtx.clearRect(0, 0, feed.width, feed.height);
+    const ai = $('cctv-ai'); ai.textContent = 'ไม่มีกล้องบนแท่น'; ai.dataset.state = 'bad';
+    return;
+  }
+  const r = cctvScreen.getBoundingClientRect();
+  const W = renderer.domElement.clientWidth, Hh = renderer.domElement.clientHeight;
+  const w = Math.min(Math.round(r.width), W), h = Math.min(Math.round(r.height), Hh);
+  if (w < 4 || h < 4) return;
+  const cam = variants.cctvCam;
+  if (Math.abs(cam.aspect - w / h) > 1e-3) { cam.aspect = w / h; cam.updateProjectionMatrix(); }
+  const pr = renderer.getPixelRatio();
+  if (feed.width !== Math.round(w * pr) || feed.height !== Math.round(h * pr)) { feed.width = Math.round(w * pr); feed.height = Math.round(h * pr); }
+  renderer.setScissorTest(true);
+  renderer.setScissor(0, Hh - h, w, h);
+  renderer.setViewport(0, Hh - h, w, h);
+  renderer.render(scene, cam);
+  feedCtx.drawImage(renderer.domElement, 0, 0, w * pr, h * pr, 0, 0, feed.width, feed.height);
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, W, Hh);         // the main render that follows paints over the borrowed corner
+  drawAiBoxes(w, h);
+}
+const AI_NAMES = { recycle: 'รีไซเคิล', food: 'อาหาร', general: 'ทั่วไป', bag: 'ถุงดำ' };
+function drawAiBoxes(w, h) {
+  const cam = variants.cctvCam, html = [];
+  let alerts = 0;
+  for (const t of variants.aiTargets()) {
+    if (t.bagBay) {
+      const g = variants.C.station.group, D2 = CONFIG.frame.depth / 2;
+      let k = 0;
+      for (const xx of [t.x0, t.x1]) for (const yy of [0.06, CONFIG.frame.height]) for (const zz of [-D2, D2]) g.localToWorld(_corners[k++].set(xx, yy, zz));
+    } else {
+      _box.setFromObject(t.obj);
+      _box.expandByVector(_v.set(-0.04, 0, -0.03));             // the hood overhangs the bin pitch: trim so neighbours don't overlap
+      let k = 0;
+      for (const xx of [_box.min.x, _box.max.x]) for (const yy of [_box.min.y, _box.max.y]) for (const zz of [_box.min.z, _box.max.z]) _corners[k++].set(xx, yy, zz);
+    }
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const c of _corners) {
+      _v.copy(c).project(cam);
+      const sx = (_v.x + 1) / 2 * w, sy = (1 - _v.y) / 2 * h;
+      x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
+    }
+    x0 = Math.max(2, x0); y0 = Math.max(2, y0); x1 = Math.min(w - 2, x1); y1 = Math.min(h - 2, y1);
+    if (x1 - x0 < 6 || y1 - y0 < 6) continue;
+    const f = Math.round(smart.fills[t.i]);
+    let text, cls;
+    if (t.bagBay) [text, cls] = f >= 90 ? ['ล้นช่อง', 'bad'] : [`~${f}%`, f >= 60 ? 'warn' : 'ok'];
+    else if (t.obj.userData.target >= 0.5) [text, cls] = ['ฝาเปิด', 'warn'];
+    else [text, cls] = f >= 90 ? ['ล้น ฝาเผยอ', 'bad'] : ['ฝาปิด', 'ok'];
+    if (cls === 'bad') alerts++;
+    const conf = (0.88 + ((t.i * 37) % 10) / 100).toFixed(2);
+    const name = AI_NAMES[t.bay.id] || t.bay.th;
+    // chips alternate above / below the boxes so neighbours never overlap
+    html.push(`<div class="aib ${cls}${t.i % 2 ? ' below' : ''}" style="left:${x0.toFixed(1)}px;top:${y0.toFixed(1)}px;width:${(x1 - x0).toFixed(1)}px;height:${(y1 - y0).toFixed(1)}px"><span>${name} · ${text} <i>${conf}</i></span></div>`);
+  }
+  const key = html.join('');
+  if (cctvBoxes.dataset.key !== key) { cctvBoxes.innerHTML = key; cctvBoxes.dataset.key = key; }
+  const ai = $('cctv-ai');
+  ai.textContent = alerts ? `พบ ${alerts} จุดล้น · แจ้งเขตเรียกรถ` : 'ปกติ · ไม่มีถังล้น';
+  ai.dataset.state = alerts ? 'bad' : 'ok';
+}
+
+// comparison panel: what each variant measures, costs and gives up
+const fmtBaht = (n) => n.toLocaleString('th-TH');
+{
+  const max = Math.max(...COMPARE.map((c) => c.cost()));
+  const rows = COMPARE.map((c) => {
+    const info = VARIANT_INFO[c.k], cost = c.cost();
+    return `<article class="cmp" style="--c:${info.color}">
+      <header><b>${c.k}</b><div><strong>${info.title}</strong><small>วัด: ${c.measures}</small></div></header>
+      <div class="bar"><i style="width:${Math.max(2, (cost / max) * 100)}%"></i><span>${cost ? `~${fmtBaht(cost)} บาท/สถานี` : '~0 บาท · ใช้กล้องเดิม'}</span></div>
+      <ul>${c.pros.map((p) => `<li class="pro">${p}</li>`).join('')}${c.cons.map((p) => `<li class="con">${p}</li>`).join('')}</ul>
+      <button class="cmp-go" data-k="${c.k}">ดูแบบ ${c.k} ในโมเดล</button>
+    </article>`;
+  }).join('');
+  const per100 = COMPARE.map((c) => `<td>${c.cost() ? fmtBaht(c.cost() * 100) : '~0'}</td>`).join('');
+  compareEl.innerHTML = `<div class="cp-head"><b>เทียบ 3 แบบ · รู้ได้ยังไงว่าถังเต็ม</b><button class="cp-close" id="cmp-close">ปิด</button></div>
+    ${rows}
+    <table class="cp-cost"><caption>ค่าอุปกรณ์ 1 เขต (สมมติ 100 สถานี · บาท)</caption><tr><td>แบบ A</td><td>แบบ B</td><td>แบบ C</td></tr><tr class="big">${per100}</tr></table>
+    <p class="cmp-note"><b>แบบ C ไม่มีอุปกรณ์บนถังเลย:</b> เสากล้องข้างถังมีโซลาร์ แบต และ 4G ในตัว ไม่ต้องเดินสายไฟ · จุดที่กล้อง กทม. มองเห็นสถานีอยู่แล้ว ใช้ภาพเดิมเข้า AI ได้ ค่าอุปกรณ์ ~0 บาท ถูกที่สุด · ส่วน AI อ่านภาพเป็นงานเฟสถัดไป (ตอนนี้กรอบ AI ในภาพเป็นการจำลอง)</p>`;
+  $('cmp-close').addEventListener('click', () => setCompare(false));
+  compareEl.querySelectorAll('.cmp-go').forEach((b) => b.addEventListener('click', () => flyToVariant(b.dataset.k)));
+}
+function setCompare(v) {
+  if (v) exitCircuit();
+  if (v && cctvOn && innerWidth <= 1100) setCctv(false);
+  compareEl.hidden = !v;
+  $('smart').hidden = v || !!circuitKey || cutaway;
+}
+$('btn-compare').addEventListener('click', () => setCompare(compareEl.hidden));
+
 // spec sheet
 $('spec').innerHTML = `
   <div><dt>ยาวรวม</dt><dd>${fmt(L)}</dd></div>
@@ -604,6 +824,8 @@ $('spec').innerHTML = `
   <div><dt>ถังล้อเลื่อน</dt><dd>${CONFIG.bin.capacityL} ลิตร × 3</dd></div>
   <div><dt>รุ่นถัง</dt><dd>${CONFIG.bin.model} (50×55×110)</dd></div>
   <div><dt>ชุดอัจฉริยะ</dt><dd>ESP32 + BLE ~${kitTotal().toLocaleString('th-TH')} บาท</dd></div>
+  <div><dt>แบบ B ชั่งน้ำหนัก</dt><dd>${VARIANT_INFO.B.cost()}</dd></div>
+  <div><dt>แบบ C เสากล้อง</dt><dd>${VARIANT_INFO.C.cost()}</dd></div>
   <div><dt>เครื่องหมักปุ๋ย</dt><dd>${COMPOSTER.capacityL} ลิตร · ~${COMPOSTER.dailyKg} กก./วัน</dd></div>`;
 
 /* ---------- smart system simulation (shared with dashboard.html) ---------- */
@@ -640,6 +862,7 @@ function applySmart() {
     toast('ถังใกล้เต็ม (≥ 80%) · ระบบจัดรถมินิ EV มาเก็บอัตโนมัติ');
   }
   hardware.apply(smart);
+  variants.apply(smart);
   smart.fills.forEach((f, i) => {
     const r = $(`fill-${i}`);
     if (r && +r.value !== Math.round(f)) r.value = Math.round(f);
@@ -660,8 +883,8 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => (t.hidden = true), 4200);
 }
-function requestPickup() {
-  hardware.press();
+function requestPickup(hw = hardware) {
+  hw?.press();
   if (smart.callRequested) { toast('ส่งคำขอไปแล้ว · รถมินิ EV กำลังมา'); return; }
   smart.callRequested = true;
   smart.requests.push({ at: Date.now(), fee: 500 });
@@ -681,7 +904,7 @@ for (let i = 0; i < 4; i++) {
   $(`fill-${i}`).addEventListener('input', (e) => { smart.fills[i] = +e.target.value; applySmart(); });
 }
 $('btn-call').addEventListener('click', requestPickup);
-$('btn-flaps').addEventListener('click', () => station.bins.forEach(pushFlap));   // keyboard/touch equivalent of clicking a flap
+$('btn-flaps').addEventListener('click', () => allBins.forEach(pushFlap));   // keyboard/touch equivalent of clicking a flap
 $('btn-collected').addEventListener('click', markCollected);
 channel?.addEventListener('message', (e) => {
   if (e.data?.type === 'collected' && e.data.id === STATION_ID) markCollected();
@@ -690,6 +913,9 @@ channel?.addEventListener('message', (e) => {
 setInterval(publish, 5000);
 if (innerWidth < 640) { $('smart').open = false; $('controls').open = false; }   // phones: start with panels folded
 applySmart();
+variants.setArrows(true);                     // the A / B / C arrows drop in from the sky on load
+syncAll();
+flyToVariant('all');                          // open on all three stations so the arrows have something to point at
 
 /* ---------- loop: render on demand ----------
    One render path only (MSAA + soft shadow maps), so the picture looks the same while moving,
@@ -700,7 +926,7 @@ function invalidate(sceneChanged = false) {
 }
 controls.addEventListener('change', () => invalidate());
 
-function hqRender() { renderer.render(scene, camera); }
+function hqRender() { renderCctv(); renderer.render(scene, camera); }
 
 const clock = new THREE.Clock();
 function animate() {
@@ -708,7 +934,7 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const now = performance.now();
 
-  for (const b of station.bins) {
+  for (const b of allBins) {
     const u = b.userData;
     if (Math.abs(u.target - u.open) > 1e-4) {
       u.open += (u.target - u.open) * Math.min(1, dt * 6);
@@ -747,12 +973,19 @@ function animate() {
   if (smart.composter.running !== composter.isRunning()) { smart.composter.running = composter.isRunning(); publish(); }
   const c = composter.update(dt);
   if (c) invalidate(c === 2);
+  const vr = variants.update(dt);
+  if (vr === 3) lightDirty = true; else if (vr) invalidate(vr === 2);
   controls.update();                    // fires 'change' while damping / auto-rotating
+  {
+    const near = THREE.MathUtils.clamp(camera.position.distanceTo(controls.target) * 0.04, 0.004, 0.05);
+    if (Math.abs(near - camera.near) > 1e-4) { camera.near = near; camera.updateProjectionMatrix(); }
+  }
   if (camera.position.y < 0.06) { camera.position.y = 0.06; camera.lookAt(controls.target); }   // never go under the pavement
   if (hoverEvent) processHover();
 
   if (dirty) {
     if (shadowsDirty) { renderer.shadowMap.needsUpdate = true; shadowsDirty = false; }
+    renderCctv();                         // first: it borrows a corner of the canvas the main view then covers
     renderer.render(scene, camera);
     labelRenderer.render(scene, camera);
     dirty = false;
@@ -779,4 +1012,4 @@ setTimeout(() => ($('loading').hidden = true), 500);
 
 // expose for future features / debugging
 // call HACKaWORK.invalidate(true) after changing the scene from outside so it re-renders
-window.HACKaWORK = { scene, camera, controls, station, riser, hardware, composter, smart, CONFIG, invalidate };
+window.HACKaWORK = { scene, camera, controls, station, riser, hardware, composter, variants, smart, CONFIG, invalidate };
