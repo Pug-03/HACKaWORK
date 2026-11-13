@@ -977,7 +977,7 @@ function animate() {
   if (vr === 3) lightDirty = true; else if (vr) invalidate(vr === 2);
   controls.update();                    // fires 'change' while damping / auto-rotating
   {
-    const near = THREE.MathUtils.clamp(camera.position.distanceTo(controls.target) * 0.04, 0.004, 0.05);
+    const near = THREE.MathUtils.clamp(camera.position.distanceTo(controls.target) * 0.04, 0.01, 0.05);   // not lower: far decals / road lines would start to z-fight
     if (Math.abs(near - camera.near) > 1e-4) { camera.near = near; camera.updateProjectionMatrix(); }
   }
   if (camera.position.y < 0.06) { camera.position.y = 0.06; camera.lookAt(controls.target); }   // never go under the pavement

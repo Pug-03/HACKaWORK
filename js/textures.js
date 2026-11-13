@@ -280,7 +280,9 @@ export function makeAsphaltTexture(renderer) {
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#4a4c4f';
   ctx.fillRect(0, 0, 512, 512);
-  speckle(ctx, 512, 512, 30000, 40);
+  // softer, slightly blurred aggregate: 1-px high-contrast dots shimmered (looked like flicker) while orbiting
+  speckle(ctx, 512, 512, 22000, 26);
+  soften(c, 0.8);
   return repeatTex(c, renderer, true);
 }
 
@@ -296,7 +298,18 @@ export function makeNoiseTexture(renderer, size = 256, mean = 0.5, spread = 0.2)
     img.data[i + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
+  soften(c, 1.2);                       // per-texel random roughness sparkled in the specular highlight
   return repeatTex(c, renderer, false);
+}
+
+// blur a tiling canvas in place (draws 3x3 copies so the edges still wrap seamlessly)
+function soften(c, px) {
+  const w = c.width, h = c.height;
+  const t = document.createElement('canvas'); t.width = w * 3; t.height = h * 3;
+  const tc = t.getContext('2d');
+  for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) tc.drawImage(c, x * w, y * h);
+  const ctx = c.getContext('2d');
+  ctx.save(); ctx.filter = `blur(${px}px)`; ctx.drawImage(t, -w, -h); ctx.restore();
 }
 
 // brushed-metal roughness: horizontal streaks
